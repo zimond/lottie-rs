@@ -1,0 +1,10 @@
+[package]
+edition = "2021"
+name = "lottie-core"
+version = "0.1.0"
+
+[dependencies]
+thiserror = "1.0.30"
+
+[dependencies.lottie-ast]
+path = "../ast"
