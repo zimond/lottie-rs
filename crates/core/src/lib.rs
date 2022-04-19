@@ -1,8 +1,10 @@
 pub use lottie_ast::*;
 
 mod error;
+mod traits;
 
 pub use error::Error;
+pub use traits::*;
 
 pub struct Lottie {
     pub model: LottieModel,

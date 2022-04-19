@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-pub use euclid::default::Vector2D;
+pub use euclid::default::{Rect, Vector2D};
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 use serde_json::Value;
@@ -146,7 +146,7 @@ pub struct AnimatedVec2 {
         serialize_with = "int_from_bool",
         rename = "a"
     )]
-    animated: bool,
+    pub animated: bool,
     #[serde(
         deserialize_with = "vec2_from_array",
         serialize_with = "array_from_vec2",
@@ -164,20 +164,6 @@ impl Default for AnimatedVec2 {
     }
 }
 
-impl AnimatedVec2 {
-    pub fn initial_x(&self) -> f32 {
-        self.keyframes[0].value.x
-    }
-
-    pub fn initial_y(&self) -> f32 {
-        self.keyframes[0].value.y
-    }
-
-    pub fn is_animated(&self) -> bool {
-        self.animated
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimatedNumber {
     #[serde(
@@ -192,12 +178,6 @@ pub struct AnimatedNumber {
         rename = "k"
     )]
     pub keyframes: Vec<f32>,
-}
-
-impl AnimatedNumber {
-    pub fn initial_number(&self) -> f32 {
-        self.keyframes[0]
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -297,21 +277,9 @@ pub struct ShapeLayer {
 #[serde(tag = "ty")]
 pub enum Shape {
     #[serde(rename = "rc")]
-    Rectangle {
-        #[serde(rename = "p")]
-        position: AnimatedVec2,
-        #[serde(rename = "s")]
-        size: AnimatedVec2,
-        #[serde(rename = "r")]
-        radius: AnimatedNumber,
-    },
+    Rectangle(Rectangle),
     #[serde(rename = "el")]
-    Ellipse {
-        #[serde(rename = "p")]
-        position: AnimatedVec2,
-        #[serde(rename = "s")]
-        size: AnimatedVec2,
-    },
+    Ellipse(Ellipse),
     #[serde(rename = "sr")]
     PolyStar {
         #[serde(rename = "p")]
@@ -571,6 +539,24 @@ pub struct Stroke {
     dashes: Vec<StrokeDash>,
     #[serde(rename = "c")]
     color: AnimatedColor,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Rectangle {
+    #[serde(rename = "p")]
+    pub position: AnimatedVec2,
+    #[serde(rename = "s")]
+    pub size: AnimatedVec2,
+    #[serde(rename = "r")]
+    pub radius: AnimatedNumber,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Ellipse {
+    #[serde(rename = "p")]
+    pub position: AnimatedVec2,
+    #[serde(rename = "s")]
+    pub size: AnimatedVec2,
 }
 
 impl LottieModel {

@@ -9,14 +9,13 @@ use bevy_tweening::{
 };
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::{
-    AnimatedVec2, KeyFrame, LayerContent, Lottie, Shape, ShapeIterator, ShapeLayer, StyledShape,
-    Vector2D,
-};
+use lottie_core::*;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::Arc;
 use std::time::Duration;
+
+use bevy::prelude::Transform;
 
 pub trait Renderer {
     fn render(&self) -> Vec<u8>;
@@ -94,15 +93,18 @@ impl LottieComp {
     ) -> Entity {
         let frame_rate = self.data.model.frame_rate;
         match &shape.shape.shape {
-            Shape::Ellipse { position, size } => {
-                let ellipse = shapes::Ellipse {
-                    radii: Vec2::new(size.initial_x(), size.initial_y()),
-                    center: Vec2::new(position.initial_x(), position.initial_y()) * self.scale,
+            Shape::Ellipse(ellipse) => {
+                let Ellipse { position, size } = ellipse;
+                let initial_size = size.initial_value();
+                let initial_pos = position.initial_value();
+                let ellipse_shape = shapes::Ellipse {
+                    radii: Vec2::new(initial_size.x, initial_size.y),
+                    center: Vec2::new(initial_pos.x, initial_pos.y) * self.scale,
                 };
                 let fill = shape.fill.color.initial_color();
-                let fill_opacity = (shape.fill.opacity.initial_number() * 255.0) as u8;
+                let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
                 let c = commands.insert_bundle(GeometryBuilder::build_as(
-                    &ellipse,
+                    &ellipse_shape,
                     DrawMode::Outlined {
                         fill_mode: FillMode::color(Color::rgba_u8(
                             fill.r,
