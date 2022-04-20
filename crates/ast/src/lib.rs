@@ -11,12 +11,12 @@ use helpers::*;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LottieModel {
     #[serde(rename = "nm")]
-    pub name: String,
+    pub name: Option<String>,
     #[serde(rename = "v")]
     version: String,
-    #[serde(rename = "ip")]
+    #[serde(rename = "ip", deserialize_with = "u32_from_number")]
     pub start_frame: u32,
-    #[serde(rename = "op")]
+    #[serde(rename = "op", deserialize_with = "u32_from_number")]
     pub end_frame: u32,
     #[serde(rename = "fr")]
     pub frame_rate: u32,
@@ -25,6 +25,8 @@ pub struct LottieModel {
     #[serde(rename = "h")]
     pub height: u32,
     pub layers: Vec<Layer>,
+    #[serde(default)]
+    pub assets: Vec<Precomposition>,
 }
 
 impl LottieModel {
@@ -38,17 +40,22 @@ pub struct Layer {
     #[serde(
         deserialize_with = "bool_from_int",
         serialize_with = "int_from_bool",
-        rename = "ddd"
+        rename = "ddd",
+        default
     )]
     is_3d: bool,
-    #[serde(rename = "ind")]
+    #[serde(rename = "ind", default)]
+    pub index: Option<u32>,
+    #[serde(rename = "parent", default)]
+    pub parent_index: Option<u32>,
+    #[serde(skip)]
     pub id: u32,
-    #[serde(rename = "ip")]
+    #[serde(rename = "ip", deserialize_with = "u32_from_number")]
     pub start_frame: u32,
-    #[serde(rename = "op")]
+    #[serde(rename = "op", deserialize_with = "u32_from_number")]
     pub end_frame: u32,
     #[serde(rename = "nm")]
-    name: String,
+    name: Option<String>,
     #[serde(rename = "ks", default)]
     transform: Option<Transform>,
     #[serde(flatten)]
@@ -57,14 +64,14 @@ pub struct Layer {
 
 #[derive(Debug, Clone)]
 pub enum LayerContent {
-    Precomposition,
+    Precomposition(PreCompositionRef),
     SolidColor {
         color: Rgba,
         height: f32,
         width: f32,
     },
     Image,
-    Null,
+    Empty,
     Shape {
         shapes: Vec<ShapeLayer>,
     },
@@ -73,16 +80,28 @@ pub enum LayerContent {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PreCompositionRef {
+    #[serde(rename = "refId")]
+    ref_id: String,
+    #[serde(rename = "w")]
+    width: u32,
+    #[serde(rename = "h")]
+    height: u32,
+    #[serde(rename = "tm")]
+    time_remapping: Option<AnimatedNumber>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transform {
-    #[serde(rename = "a")]
+    #[serde(rename = "a", default)]
     anchor: AnimatedVec2,
-    #[serde(rename = "p")]
+    #[serde(rename = "p", default)]
     pub position: AnimatedVec2,
-    #[serde(rename = "s")]
+    #[serde(rename = "s", default = "default_vec2_100")]
     pub scale: AnimatedVec2,
-    #[serde(rename = "r")]
+    #[serde(rename = "r", default)]
     rotation: AnimatedNumber,
-    #[serde(rename = "o")]
+    #[serde(rename = "o", default = "default_number_100")]
     opacity: AnimatedNumber,
     #[serde(rename = "sk", default)]
     skew: Option<AnimatedVec2>,
@@ -180,6 +199,15 @@ pub struct AnimatedNumber {
     pub keyframes: Vec<f32>,
 }
 
+impl Default for AnimatedNumber {
+    fn default() -> Self {
+        Self {
+            animated: false,
+            keyframes: vec![0.0],
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimatedBezier {
     #[serde(
@@ -264,10 +292,10 @@ pub struct AnimatedColorList {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShapeLayer {
     #[serde(rename = "nm", default)]
-    name: String,
+    name: Option<String>,
     #[serde(rename = "hd", default)]
     pub hidden: bool,
-    #[serde(skip_serializing, skip_deserializing)]
+    #[serde(skip)]
     pub id: u32,
     #[serde(flatten)]
     pub shape: Shape,
@@ -563,4 +591,20 @@ impl LottieModel {
     pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, serde_json::Error> {
         serde_json::from_reader(r)
     }
+}
+
+pub enum Assets {
+    Image,
+    Sound,
+    Precomposition(Precomposition),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Precomposition {
+    id: String,
+    layers: Vec<Layer>,
+    #[serde(rename = "nm")]
+    name: Option<String>,
+    #[serde(rename = "fr")]
+    frame_rate: Option<u32>,
 }

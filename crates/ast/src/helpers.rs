@@ -62,7 +62,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
         }
 
         Ok(match value.get("ty").and_then(Value::as_u64).unwrap() {
-            // 0 => LayerContent::Precomposition(Type1::deserialize(value).unwrap()),
+            0 => LayerContent::Precomposition(PreCompositionRef::deserialize(value).unwrap()),
             1 => {
                 let color = SolidColor::deserialize(value).unwrap();
                 LayerContent::SolidColor {
@@ -72,7 +72,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                 }
             }
             // 2 => LayerContent::Image(Type2::deserialize(value).unwrap()),
-            // 3 => LayerContent::Null(Type3::deserialize(value).unwrap()),
+            3 => LayerContent::Empty,
             4 => {
                 let shapes = value
                     .get("shapes")
@@ -298,5 +298,52 @@ impl Serialize for AnimatedColorList {
         S: Serializer,
     {
         todo!()
+    }
+}
+
+pub fn default_vec2_100() -> AnimatedVec2 {
+    AnimatedVec2 {
+        animated: false,
+        keyframes: vec![KeyFrame::from_value(Vector2D::new(100.0, 100.0))],
+    }
+}
+
+pub fn default_number_100() -> AnimatedNumber {
+    AnimatedNumber {
+        animated: false,
+        keyframes: vec![100.0],
+    }
+}
+
+pub fn u32_from_number<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(NumberVistor)
+}
+
+struct NumberVistor;
+
+impl<'de> Visitor<'de> for NumberVistor {
+    type Value = u32;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("u32 / f32")
+    }
+
+    fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
+        Ok(v.round() as u32)
+    }
+
+    fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
+        Ok(v.round() as u32)
+    }
+
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        Ok(v as u32)
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v as u32)
     }
 }

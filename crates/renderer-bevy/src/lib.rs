@@ -307,7 +307,13 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
     let scale = window.scale_factor() as f32;
     let lottie = lottie.clone();
     commands.remove_resource::<Lottie>();
-    window.set_title(lottie.model.name.clone());
+    window.set_title(
+        lottie
+            .model
+            .name
+            .clone()
+            .unwrap_or_else(|| String::from("Lottie Animation")),
+    );
     // window.set_scale_factor_override(Some(1.0));
     window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);
     let mut camera = OrthographicCameraBundle::new_2d();

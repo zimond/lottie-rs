@@ -45,20 +45,23 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'lottie-renderer-bevy'",
+            "name": "Debug executable 'lottie-player'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=lottie-renderer-bevy",
-                    "--package=lottie-renderer-bevy"
+                    "--bin=lottie-player",
+                    "--package=lottie-player"
                 ],
                 "filter": {
-                    "name": "lottie-renderer-bevy",
+                    "name": "lottie-player",
                     "kind": "bin"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}/crates/renderer-bevy",
+            "args": [
+                "-i",
+                "../../fixtures/fractal.json"
+            ],
+            "cwd": "${workspaceFolder}/crates/player",
             "env": {
                 "CARGO_MANIFEST_DIR": "${workspaceFolder}",
             }

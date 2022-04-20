@@ -17,7 +17,8 @@ impl Lottie {
         let mut model = LottieModel::from_reader(r)?;
         // assign ids to shapes
         let mut id_counter = 1;
-        for layer in &mut model.layers {
+        for (index, layer) in model.layers.iter_mut().enumerate() {
+            layer.id = index as u32;
             if let LayerContent::Shape { shapes } = &mut layer.content {
                 for layer in shapes {
                     assign_id(layer, &mut id_counter);
