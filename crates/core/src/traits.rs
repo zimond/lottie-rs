@@ -1,5 +1,7 @@
 use lottie_ast::{AnimatedNumber, AnimatedVec2, Ellipse, KeyFrame, Rect, Vector2D};
 
+use crate::Lottie;
+
 pub trait Animated {
     type Target;
     fn initial_value(&self) -> Self::Target;
@@ -89,4 +91,9 @@ impl<T> KeyFrameExt for KeyFrame<T> {
             easing_in: self.easing_in.clone(),
         }
     }
+}
+
+pub trait Renderer {
+    fn load_lottie(&mut self, lottie: Lottie);
+    fn render(&mut self);
 }

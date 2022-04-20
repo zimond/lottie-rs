@@ -8,7 +8,7 @@ use serde_json::Value;
 mod helpers;
 use helpers::*;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LottieModel {
     #[serde(rename = "nm")]
     pub name: String,
@@ -33,7 +33,7 @@ impl LottieModel {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Layer {
     #[serde(
         deserialize_with = "bool_from_int",
@@ -55,7 +55,7 @@ pub struct Layer {
     pub content: LayerContent,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LayerContent {
     Precomposition,
     SolidColor {

@@ -1,5 +1,8 @@
+use bevy::app::PluginGroupBuilder;
 use bevy::ecs::system::EntityCommands;
 use bevy::prelude::*;
+use bevy::window::WindowPlugin;
+use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
@@ -9,23 +12,13 @@ use bevy_tweening::{
 };
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::*;
+use lottie_core::{Renderer, *};
 use std::collections::HashMap;
 use std::fs;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::prelude::Transform;
-
-pub trait Renderer {
-    fn render(&self) -> Vec<u8>;
-}
-
-impl Renderer for Lottie {
-    fn render(&self) -> Vec<u8> {
-        todo!()
-    }
-}
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct LayerKey(u32);
@@ -268,25 +261,52 @@ where
     }
 }
 
-fn main() {
-    App::new()
-        .insert_resource(Msaa { samples: 4 })
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TweeningPlugin)
-        // .add_plugin(FrameTimeDiagnosticsPlugin)
-        // .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(ShapePlugin)
-        .add_startup_system(setup_system)
-        .add_system(lottie_spawn_system)
-        .add_system(lottie_animate_system)
-        .run();
+pub struct BevyRenderer {
+    app: App,
 }
 
-fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>) {
-    let f = fs::File::open("../ast/tests/bouncy_ball.json").unwrap();
-    let lottie = Lottie::from_reader(f).unwrap();
+impl BevyRenderer {
+    pub fn new() -> Self {
+        let mut app = App::new();
+        let mut plugin_group_builder = PluginGroupBuilder::default();
+        DefaultPlugins.build(&mut plugin_group_builder);
+        // Defaulty disable GUI window
+        plugin_group_builder.disable::<WinitPlugin>();
+        // Disable gamepad support
+        plugin_group_builder.disable::<GilrsPlugin>();
+        plugin_group_builder.finish(&mut app);
+        app.insert_resource(Msaa { samples: 4 })
+            .add_plugin(TweeningPlugin)
+            // .add_plugin(FrameTimeDiagnosticsPlugin)
+            // .add_plugin(LogDiagnosticsPlugin::default())
+            .add_plugin(ShapePlugin)
+            .add_system(lottie_spawn_system)
+            .add_system(lottie_animate_system);
+        BevyRenderer { app }
+    }
+
+    pub fn add_plugin(&mut self, plugin: impl Plugin) {
+        self.app.add_plugin(plugin);
+    }
+}
+
+impl Renderer for BevyRenderer {
+    fn load_lottie(&mut self, lottie: Lottie) {
+        self.app
+            .insert_resource(lottie)
+            .add_startup_system(setup_system);
+    }
+
+    fn render(&mut self) {
+        self.app.run()
+    }
+}
+
+fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Res<Lottie>) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
+    let lottie = lottie.clone();
+    commands.remove_resource::<Lottie>();
     window.set_title(lottie.model.name.clone());
     // window.set_scale_factor_override(Some(1.0));
     window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);

@@ -6,6 +6,7 @@ mod traits;
 pub use error::Error;
 pub use traits::*;
 
+#[derive(Clone)]
 pub struct Lottie {
     pub model: LottieModel,
     id_counter: u32,
