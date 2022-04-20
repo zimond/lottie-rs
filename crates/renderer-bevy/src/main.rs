@@ -95,11 +95,11 @@ impl LottieComp {
         match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { position, size } = ellipse;
-                let initial_size = size.initial_value();
+                let initial_size = size.initial_value() / 2.0;
                 let initial_pos = position.initial_value();
                 let ellipse_shape = shapes::Ellipse {
                     radii: Vec2::new(initial_size.x, initial_size.y),
-                    center: Vec2::new(initial_pos.x, initial_pos.y) * self.scale,
+                    center: Vec2::new(0.0, 0.0),
                 };
                 let fill = shape.fill.color.initial_color();
                 let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
@@ -114,7 +114,7 @@ impl LottieComp {
                         )),
                         outline_mode: StrokeMode::new(Color::BLACK, 0.0),
                     },
-                    Transform::default(),
+                    Transform::from_translation(Vec3::new(initial_pos.x, initial_pos.y, 0.0)),
                 ));
                 let mut tweens = vec![];
                 if shape.transform.position.is_animated() {
@@ -288,13 +288,14 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
     window.set_title(lottie.model.name.clone());
+    // window.set_scale_factor_override(Some(1.0));
     window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);
     let mut camera = OrthographicCameraBundle::new_2d();
-    camera.orthographic_projection.scale = scale;
+    // camera.orthographic_projection.scale = 1.0 / scale;
     camera.transform =
         Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
-            lottie.model.width as f32 * scale / 2.0,
-            lottie.model.height as f32 * scale / 2.0,
+            lottie.model.width as f32 / 2.0,
+            lottie.model.height as f32 / 2.0,
             0.0,
         ));
     commands.insert_resource(LottieAnimationInfo {
