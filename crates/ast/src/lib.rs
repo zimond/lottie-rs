@@ -72,9 +72,7 @@ pub enum LayerContent {
     },
     Image,
     Empty,
-    Shape {
-        shapes: Vec<ShapeLayer>,
-    },
+    Shape(ShapeGroup),
     Text,
     Audio,
 }
@@ -607,4 +605,9 @@ pub struct Precomposition {
     name: Option<String>,
     #[serde(rename = "fr")]
     frame_rate: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ShapeGroup {
+    pub shapes: Vec<ShapeLayer>,
 }

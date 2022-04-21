@@ -19,7 +19,7 @@ impl Lottie {
         let mut id_counter = 1;
         for (index, layer) in model.layers.iter_mut().enumerate() {
             layer.id = index as u32;
-            if let LayerContent::Shape { shapes } = &mut layer.content {
+            if let LayerContent::Shape(ShapeGroup { shapes }) = &mut layer.content {
                 for layer in shapes {
                     assign_id(layer, &mut id_counter);
                 }
@@ -40,18 +40,13 @@ fn assign_id(layer: &mut ShapeLayer, id_counter: &mut u32) {
 }
 
 pub trait ShapeIterator {
-    fn shapes(&self) -> Option<ShapeIter>;
+    fn shapes(&self) -> ShapeIter;
 }
 
-impl ShapeIterator for Layer {
-    fn shapes(&self) -> Option<ShapeIter> {
-        if let LayerContent::Shape { shapes } = &self.content {
-            // flatten shapes
-            let shapes = flatten(shapes);
-            Some(ShapeIter { shapes, index: 0 })
-        } else {
-            None
-        }
+impl ShapeIterator for ShapeGroup {
+    fn shapes(&self) -> ShapeIter {
+        let shapes = flatten(&self.shapes);
+        ShapeIter { shapes, index: 0 }
     }
 }
 

@@ -80,7 +80,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                     .transpose()
                     .unwrap_or_default()
                     .unwrap_or_default();
-                LayerContent::Shape { shapes }
+                LayerContent::Shape(ShapeGroup { shapes })
             }
             // 5 => LayerContent::SolidColor(Type1::deserialize(value).unwrap()),
             // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
@@ -112,7 +112,7 @@ impl Serialize for LayerContent {
         }
 
         let msg = match self {
-            LayerContent::Shape { shapes } => TypedLayerContent {
+            LayerContent::Shape(ShapeGroup { shapes }) => TypedLayerContent {
                 t: 4,
                 content: LayerContent_::Shape { shapes }
             },

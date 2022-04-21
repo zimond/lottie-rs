@@ -47,29 +47,33 @@ impl LottieComp {
                 }
             } else if current == layer.start_frame {
                 let mut entity_commands = commands.entity(entity);
-                if let Some(shapes) = layer.shapes() {
-                    for shape in shapes {
-                        let shape_id = ShapeKey(shape.shape.id);
-                        if shape.shape.hidden
-                            || self
-                                .entities
+                match &layer.content {
+                    LayerContent::Shape(shapes) => {
+                        for shape in shapes.shapes() {
+                            let shape_id = ShapeKey(shape.shape.id);
+                            if shape.shape.hidden
+                                || self
+                                    .entities
+                                    .entry(LayerKey(layer.id))
+                                    .or_default()
+                                    .contains_key(&shape_id)
+                            {
+                                continue;
+                            }
+                            let id = self.spawn_shape(
+                                layer.start_frame,
+                                layer.end_frame,
+                                shape,
+                                &mut entity_commands,
+                            );
+                            self.entities
                                 .entry(LayerKey(layer.id))
                                 .or_default()
-                                .contains_key(&shape_id)
-                        {
-                            continue;
+                                .insert(shape_id, id);
                         }
-                        let id = self.spawn_shape(
-                            layer.start_frame,
-                            layer.end_frame,
-                            shape,
-                            &mut entity_commands,
-                        );
-                        self.entities
-                            .entry(LayerKey(layer.id))
-                            .or_default()
-                            .insert(shape_id, id);
                     }
+                    LayerContent::Precomposition(pre) => {}
+                    _ => {}
                 }
             }
         }
@@ -314,10 +318,8 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
             .clone()
             .unwrap_or_else(|| String::from("Lottie Animation")),
     );
-    // window.set_scale_factor_override(Some(1.0));
     window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);
     let mut camera = OrthographicCameraBundle::new_2d();
-    // camera.orthographic_projection.scale = 1.0 / scale;
     camera.transform =
         Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
             lottie.model.width as f32 / 2.0,
