@@ -1,162 +1,22 @@
+mod layer_container;
+
 use bevy::app::PluginGroupBuilder;
-use bevy::ecs::system::EntityCommands;
 use bevy::prelude::*;
-use bevy::window::WindowPlugin;
 use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{
-    Animator, AnimatorState, Delay, EaseMethod, Lens, Sequence, Tracks, Tween, Tweenable,
-    TweeningPlugin, TweeningType,
+    Animator, AnimatorState, Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType,
 };
+use dashmap::DashMap;
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::{Renderer, *};
-use std::collections::HashMap;
-use std::fs;
+use layer_container::*;
+use lottie_core::*;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::prelude::Transform;
-
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct LayerKey(u32);
-
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct ShapeKey(u32);
-
-#[derive(Component)]
-struct LottieComp {
-    data: Lottie,
-    scale: f32,
-    current_frame: u32,
-    entities: HashMap<LayerKey, HashMap<ShapeKey, Entity>>,
-}
-
-impl LottieComp {
-    fn spawn_layers(&mut self, entity: Entity, commands: &mut Commands) {
-        let current = self.current_frame;
-        for layer in &self.data.model.layers {
-            if current >= layer.end_frame || current < layer.start_frame {
-                if let Some(shapes) = self.entities.remove(&LayerKey(layer.id)) {
-                    for (_, entity) in shapes {
-                        commands.entity(entity).despawn();
-                    }
-                    continue;
-                }
-            } else if current == layer.start_frame {
-                let mut entity_commands = commands.entity(entity);
-                match &layer.content {
-                    LayerContent::Shape(shapes) => {
-                        for shape in shapes.shapes() {
-                            let shape_id = ShapeKey(shape.shape.id);
-                            if shape.shape.hidden
-                                || self
-                                    .entities
-                                    .entry(LayerKey(layer.id))
-                                    .or_default()
-                                    .contains_key(&shape_id)
-                            {
-                                continue;
-                            }
-                            let id = self.spawn_shape(
-                                layer.start_frame,
-                                layer.end_frame,
-                                shape,
-                                &mut entity_commands,
-                            );
-                            self.entities
-                                .entry(LayerKey(layer.id))
-                                .or_default()
-                                .insert(shape_id, id);
-                        }
-                    }
-                    LayerContent::Precomposition(pre) => {}
-                    _ => {}
-                }
-            }
-        }
-
-        self.current_frame = (current + 1) % self.data.model.end_frame;
-    }
-
-    fn spawn_shape(
-        &self,
-        start_frame: u32,
-        end_frame: u32,
-        shape: StyledShape,
-        commands: &mut EntityCommands,
-    ) -> Entity {
-        let frame_rate = self.data.model.frame_rate;
-        match &shape.shape.shape {
-            Shape::Ellipse(ellipse) => {
-                let Ellipse { position, size } = ellipse;
-                let initial_size = size.initial_value() / 2.0;
-                let initial_pos = position.initial_value();
-                let ellipse_shape = shapes::Ellipse {
-                    radii: Vec2::new(initial_size.x, initial_size.y),
-                    center: Vec2::new(0.0, 0.0),
-                };
-                let fill = shape.fill.color.initial_color();
-                let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
-                let c = commands.insert_bundle(GeometryBuilder::build_as(
-                    &ellipse_shape,
-                    DrawMode::Outlined {
-                        fill_mode: FillMode::color(Color::rgba_u8(
-                            fill.r,
-                            fill.g,
-                            fill.b,
-                            fill_opacity,
-                        )),
-                        outline_mode: StrokeMode::new(Color::BLACK, 0.0),
-                    },
-                    Transform::from_translation(Vec3::new(initial_pos.x, initial_pos.y, 0.0)),
-                ));
-                let mut tweens = vec![];
-                if shape.transform.position.is_animated() {
-                    tweens.push(shape.transform.position.keyframes.tween(
-                        start_frame,
-                        end_frame,
-                        frame_rate,
-                        |start, end| TransformPositionLens {
-                            start: Vec3::new(start.x, start.y, 0.0),
-                            end: Vec3::new(end.x, end.y, 0.0),
-                        },
-                    ));
-                }
-                if shape.transform.scale.is_animated() {
-                    tweens.push(shape.transform.scale.keyframes.tween(
-                        start_frame,
-                        end_frame,
-                        frame_rate,
-                        |start, end| TransformScaleLens {
-                            start: Vec3::new(start.x, start.y, 0.0) / 100.0,
-                            end: Vec3::new(end.x, end.y, 0.0) / 100.0,
-                        },
-                    ));
-                }
-                if !tweens.is_empty() {
-                    let tracks = Tracks::new(tweens);
-                    let animator = Animator::new(tracks).with_state(AnimatorState::Paused);
-                    c.insert(animator);
-                }
-                c.insert(LottieShapeComp(shape));
-                c.insert(LottieLayerAnimationInfo {
-                    start_frame,
-                    end_frame,
-                });
-                c.id()
-            }
-            Shape::Group { .. } => {
-                unreachable!()
-            }
-            _ => {
-                todo!()
-            }
-        }
-    }
-}
 
 #[derive(Bundle)]
 struct LottieBundle {
@@ -334,12 +194,7 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
     });
     commands.spawn_bundle(camera);
     commands.spawn_bundle(LottieBundle {
-        comp: LottieComp {
-            data: lottie,
-            current_frame: 0,
-            scale,
-            entities: HashMap::new(),
-        },
+        comp: LottieComp::new(lottie, scale),
         global_transform: GlobalTransform::default(),
         transform: Transform::default(),
     });
@@ -347,7 +202,8 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
 
 fn lottie_spawn_system(mut query: Query<(Entity, &mut LottieComp)>, mut commands: Commands) {
     for (entity, mut comp) in query.iter_mut() {
-        comp.spawn_layers(entity, &mut commands);
+        let mut commands = commands.entity(entity);
+        comp.spawn_layers(&mut commands);
     }
 }
 

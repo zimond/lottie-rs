@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 bevy_diagnostic = "0.7.0"
 bevy_prototype_lyon = "0.5.0"
+dashmap = "5.2.0"
 flo_curves = "0.6.1"
 
 [dependencies.bevy]

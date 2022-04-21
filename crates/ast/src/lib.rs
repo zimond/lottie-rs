@@ -80,7 +80,7 @@ pub enum LayerContent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PreCompositionRef {
     #[serde(rename = "refId")]
-    ref_id: String,
+    pub ref_id: String,
     #[serde(rename = "w")]
     width: u32,
     #[serde(rename = "h")]
@@ -599,12 +599,12 @@ pub enum Assets {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Precomposition {
-    id: String,
-    layers: Vec<Layer>,
+    pub id: String,
+    pub layers: Vec<Layer>,
     #[serde(rename = "nm")]
     name: Option<String>,
     #[serde(rename = "fr")]
-    frame_rate: Option<u32>,
+    pub frame_rate: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
