@@ -55,11 +55,11 @@ where
     ) -> Sequence<Transform>;
 }
 
-impl<T> TweenProducer<Transform, T> for Vec<KeyFrame<Vector2D<f32>>>
+impl<T> TweenProducer<Transform, T> for Vec<KeyFrame<Vector2D>>
 where
     T: Lens<Transform> + Send + Sync + 'static,
 {
-    type Key = Vector2D<f32>;
+    type Key = Vector2D;
     fn tween(
         &self,
         start_frame: u32,

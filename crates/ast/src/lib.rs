@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
-pub use euclid::default::{Rect, Vector2D};
+pub use euclid::default::Rect;
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 use serde_json::Value;
+pub type Vector2D = euclid::default::Vector2D<f32>;
 
 mod helpers;
 use helpers::*;
@@ -86,45 +87,45 @@ pub struct PreCompositionRef {
     #[serde(rename = "h")]
     height: u32,
     #[serde(rename = "tm")]
-    time_remapping: Option<AnimatedNumber>,
+    time_remapping: Option<Animated<f32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transform {
     #[serde(rename = "a", default)]
-    anchor: AnimatedVec2,
+    anchor: Animated<Vector2D>,
     #[serde(rename = "p", default)]
-    pub position: AnimatedVec2,
+    pub position: Animated<Vector2D>,
     #[serde(rename = "s", default = "default_vec2_100")]
-    pub scale: AnimatedVec2,
+    pub scale: Animated<Vector2D>,
     #[serde(rename = "r", default)]
-    rotation: AnimatedNumber,
+    rotation: Animated<f32>,
     #[serde(rename = "o", default = "default_number_100")]
-    opacity: AnimatedNumber,
+    opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
-    skew: Option<AnimatedVec2>,
+    skew: Option<Animated<Vector2D>>,
     #[serde(rename = "sa", default)]
-    skew_axis: Option<AnimatedVec2>,
+    skew_axis: Option<Animated<Vector2D>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RepeaterTransform {
     #[serde(rename = "a")]
-    anchor: AnimatedVec2,
+    anchor: Animated<Vector2D>,
     #[serde(rename = "p")]
-    position: AnimatedVec2,
+    position: Animated<Vector2D>,
     #[serde(rename = "s")]
-    scale: AnimatedVec2,
+    scale: Animated<Vector2D>,
     #[serde(rename = "r")]
-    rotation: AnimatedNumber,
+    rotation: Animated<f32>,
     #[serde(rename = "so")]
-    start_opacity: AnimatedNumber,
+    start_opacity: Animated<f32>,
     #[serde(rename = "eo")]
-    end_opacity: AnimatedNumber,
+    end_opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
-    skew: Option<AnimatedVec2>,
+    skew: Option<Animated<Vector2D>>,
     #[serde(rename = "sa", default)]
-    skew_axis: Option<AnimatedVec2>,
+    skew_axis: Option<Animated<Vector2D>>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -157,7 +158,7 @@ pub struct Easing {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AnimatedVec2 {
+pub struct Animated<T> {
     #[serde(
         deserialize_with = "bool_from_int",
         serialize_with = "int_from_bool",
@@ -165,14 +166,18 @@ pub struct AnimatedVec2 {
     )]
     pub animated: bool,
     #[serde(
-        deserialize_with = "vec2_from_array",
-        serialize_with = "array_from_vec2",
+        deserialize_with = "vec_from_array",
+        serialize_with = "array_from_vec",
+        bound = "T: FromTo<Vec<f32>>",
         rename = "k"
     )]
-    pub keyframes: Vec<KeyFrame<Vector2D<f32>>>,
+    pub keyframes: Vec<KeyFrame<T>>,
 }
 
-impl Default for AnimatedVec2 {
+impl<T> Default for Animated<T>
+where
+    T: Default + FromTo<Vec<f32>>,
+{
     fn default() -> Self {
         Self {
             animated: false,
@@ -181,30 +186,30 @@ impl Default for AnimatedVec2 {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AnimatedNumber {
-    #[serde(
-        deserialize_with = "bool_from_int",
-        serialize_with = "int_from_bool",
-        rename = "a"
-    )]
-    pub animated: bool,
-    #[serde(
-        deserialize_with = "f32_from_array_or_number",
-        serialize_with = "array_or_number_from_f32",
-        rename = "k"
-    )]
-    pub keyframes: Vec<f32>,
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct Animated {
+//     #[serde(
+//         deserialize_with = "bool_from_int",
+//         serialize_with = "int_from_bool",
+//         rename = "a"
+//     )]
+//     pub animated: bool,
+//     #[serde(
+//         deserialize_with = "f32_from_array_or_number",
+//         serialize_with = "array_or_number_from_f32",
+//         rename = "k"
+//     )]
+//     pub keyframes: Vec<KeyFrame<f32>>,
+// }
 
-impl Default for AnimatedNumber {
-    fn default() -> Self {
-        Self {
-            animated: false,
-            keyframes: vec![0.0],
-        }
-    }
-}
+// impl Default for Animated {
+//     fn default() -> Self {
+//         Self {
+//             animated: false,
+//             keyframes: vec![KeyFrame::from_value(0.0)],
+//         }
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimatedBezier {
@@ -225,8 +230,8 @@ pub struct AnimatedColor {
     )]
     animated: bool,
     #[serde(
-        deserialize_with = "rgb_from_array",
-        serialize_with = "array_from_rgb",
+        deserialize_with = "vec_from_array",
+        serialize_with = "array_from_vec",
         rename = "k"
     )]
     keyframes: Vec<KeyFrame<Rgb>>,
@@ -309,22 +314,22 @@ pub enum Shape {
     #[serde(rename = "sr")]
     PolyStar {
         #[serde(rename = "p")]
-        position: AnimatedVec2,
+        position: Animated<Vector2D>,
         #[serde(rename = "or")]
-        outer_radius: AnimatedNumber,
+        outer_radius: Animated<f32>,
         #[serde(rename = "os")]
-        outer_roundness: AnimatedNumber,
+        outer_roundness: Animated<f32>,
         #[serde(rename = "r")]
-        rotation: AnimatedNumber,
+        rotation: Animated<f32>,
         #[serde(rename = "pt")]
-        points: AnimatedNumber,
+        points: Animated<f32>,
         #[serde(rename = "sy")]
         star_type: PolyStarType,
     },
     #[serde(rename = "sh")]
     Path {
-        #[serde(rename = "ks")]
-        d: AnimatedBezier,
+        // #[serde(rename = "ks")]
+        // d: AnimatedBezier,
     },
     #[serde(rename = "fl")]
     Fill(Fill),
@@ -333,13 +338,13 @@ pub enum Shape {
     #[serde(rename = "gf")]
     GradientFill {
         #[serde(rename = "o")]
-        opacity: AnimatedNumber,
+        opacity: Animated<f32>,
         #[serde(rename = "r")]
         fill_rule: FillRule,
         #[serde(rename = "s")]
-        start: AnimatedVec2,
+        start: Animated<Vector2D>,
         #[serde(rename = "e")]
-        end: AnimatedVec2,
+        end: Animated<Vector2D>,
         #[serde(rename = "t")]
         gradient_ty: GradientType,
         #[serde(rename = "g")]
@@ -354,15 +359,15 @@ pub enum Shape {
         #[serde(rename = "ml")]
         miter_limit: f32,
         #[serde(rename = "o")]
-        opacity: AnimatedNumber,
+        opacity: Animated<f32>,
         #[serde(rename = "w")]
-        width: AnimatedNumber,
-        #[serde(rename = "d")]
+        width: Animated<f32>,
+        #[serde(rename = "d", default)]
         dashes: Vec<StrokeDash>,
         #[serde(rename = "s")]
-        start: AnimatedVec2,
+        start: Animated<Vector2D>,
         #[serde(rename = "e")]
-        end: AnimatedVec2,
+        end: Animated<Vector2D>,
         #[serde(rename = "t")]
         gradient_ty: GradientType,
         #[serde(rename = "g")]
@@ -379,9 +384,9 @@ pub enum Shape {
     #[serde(rename = "rp")]
     Repeater {
         #[serde(rename = "c")]
-        copies: AnimatedNumber,
+        copies: Animated<f32>,
         #[serde(rename = "o")]
-        offset: AnimatedNumber,
+        offset: Animated<f32>,
         #[serde(rename = "m")]
         composite: Composite,
         #[serde(rename = "tr")]
@@ -390,30 +395,30 @@ pub enum Shape {
     #[serde(rename = "tm")]
     Trim {
         #[serde(rename = "s")]
-        start: AnimatedNumber,
+        start: Animated<f32>,
         #[serde(rename = "e")]
-        end: AnimatedNumber,
+        end: Animated<f32>,
         #[serde(rename = "o")]
-        offset: AnimatedNumber,
+        offset: Animated<f32>,
         #[serde(rename = "m")]
         multiple_shape: TrimMultipleShape,
     },
     #[serde(rename = "rd")]
     RoundedCorners {
         #[serde(rename = "r")]
-        radius: AnimatedNumber,
+        radius: Animated<f32>,
     },
     #[serde(rename = "pb")]
     PuckerBloat {
         #[serde(rename = "a")]
-        amount: AnimatedNumber,
+        amount: Animated<f32>,
     },
     #[serde(rename = "tw")]
     Twist {
         #[serde(rename = "a")]
-        angle: AnimatedNumber,
+        angle: Animated<f32>,
         #[serde(rename = "c")]
-        center: AnimatedVec2,
+        center: Animated<Vector2D>,
     },
     #[serde(rename = "mm")]
     Merge {
@@ -423,7 +428,7 @@ pub enum Shape {
     #[serde(rename = "op")]
     OffsetPath {
         #[serde(rename = "a")]
-        amount: AnimatedNumber,
+        amount: Animated<f32>,
         #[serde(rename = "lj")]
         line_join: LineJoin,
         #[serde(rename = "ml")]
@@ -432,11 +437,11 @@ pub enum Shape {
     #[serde(rename = "zz")]
     ZigZag {
         #[serde(rename = "r")]
-        radius: AnimatedNumber,
+        radius: Animated<f32>,
         #[serde(rename = "s")]
-        distance: AnimatedNumber,
+        distance: Animated<f32>,
         #[serde(rename = "pt")]
-        ridges: AnimatedNumber,
+        ridges: Animated<f32>,
     },
 }
 
@@ -473,7 +478,7 @@ pub enum LineJoin {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StrokeDash {
     #[serde(rename = "v")]
-    length: AnimatedNumber,
+    length: Animated<f32>,
     #[serde(rename = "n")]
     ty: StrokeDashType,
 }
@@ -526,7 +531,7 @@ pub enum MergeMode {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fill {
     #[serde(rename = "o")]
-    pub opacity: AnimatedNumber,
+    pub opacity: Animated<f32>,
     #[serde(rename = "c")]
     pub color: AnimatedColor,
     #[serde(rename = "r")]
@@ -536,9 +541,9 @@ pub struct Fill {
 impl Fill {
     pub fn transparent() -> Fill {
         Fill {
-            opacity: AnimatedNumber {
+            opacity: Animated {
                 animated: false,
-                keyframes: vec![0.0],
+                keyframes: vec![KeyFrame::from_value(0.0)],
             },
             color: AnimatedColor {
                 animated: false,
@@ -558,31 +563,31 @@ pub struct Stroke {
     #[serde(rename = "ml")]
     miter_limit: f32,
     #[serde(rename = "o")]
-    opacity: AnimatedNumber,
+    opacity: Animated<f32>,
     #[serde(rename = "w")]
-    width: AnimatedNumber,
-    #[serde(rename = "d")]
+    width: Animated<f32>,
+    #[serde(rename = "d", default)]
     dashes: Vec<StrokeDash>,
-    #[serde(rename = "c")]
-    color: AnimatedColor,
+    // #[serde(rename = "c")]
+    // color: AnimatedColor,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Rectangle {
     #[serde(rename = "p")]
-    pub position: AnimatedVec2,
+    pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
-    pub size: AnimatedVec2,
+    pub size: Animated<Vector2D>,
     #[serde(rename = "r")]
-    pub radius: AnimatedNumber,
+    pub radius: Animated<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Ellipse {
     #[serde(rename = "p")]
-    pub position: AnimatedVec2,
+    pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
-    pub size: AnimatedVec2,
+    pub size: Animated<Vector2D>,
 }
 
 impl LottieModel {

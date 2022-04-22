@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::*;
 use serde::{
-    de::{Error, SeqAccess, Visitor},
+    de::{Error, Visitor},
     ser::SerializeSeq,
     Deserialize, Deserializer, Serialize, Serializer,
 };
@@ -45,7 +45,7 @@ where
 
 impl<'de> serde::Deserialize<'de> for LayerContent {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(d)?;
+        let value = serde_json::Value::deserialize(d)?;
 
         #[derive(Serialize, Deserialize)]
         struct SolidColor {
@@ -61,32 +61,34 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
             width: f32,
         }
 
-        Ok(match value.get("ty").and_then(Value::as_u64).unwrap() {
-            0 => LayerContent::Precomposition(PreCompositionRef::deserialize(value).unwrap()),
-            1 => {
-                let color = SolidColor::deserialize(value).unwrap();
-                LayerContent::SolidColor {
-                    color: color.color,
-                    height: color.height,
-                    width: color.width,
+        Ok(
+            match value.get("ty").and_then(serde_json::Value::as_u64).unwrap() {
+                0 => LayerContent::Precomposition(PreCompositionRef::deserialize(value).unwrap()),
+                1 => {
+                    let color = SolidColor::deserialize(value).unwrap();
+                    LayerContent::SolidColor {
+                        color: color.color,
+                        height: color.height,
+                        width: color.width,
+                    }
                 }
-            }
-            // 2 => LayerContent::Image(Type2::deserialize(value).unwrap()),
-            3 => LayerContent::Empty,
-            4 => {
-                let shapes = value
-                    .get("shapes")
-                    .map(|v| Vec::<ShapeLayer>::deserialize(v))
-                    .transpose()
-                    .unwrap_or_default()
-                    .unwrap_or_default();
-                LayerContent::Shape(ShapeGroup { shapes })
-            }
-            // 5 => LayerContent::SolidColor(Type1::deserialize(value).unwrap()),
-            // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
-            // 7 => LayerContent::Null(Type3::deserialize(value).unwrap()),
-            type_ => panic!("unsupported type {:?}", type_),
-        })
+                // 2 => LayerContent::Image(Type2::deserialize(value).unwrap()),
+                3 => LayerContent::Empty,
+                4 => {
+                    let shapes = value
+                        .get("shapes")
+                        .map(|v| Vec::<ShapeLayer>::deserialize(v))
+                        .transpose()
+                        .unwrap_or_default()
+                        .unwrap_or_default();
+                    LayerContent::Shape(ShapeGroup { shapes })
+                }
+                // 5 => LayerContent::SolidColor(Type1::deserialize(value).unwrap()),
+                // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
+                // 7 => LayerContent::Null(Type3::deserialize(value).unwrap()),
+                type_ => panic!("unsupported type {:?}", type_),
+            },
+        )
     }
 }
 
@@ -140,148 +142,230 @@ impl Serialize for LayerContent {
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-enum AnimatedVec_ {
-    Plain(Vec<f32>),
-    Animated(Vec<KeyFrame<Vec<f32>>>),
+enum Value {
+    Primitive(f32),
+    List(Vec<f32>),
 }
 
-pub fn vec2_from_array<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<Vector2D<f32>>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let result = AnimatedVec_::deserialize(deserializer)?;
-    match result {
-        AnimatedVec_::Plain(v) => {
-            debug_assert_eq!(v.len(), 2);
-            Ok(vec![KeyFrame {
-                value: euclid::vec2(v[0], v[1]),
-                start_frame: None,
-                easing_in: None,
-                easing_out: None,
-            }])
+impl Value {
+    fn to_vec(self) -> Vec<f32> {
+        match self {
+            Value::Primitive(t) => vec![t],
+            Value::List(l) => l,
         }
-        AnimatedVec_::Animated(v) => Ok(v
-            .into_iter()
-            .map(|keyframe| KeyFrame {
-                value: euclid::vec2(keyframe.value[0], keyframe.value[1]),
-                start_frame: keyframe.start_frame,
-                easing_in: keyframe.easing_in,
-                easing_out: keyframe.easing_out,
-            })
-            .collect()),
     }
 }
 
-pub fn array_from_vec2<S>(
-    b: &Vec<KeyFrame<Vector2D<f32>>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum AnimatedHelper {
+    Plain(Value),
+    AnimatedHelper(Vec<KeyFrame<Value>>),
+}
+
+impl<'a, T> From<&'a Vec<KeyFrame<T>>> for AnimatedHelper {
+    fn from(_: &'a Vec<KeyFrame<T>>) -> Self {
+        todo!()
+    }
+}
+
+impl<T> From<AnimatedHelper> for Vec<KeyFrame<T>>
 where
-    S: Serializer,
+    T: FromTo<Vec<f32>>,
 {
-    let mut seq = serializer.serialize_seq(Some(b.len() * 2))?;
-    for item in b {
-        seq.serialize_element(&item.value.x)?;
-        seq.serialize_element(&item.value.y)?;
-    }
-    seq.end()
-}
-
-pub fn rgb_from_array<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<Rgb>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let result = AnimatedVec_::deserialize(deserializer)?;
-    match result {
-        AnimatedVec_::Plain(v) => {
-            debug_assert_eq!(v.len(), 3);
-            Ok(vec![KeyFrame {
-                value: Rgb::new_f32(v[0], v[1], v[2]),
-                start_frame: None,
-                easing_in: None,
-                easing_out: None,
-            }])
-        }
-        AnimatedVec_::Animated(v) => Ok(v
-            .into_iter()
-            .map(|keyframe| KeyFrame {
-                value: Rgb::new_f32(keyframe.value[0], keyframe.value[1], keyframe.value[2]),
-                start_frame: keyframe.start_frame,
-                easing_in: keyframe.easing_in,
-                easing_out: keyframe.easing_out,
-            })
-            .collect()),
-    }
-}
-
-pub fn array_from_rgb<S>(b: &Vec<KeyFrame<Rgb>>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let mut seq = serializer.serialize_seq(Some(b.len() * 3))?;
-    for item in b {
-        seq.serialize_element(&(item.value.r as f32 / 255.0))?;
-        seq.serialize_element(&(item.value.g as f32 / 255.0))?;
-        seq.serialize_element(&(item.value.b as f32 / 255.0))?;
-    }
-    seq.end()
-}
-
-pub fn f32_from_array_or_number<'de, D>(deserializer: D) -> Result<Vec<f32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(ArrayOrNumberVisitor)
-}
-
-pub fn array_or_number_from_f32<S>(b: &Vec<f32>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    if b.len() == 1 {
-        serializer.serialize_f32(b[0])
-    } else {
-        let mut seq = serializer.serialize_seq(Some(b.len()))?;
-        for item in b {
-            seq.serialize_element(item)?;
-        }
-        seq.end()
-    }
-}
-
-struct ArrayOrNumberVisitor;
-
-impl<'de> Visitor<'de> for ArrayOrNumberVisitor {
-    type Value = Vec<f32>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("f32 / [f32]")
-    }
-
-    fn visit_seq<A: SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
-        let mut result = vec![];
-        loop {
-            if let Some(e) = access.next_element::<f32>()? {
-                result.push(e);
-            } else {
-                break;
+    fn from(animated: AnimatedHelper) -> Self {
+        match animated {
+            AnimatedHelper::Plain(v) => {
+                let v = v.to_vec();
+                vec![KeyFrame {
+                    value: T::from(v),
+                    start_frame: None,
+                    easing_in: None,
+                    easing_out: None,
+                }]
             }
+            AnimatedHelper::AnimatedHelper(v) => v
+                .into_iter()
+                .map(|keyframe| KeyFrame {
+                    value: T::from(keyframe.value.to_vec()),
+                    start_frame: keyframe.start_frame,
+                    easing_in: keyframe.easing_in,
+                    easing_out: keyframe.easing_out,
+                })
+                .collect(),
         }
-        Ok(result)
-    }
-
-    fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
-        Ok(vec![v])
-    }
-
-    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
-        Ok(vec![v as f32])
-    }
-
-    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        Ok(vec![v as f32])
     }
 }
+
+pub(crate) trait FromTo<T> {
+    fn from(v: T) -> Self;
+    fn to(self) -> T;
+}
+
+impl FromTo<Vec<f32>> for Vector2D {
+    fn from(v: Vec<f32>) -> Self {
+        Vector2D::new(v[0], v[1])
+    }
+
+    fn to(self) -> Vec<f32> {
+        todo!()
+    }
+}
+
+impl FromTo<Vec<f32>> for f32 {
+    fn from(v: Vec<f32>) -> Self {
+        v[0]
+    }
+
+    fn to(self) -> Vec<f32> {
+        vec![self]
+    }
+}
+
+impl FromTo<Vec<f32>> for Rgb {
+    fn from(v: Vec<f32>) -> Self {
+        Rgb::new_f32(v[0], v[1], v[2])
+    }
+
+    fn to(self) -> Vec<f32> {
+        vec![
+            self.r as f32 / 255.0,
+            self.g as f32 / 255.0,
+            self.b as f32 / 255.0,
+        ]
+    }
+}
+
+pub(crate) fn vec_from_array<'de, D, T>(deserializer: D) -> Result<Vec<KeyFrame<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromTo<Vec<f32>>,
+{
+    let result = AnimatedHelper::deserialize(deserializer)?;
+    Ok(result.into())
+}
+
+pub fn array_from_vec<S, T>(b: &Vec<KeyFrame<T>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let animated = AnimatedHelper::from(b);
+    match animated {
+        AnimatedHelper::Plain(data) => data.serialize(serializer),
+        AnimatedHelper::AnimatedHelper(data) => {
+            let mut seq = serializer.serialize_seq(Some(data.len()))?;
+            for keyframe in data {
+                seq.serialize_element(&keyframe)?;
+            }
+            seq.end()
+        }
+    }
+}
+
+// pub fn rgb_from_array<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<Rgb>>, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     let result = AnimatedHelper::<Vec<f32>>::deserialize(deserializer)?;
+//     match result {
+//         AnimatedHelper::Plain(v) => {
+//             debug_assert_eq!(v.len(), 3);
+//             Ok(vec![KeyFrame {
+//                 value: Rgb::new_f32(v[0], v[1], v[2]),
+//                 start_frame: None,
+//                 easing_in: None,
+//                 easing_out: None,
+//             }])
+//         }
+//         AnimatedHelper::AnimatedHelper(v) => Ok(v
+//             .into_iter()
+//             .map(|keyframe| KeyFrame {
+//                 value: Rgb::new_f32(keyframe.value[0], keyframe.value[1], keyframe.value[2]),
+//                 start_frame: keyframe.start_frame,
+//                 easing_in: keyframe.easing_in,
+//                 easing_out: keyframe.easing_out,
+//             })
+//             .collect()),
+//     }
+// }
+
+// pub fn array_from_rgb<S>(b: &Vec<KeyFrame<Rgb>>, serializer: S) -> Result<S::Ok, S::Error>
+// where
+//     S: Serializer,
+// {
+//     let mut seq = serializer.serialize_seq(Some(b.len() * 3))?;
+//     for item in b {
+//         seq.serialize_element(&(item.value.r as f32 / 255.0))?;
+//         seq.serialize_element(&(item.value.g as f32 / 255.0))?;
+//         seq.serialize_element(&(item.value.b as f32 / 255.0))?;
+//     }
+//     seq.end()
+// }
+
+// pub fn f32_from_array_or_number<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<f32>>, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     let result = AnimatedHelper::<f32>::deserialize(deserializer)?;
+//     match result {
+//         AnimatedHelper::Plain(v) => Ok(vec![KeyFrame {
+//             value: v,
+//             start_frame: None,
+//             easing_in: None,
+//             easing_out: None,
+//         }]),
+//         AnimatedHelper::AnimatedHelper(v) => Ok(v),
+//     }
+// }
+
+// pub fn array_or_number_from_f32<S>(b: &Vec<KeyFrame<f32>>, serializer: S) -> Result<S::Ok, S::Error>
+// where
+//     S: Serializer,
+// {
+//     if b.len() == 1 {
+//         serializer.serialize_f32(b[0].value)
+//     } else {
+//         let mut seq = serializer.serialize_seq(Some(b.len()))?;
+//         for item in b {
+//             seq.serialize_element(item)?;
+//         }
+//         seq.end()
+//     }
+// }
+
+// struct ArrayOrNumberVisitor;
+
+// impl<'de> Visitor<'de> for ArrayOrNumberVisitor {
+//     type Value = Vec<f32>;
+
+//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//         formatter.write_str("f32 / [f32]")
+//     }
+
+//     fn visit_seq<A: SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+//         let mut result = vec![];
+//         loop {
+//             if let Some(e) = access.next_element::<f32>()? {
+//                 result.push(e);
+//             } else {
+//                 break;
+//             }
+//         }
+//         Ok(result)
+//     }
+
+//     fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
+//         Ok(vec![v])
+//     }
+
+//     fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+//         Ok(vec![v as f32])
+//     }
+
+//     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+//         Ok(vec![v as f32])
+//     }
+// }
 
 impl<'de> Deserialize<'de> for AnimatedColorList {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -301,17 +385,17 @@ impl Serialize for AnimatedColorList {
     }
 }
 
-pub fn default_vec2_100() -> AnimatedVec2 {
-    AnimatedVec2 {
+pub fn default_vec2_100() -> Animated<Vector2D> {
+    Animated {
         animated: false,
         keyframes: vec![KeyFrame::from_value(Vector2D::new(100.0, 100.0))],
     }
 }
 
-pub fn default_number_100() -> AnimatedNumber {
-    AnimatedNumber {
+pub fn default_number_100() -> Animated<f32> {
+    Animated {
         animated: false,
-        keyframes: vec![100.0],
+        keyframes: vec![KeyFrame::from_value(100.0)],
     }
 }
 
