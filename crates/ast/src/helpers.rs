@@ -116,25 +116,21 @@ impl Serialize for LayerContent {
         let msg = match self {
             LayerContent::Shape(ShapeGroup { shapes }) => TypedLayerContent {
                 t: 4,
-                content: LayerContent_::Shape { shapes }
+                content: LayerContent_::Shape { shapes },
             },
-            LayerContent::SolidColor { color, height, width } => TypedLayerContent {
+            LayerContent::SolidColor {
+                color,
+                height,
+                width,
+            } => TypedLayerContent {
                 t: 1,
-                content: LayerContent_::SolidColor { sc: color.to_string(), sh: *height, sw: *width }
+                content: LayerContent_::SolidColor {
+                    sc: color.to_string(),
+                    sh: *height,
+                    sw: *width,
+                },
             },
-            _ => unimplemented!()
-            // Message::T1(t) => TypedMessage {
-            //     t: 1,
-            //     msg: Message_::T1(t),
-            // },
-            // Message::T2(t) => TypedMessage {
-            //     t: 2,
-            //     msg: Message_::T2(t),
-            // },
-            // Message::T3(t) => TypedMessage {
-            //     t: 3,
-            //     msg: Message_::T3(t),
-            // },
+            _ => unimplemented!(),
         };
         msg.serialize(serializer)
     }
@@ -142,17 +138,19 @@ impl Serialize for LayerContent {
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-enum Value {
+pub(crate) enum Value {
     Primitive(f32),
     List(Vec<f32>),
+    ComplexBezier(Vec<Bezier>),
 }
 
 impl Value {
-    fn to_vec(self) -> Vec<f32> {
-        match self {
-            Value::Primitive(t) => vec![t],
-            Value::List(l) => l,
-        }
+    fn as_f32_vec(&self) -> Option<Vec<f32>> {
+        Some(match self {
+            Value::Primitive(p) => vec![*p],
+            Value::List(l) => l.clone(),
+            _ => return None,
+        })
     }
 }
 
@@ -171,12 +169,11 @@ impl<'a, T> From<&'a Vec<KeyFrame<T>>> for AnimatedHelper {
 
 impl<T> From<AnimatedHelper> for Vec<KeyFrame<T>>
 where
-    T: FromTo<Vec<f32>>,
+    T: FromTo<Value>,
 {
     fn from(animated: AnimatedHelper) -> Self {
         match animated {
             AnimatedHelper::Plain(v) => {
-                let v = v.to_vec();
                 vec![KeyFrame {
                     value: T::from(v),
                     start_frame: None,
@@ -187,7 +184,7 @@ where
             AnimatedHelper::AnimatedHelper(v) => v
                 .into_iter()
                 .map(|keyframe| KeyFrame {
-                    value: T::from(keyframe.value.to_vec()),
+                    value: T::from(keyframe.value),
                     start_frame: keyframe.start_frame,
                     easing_in: keyframe.easing_in,
                     easing_out: keyframe.easing_out,
@@ -202,50 +199,66 @@ pub(crate) trait FromTo<T> {
     fn to(self) -> T;
 }
 
-impl FromTo<Vec<f32>> for Vector2D {
-    fn from(v: Vec<f32>) -> Self {
+impl FromTo<Value> for Vector2D {
+    fn from(v: Value) -> Self {
+        let v = v.as_f32_vec().unwrap();
         Vector2D::new(v[0], v[1])
     }
 
-    fn to(self) -> Vec<f32> {
+    fn to(self) -> Value {
         todo!()
     }
 }
 
-impl FromTo<Vec<f32>> for f32 {
-    fn from(v: Vec<f32>) -> Self {
+impl FromTo<Value> for f32 {
+    fn from(v: Value) -> Self {
+        let v = v.as_f32_vec().unwrap();
         v[0]
     }
 
-    fn to(self) -> Vec<f32> {
-        vec![self]
+    fn to(self) -> Value {
+        Value::Primitive(self)
     }
 }
 
-impl FromTo<Vec<f32>> for Rgb {
-    fn from(v: Vec<f32>) -> Self {
+impl FromTo<Value> for Rgb {
+    fn from(v: Value) -> Self {
+        let v = v.as_f32_vec().unwrap();
         Rgb::new_f32(v[0], v[1], v[2])
     }
 
-    fn to(self) -> Vec<f32> {
-        vec![
+    fn to(self) -> Value {
+        Value::List(vec![
             self.r as f32 / 255.0,
             self.g as f32 / 255.0,
             self.b as f32 / 255.0,
-        ]
+        ])
     }
 }
 
-pub(crate) fn vec_from_array<'de, D, T>(deserializer: D) -> Result<Vec<KeyFrame<T>>, D::Error>
+impl FromTo<Value> for Vec<Bezier> {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::ComplexBezier(b) => b,
+            _ => todo!(),
+        }
+    }
+
+    fn to(self) -> Value {
+        Value::ComplexBezier(self)
+    }
+}
+
+pub(crate) fn keyframes_from_array<'de, D, T>(deserializer: D) -> Result<Vec<KeyFrame<T>>, D::Error>
 where
     D: Deserializer<'de>,
-    T: FromTo<Vec<f32>>,
+    T: FromTo<Value>,
 {
-    let result = AnimatedHelper::deserialize(deserializer)?;
+    let result = AnimatedHelper::deserialize(deserializer).unwrap();
     Ok(result.into())
 }
 
-pub fn array_from_vec<S, T>(b: &Vec<KeyFrame<T>>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn array_from_keyframes<S, T>(b: &Vec<KeyFrame<T>>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -261,111 +274,6 @@ where
         }
     }
 }
-
-// pub fn rgb_from_array<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<Rgb>>, D::Error>
-// where
-//     D: Deserializer<'de>,
-// {
-//     let result = AnimatedHelper::<Vec<f32>>::deserialize(deserializer)?;
-//     match result {
-//         AnimatedHelper::Plain(v) => {
-//             debug_assert_eq!(v.len(), 3);
-//             Ok(vec![KeyFrame {
-//                 value: Rgb::new_f32(v[0], v[1], v[2]),
-//                 start_frame: None,
-//                 easing_in: None,
-//                 easing_out: None,
-//             }])
-//         }
-//         AnimatedHelper::AnimatedHelper(v) => Ok(v
-//             .into_iter()
-//             .map(|keyframe| KeyFrame {
-//                 value: Rgb::new_f32(keyframe.value[0], keyframe.value[1], keyframe.value[2]),
-//                 start_frame: keyframe.start_frame,
-//                 easing_in: keyframe.easing_in,
-//                 easing_out: keyframe.easing_out,
-//             })
-//             .collect()),
-//     }
-// }
-
-// pub fn array_from_rgb<S>(b: &Vec<KeyFrame<Rgb>>, serializer: S) -> Result<S::Ok, S::Error>
-// where
-//     S: Serializer,
-// {
-//     let mut seq = serializer.serialize_seq(Some(b.len() * 3))?;
-//     for item in b {
-//         seq.serialize_element(&(item.value.r as f32 / 255.0))?;
-//         seq.serialize_element(&(item.value.g as f32 / 255.0))?;
-//         seq.serialize_element(&(item.value.b as f32 / 255.0))?;
-//     }
-//     seq.end()
-// }
-
-// pub fn f32_from_array_or_number<'de, D>(deserializer: D) -> Result<Vec<KeyFrame<f32>>, D::Error>
-// where
-//     D: Deserializer<'de>,
-// {
-//     let result = AnimatedHelper::<f32>::deserialize(deserializer)?;
-//     match result {
-//         AnimatedHelper::Plain(v) => Ok(vec![KeyFrame {
-//             value: v,
-//             start_frame: None,
-//             easing_in: None,
-//             easing_out: None,
-//         }]),
-//         AnimatedHelper::AnimatedHelper(v) => Ok(v),
-//     }
-// }
-
-// pub fn array_or_number_from_f32<S>(b: &Vec<KeyFrame<f32>>, serializer: S) -> Result<S::Ok, S::Error>
-// where
-//     S: Serializer,
-// {
-//     if b.len() == 1 {
-//         serializer.serialize_f32(b[0].value)
-//     } else {
-//         let mut seq = serializer.serialize_seq(Some(b.len()))?;
-//         for item in b {
-//             seq.serialize_element(item)?;
-//         }
-//         seq.end()
-//     }
-// }
-
-// struct ArrayOrNumberVisitor;
-
-// impl<'de> Visitor<'de> for ArrayOrNumberVisitor {
-//     type Value = Vec<f32>;
-
-//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-//         formatter.write_str("f32 / [f32]")
-//     }
-
-//     fn visit_seq<A: SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
-//         let mut result = vec![];
-//         loop {
-//             if let Some(e) = access.next_element::<f32>()? {
-//                 result.push(e);
-//             } else {
-//                 break;
-//             }
-//         }
-//         Ok(result)
-//     }
-
-//     fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
-//         Ok(vec![v])
-//     }
-
-//     fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
-//         Ok(vec![v as f32])
-//     }
-
-//     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-//         Ok(vec![v as f32])
-//     }
-// }
 
 impl<'de> Deserialize<'de> for AnimatedColorList {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -403,31 +311,64 @@ pub fn u32_from_number<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
+    Ok(deserializer.deserialize_any(NumberVistor)?.unwrap())
+}
+
+pub fn optional_u32_from_number<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
     deserializer.deserialize_any(NumberVistor)
 }
 
 struct NumberVistor;
 
 impl<'de> Visitor<'de> for NumberVistor {
-    type Value = u32;
+    type Value = Option<u32>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("u32 / f32")
     }
 
     fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
-        Ok(v.round() as u32)
+        Ok(Some(v.round() as u32))
     }
 
     fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
-        Ok(v.round() as u32)
+        Ok(Some(v.round() as u32))
     }
 
     fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
-        Ok(v as u32)
+        Ok(Some(v as u32))
     }
 
     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        Ok(v as u32)
+        Ok(Some(v as u32))
     }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(None)
+    }
+}
+
+pub(crate) fn vec_from_array<'de, D>(deserializer: D) -> Result<Vec<Vector2D>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let result = Vec::<[f32; 2]>::deserialize(deserializer)?;
+    Ok(result.into_iter().map(|f| f.into()).collect())
+}
+
+pub fn array_from_vec<S>(data: &Vec<Vector2D>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(data.len()))?;
+    for d in data {
+        seq.serialize_element(&[d.x, d.y])?;
+    }
+    seq.end()
 }

@@ -1,4 +1,4 @@
-use lottie_ast::{Animated, Ellipse, KeyFrame, Rect, Vector2D};
+use lottie_ast::{Animated, Ellipse, KeyFrame, Rect};
 
 use crate::Lottie;
 

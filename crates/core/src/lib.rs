@@ -83,7 +83,7 @@ impl<'a> Iterator for ShapeIter {
         }
         let shape = self.shapes[self.index].clone();
         let mut fill = None;
-        let mut transform = None;
+        let mut transform = Transform::default();
         let mut strokes = vec![];
         let mut styles = vec![];
         self.index += 1;
@@ -100,7 +100,7 @@ impl<'a> Iterator for ShapeIter {
                 }
                 self.index += 1;
             } else if let Shape::Transform(t) = &self.shapes[self.index].shape {
-                transform = Some(t.clone());
+                transform = t.clone();
                 self.index += 1;
             } else if self.shapes[self.index].shape.is_shape() {
                 self.index -= 1;
@@ -111,10 +111,6 @@ impl<'a> Iterator for ShapeIter {
             Some(f) => f,
             None if strokes.is_empty() => return self.next(),
             _ => Fill::transparent(),
-        };
-        let transform = match transform {
-            Some(f) => f,
-            None => return self.next(),
         };
         Some(StyledShape {
             shape,

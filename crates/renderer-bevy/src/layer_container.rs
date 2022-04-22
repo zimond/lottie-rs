@@ -111,7 +111,7 @@ pub trait LayerContainer {
                     radii: Vec2::new(initial_size.x, initial_size.y),
                     center: Vec2::new(0.0, 0.0),
                 };
-                let fill = shape.fill.color.initial_color();
+                let fill = shape.fill.color.initial_value();
                 let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
                 let c = commands.insert_bundle(GeometryBuilder::build_as(
                     &ellipse_shape,
@@ -161,10 +161,14 @@ pub trait LayerContainer {
                 });
                 c.id()
             }
+            Shape::Path { d } => {
+                todo!()
+            }
             Shape::Group { .. } => {
                 unreachable!()
             }
             _ => {
+                println!("{:?}", shape.shape.shape);
                 todo!()
             }
         };

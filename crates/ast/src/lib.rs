@@ -3,7 +3,6 @@ use std::str::FromStr;
 pub use euclid::default::Rect;
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
-use serde_json::Value;
 pub type Vector2D = euclid::default::Vector2D<f32>;
 
 mod helpers;
@@ -108,6 +107,20 @@ pub struct Transform {
     skew_axis: Option<Animated<Vector2D>>,
 }
 
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            anchor: Default::default(),
+            position: Default::default(),
+            scale: default_vec2_100(),
+            rotation: Default::default(),
+            opacity: default_number_100(),
+            skew: Default::default(),
+            skew_axis: Default::default(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RepeaterTransform {
     #[serde(rename = "a")]
@@ -132,7 +145,7 @@ pub struct RepeaterTransform {
 pub struct KeyFrame<T> {
     #[serde(rename = "s")]
     pub value: T,
-    #[serde(rename = "t", default)]
+    #[serde(rename = "t", default, deserialize_with = "optional_u32_from_number")]
     pub start_frame: Option<u32>,
     #[serde(rename = "o", default)]
     pub easing_out: Option<Easing>,
@@ -166,9 +179,9 @@ pub struct Animated<T> {
     )]
     pub animated: bool,
     #[serde(
-        deserialize_with = "vec_from_array",
-        serialize_with = "array_from_vec",
-        bound = "T: FromTo<Vec<f32>>",
+        deserialize_with = "keyframes_from_array",
+        serialize_with = "array_from_keyframes",
+        bound = "T: FromTo<helpers::Value>",
         rename = "k"
     )]
     pub keyframes: Vec<KeyFrame<T>>,
@@ -176,7 +189,7 @@ pub struct Animated<T> {
 
 impl<T> Default for Animated<T>
 where
-    T: Default + FromTo<Vec<f32>>,
+    T: Default,
 {
     fn default() -> Self {
         Self {
@@ -210,38 +223,6 @@ where
 //         }
 //     }
 // }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AnimatedBezier {
-    #[serde(
-        deserialize_with = "bool_from_int",
-        serialize_with = "int_from_bool",
-        rename = "a"
-    )]
-    animated: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AnimatedColor {
-    #[serde(
-        deserialize_with = "bool_from_int",
-        serialize_with = "int_from_bool",
-        rename = "a"
-    )]
-    animated: bool,
-    #[serde(
-        deserialize_with = "vec_from_array",
-        serialize_with = "array_from_vec",
-        rename = "k"
-    )]
-    keyframes: Vec<KeyFrame<Rgb>>,
-}
-
-impl AnimatedColor {
-    pub fn initial_color(&self) -> Rgb {
-        self.keyframes[0].value.clone()
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Rgba {
@@ -328,8 +309,8 @@ pub enum Shape {
     },
     #[serde(rename = "sh")]
     Path {
-        // #[serde(rename = "ks")]
-        // d: AnimatedBezier,
+        #[serde(rename = "ks")]
+        d: Animated<Vec<Bezier>>,
     },
     #[serde(rename = "fl")]
     Fill(Fill),
@@ -533,7 +514,7 @@ pub struct Fill {
     #[serde(rename = "o")]
     pub opacity: Animated<f32>,
     #[serde(rename = "c")]
-    pub color: AnimatedColor,
+    pub color: Animated<Rgb>,
     #[serde(rename = "r")]
     fill_rule: FillRule,
 }
@@ -545,7 +526,7 @@ impl Fill {
                 animated: false,
                 keyframes: vec![KeyFrame::from_value(0.0)],
             },
-            color: AnimatedColor {
+            color: Animated {
                 animated: false,
                 keyframes: vec![KeyFrame::from_value(Rgb::new_u8(0, 0, 0))],
             },
@@ -568,8 +549,8 @@ pub struct Stroke {
     width: Animated<f32>,
     #[serde(rename = "d", default)]
     dashes: Vec<StrokeDash>,
-    // #[serde(rename = "c")]
-    // color: AnimatedColor,
+    #[serde(rename = "c")]
+    color: Animated<Rgb>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -615,4 +596,28 @@ pub struct Precomposition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShapeGroup {
     pub shapes: Vec<ShapeLayer>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Bezier {
+    #[serde(rename = "c")]
+    closed: bool,
+    #[serde(
+        rename = "v",
+        deserialize_with = "vec_from_array",
+        serialize_with = "array_from_vec"
+    )]
+    vertices: Vec<Vector2D>,
+    #[serde(
+        rename = "i",
+        deserialize_with = "vec_from_array",
+        serialize_with = "array_from_vec"
+    )]
+    in_tangent: Vec<Vector2D>,
+    #[serde(
+        rename = "o",
+        deserialize_with = "vec_from_array",
+        serialize_with = "array_from_vec"
+    )]
+    out_tangent: Vec<Vector2D>,
 }
