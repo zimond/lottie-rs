@@ -8,7 +8,6 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{
     Animator, AnimatorState, Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType,
 };
-use dashmap::DashMap;
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use layer_container::*;
@@ -144,7 +143,6 @@ impl BevyRenderer {
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
-            .add_system(lottie_spawn_system)
             .add_system(lottie_animate_system);
         BevyRenderer { app }
     }
@@ -193,33 +191,41 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
         current_frame: 0,
     });
     commands.spawn_bundle(camera);
+
+    let comp = LottieComp::new(lottie, scale);
+    comp.spawn_layers(&mut commands);
     commands.spawn_bundle(LottieBundle {
-        comp: LottieComp::new(lottie, scale),
+        comp,
         global_transform: GlobalTransform::default(),
         transform: Transform::default(),
     });
 }
 
-fn lottie_spawn_system(mut query: Query<(Entity, &mut LottieComp)>, mut commands: Commands) {
-    for (entity, mut comp) in query.iter_mut() {
-        let mut commands = commands.entity(entity);
-        comp.spawn_layers(&mut commands);
-    }
-}
-
 fn lottie_animate_system(
-    mut query: Query<(&mut Animator<Transform>, &LottieLayerAnimationInfo)>,
+    query: Query<(&LottieLayerAnimationInfo, &Children)>,
+    mut animated_shapes: Query<(&mut Visibility, &mut Animator<Transform>)>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
     let t = time.delta_seconds() * (info.frame_rate as f32);
-    info.current_frame = info.current_frame + t.round() as u32;
-    for (mut animator, layer_info) in query.iter_mut() {
-        if info.current_frame >= layer_info.start_frame && animator.state == AnimatorState::Paused {
-            animator.state = AnimatorState::Playing;
-            animator.set_progress(0.0);
-        } else if info.current_frame >= layer_info.end_frame {
-            animator.stop();
+    info.current_frame = (info.current_frame + t.round() as u32);
+
+    for (i, children) in query.iter() {
+        for child in children.iter() {
+            if let Ok((mut visibility, mut animator)) = animated_shapes.get_mut(*child) {
+                if info.current_frame < i.start_frame || info.current_frame >= i.end_frame {
+                    visibility.is_visible = false;
+                    animator.stop();
+                } else {
+                    visibility.is_visible = true;
+                    if animator.state == AnimatorState::Paused {
+                        animator.state = AnimatorState::Playing;
+                        animator.set_progress(
+                            info.current_frame as f32 / (i.end_frame - i.start_frame) as f32,
+                        );
+                    }
+                }
+            }
         }
     }
     info.current_frame %= info.end_frame;

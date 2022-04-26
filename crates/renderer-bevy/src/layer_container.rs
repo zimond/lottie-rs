@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-
 use bevy::{
-    ecs::system::EntityCommands,
     math::{Vec2, Vec3},
     prelude::{Color, Entity},
 };
@@ -10,25 +7,16 @@ use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
     Animator, AnimatorState, Tracks,
 };
-use dashmap::DashMap;
 use lottie_core::*;
 
 use bevy::prelude::Transform;
 
 use crate::*;
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub struct LayerKey(u32);
-
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ShapeKey(u32);
-
 #[derive(Component)]
 pub struct LottieComp {
     data: Lottie,
     scale: f32,
-    current_frame: u32,
-    entities: DashMap<LayerKey, DashMap<ShapeKey, Entity>>,
 }
 
 impl LottieComp {
@@ -36,69 +24,54 @@ impl LottieComp {
         LottieComp {
             data: lottie,
             scale,
-            current_frame: 0,
-            entities: DashMap::new(),
         }
     }
 }
 
 pub trait LayerContainer {
-    fn contains(&self, layer: &LayerKey, shape: &ShapeKey) -> bool;
-    fn insert(&self, layer: LayerKey, shape: ShapeKey, entity: Entity);
     fn layers(&self) -> std::slice::Iter<Layer>;
-    fn remove(&self, layer: &LayerKey) -> Option<DashMap<ShapeKey, Entity>>;
-    fn current_frame(&self) -> u32;
     fn frame_rate(&self) -> u32;
     fn query_container_by_id(&self, id: &str) -> Option<PrecompositionContainer>;
-    fn spawn_layers(&self, commands: &mut EntityCommands) {
-        let current = self.current_frame();
+    fn spawn_layers(&self, commands: &mut Commands) {
         for layer in self.layers() {
-            let layer_key = LayerKey(layer.id);
-            if current >= layer.end_frame || current < layer.start_frame {
-                if let Some(shapes) = self.remove(&layer_key) {
-                    for (_, entity) in shapes {
-                        commands.commands().entity(entity).despawn();
-                    }
-                    continue;
-                }
-            } else if current == layer.start_frame {
-                match &layer.content {
-                    LayerContent::Shape(shapes) => {
-                        for shape in shapes.shapes() {
-                            let key = LayerKey(layer.id);
-                            let shape_key = ShapeKey(shape.shape.id);
-                            if let Some(entity) = self.spawn_shape(
-                                key,
-                                layer.start_frame,
-                                layer.end_frame,
-                                shape,
-                                commands,
-                            ) {
-                                self.insert(layer_key, shape_key, entity);
-                            }
+            let mut c = commands.spawn();
+            match &layer.content {
+                LayerContent::Shape(shapes) => {
+                    for shape in shapes.shapes() {
+                        if let Some(entity) = self.spawn_shape(
+                            layer.start_frame,
+                            layer.end_frame,
+                            shape,
+                            c.commands(),
+                        ) {
+                            c.add_child(entity);
                         }
                     }
-                    LayerContent::Precomposition(pre) => {
-                        if let Some(asset) = self.query_container_by_id(&pre.ref_id) {
-                            asset.spawn_layers(commands);
-                        }
-                    }
-                    _ => {}
                 }
+                LayerContent::Precomposition(pre) => {
+                    if let Some(asset) = self.query_container_by_id(&pre.ref_id) {
+                        asset.spawn_layers(c.commands());
+                    }
+                }
+                _ => {}
             }
+            c.insert_bundle(TransformBundle::default());
+            c.insert(LottieLayerAnimationInfo {
+                start_frame: layer.start_frame,
+                end_frame: layer.end_frame,
+            });
+            c.insert(Visibility { is_visible: false });
         }
     }
 
     fn spawn_shape(
         &self,
-        layer_key: LayerKey,
         start_frame: u32,
         end_frame: u32,
         shape: StyledShape,
-        commands: &mut EntityCommands,
+        commands: &mut Commands,
     ) -> Option<Entity> {
-        let shape_key = ShapeKey(shape.shape.id);
-        if shape.shape.hidden || self.contains(&layer_key, &shape_key) {
+        if shape.shape.hidden {
             return None;
         }
         let frame_rate = self.frame_rate();
@@ -113,7 +86,8 @@ pub trait LayerContainer {
                 };
                 let fill = shape.fill.color.initial_value();
                 let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
-                let c = commands.insert_bundle(GeometryBuilder::build_as(
+                let mut c = commands.spawn();
+                c.insert_bundle(GeometryBuilder::build_as(
                     &ellipse_shape,
                     DrawMode::Outlined {
                         fill_mode: FillMode::color(Color::rgba_u8(
@@ -155,14 +129,42 @@ pub trait LayerContainer {
                     c.insert(animator);
                 }
                 c.insert(LottieShapeComp(shape));
-                c.insert(LottieLayerAnimationInfo {
-                    start_frame,
-                    end_frame,
-                });
                 c.id()
             }
             Shape::Path { d } => {
-                todo!()
+                let mut beziers = d.initial_value();
+                let mut bbox = beziers.bbox(d.keyframes[0].start_frame.unwrap());
+                let stroke_width: f32 = shape
+                    .strokes
+                    .iter()
+                    .map(|stroke| stroke.width.initial_value())
+                    .sum();
+                beziers.move_origin(-bbox.min_x() + stroke_width, -bbox.min_y() + stroke_width);
+                bbox.origin.x -= stroke_width;
+                bbox.origin.y -= stroke_width;
+                bbox.size.width += 2.0 * stroke_width;
+                bbox.size.height += 2.0 * stroke_width;
+                let path_shape = shapes::SvgPathShape {
+                    svg_doc_size_in_px: Vec2::new(bbox.width(), bbox.height()),
+                    svg_path_string: beziers.to_svg_d(),
+                };
+                let fill = shape.fill.color.initial_value();
+                let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
+                let mut c = commands.spawn();
+                c.insert_bundle(GeometryBuilder::build_as(
+                    &path_shape,
+                    DrawMode::Outlined {
+                        fill_mode: FillMode::color(Color::rgba_u8(
+                            fill.r,
+                            fill.g,
+                            fill.b,
+                            fill_opacity,
+                        )),
+                        outline_mode: StrokeMode::new(Color::BLACK, 10.0),
+                    },
+                    Transform::default(), //from_translation(Vec3::new(initial_pos.x, initial_pos.y, 0.0)),
+                ));
+                c.id()
             }
             Shape::Group { .. } => {
                 unreachable!()
@@ -177,30 +179,8 @@ pub trait LayerContainer {
 }
 
 impl LayerContainer for LottieComp {
-    fn contains(&self, layer: &LayerKey, shape: &ShapeKey) -> bool {
-        self.entities
-            .get(layer)
-            .map(|shapes| shapes.contains_key(shape))
-            .unwrap_or_default()
-    }
-
-    fn insert(&self, layer: LayerKey, shape: ShapeKey, entity: Entity) {
-        self.entities
-            .entry(layer)
-            .or_default()
-            .insert(shape, entity);
-    }
-
     fn layers(&self) -> std::slice::Iter<Layer> {
         self.data.model.layers.iter()
-    }
-
-    fn remove(&self, layer: &LayerKey) -> Option<DashMap<ShapeKey, Entity>> {
-        Some(self.entities.remove(layer)?.1)
-    }
-
-    fn current_frame(&self) -> u32 {
-        self.current_frame
     }
 
     fn query_container_by_id(&self, id: &str) -> Option<PrecompositionContainer> {
@@ -219,24 +199,8 @@ pub struct PrecompositionContainer<'a> {
 }
 
 impl<'a> LayerContainer for PrecompositionContainer<'a> {
-    fn contains(&self, layer: &LayerKey, shape: &ShapeKey) -> bool {
-        self.comp.contains(layer, shape)
-    }
-
-    fn insert(&self, layer: LayerKey, shape: ShapeKey, entity: Entity) {
-        self.comp.insert(layer, shape, entity)
-    }
-
     fn layers(&self) -> std::slice::Iter<Layer> {
         self.asset.layers.iter()
-    }
-
-    fn remove(&self, layer: &LayerKey) -> Option<DashMap<ShapeKey, Entity>> {
-        self.comp.remove(layer)
-    }
-
-    fn current_frame(&self) -> u32 {
-        self.comp.current_frame
     }
 
     fn query_container_by_id(&self, id: &str) -> Option<PrecompositionContainer> {

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-pub use euclid::default::Rect;
+pub use euclid::{default::Rect, rect};
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 pub type Vector2D = euclid::default::Vector2D<f32>;
@@ -546,7 +546,7 @@ pub struct Stroke {
     #[serde(rename = "o")]
     opacity: Animated<f32>,
     #[serde(rename = "w")]
-    width: Animated<f32>,
+    pub width: Animated<f32>,
     #[serde(rename = "d", default)]
     dashes: Vec<StrokeDash>,
     #[serde(rename = "c")]
@@ -601,23 +601,23 @@ pub struct ShapeGroup {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bezier {
     #[serde(rename = "c")]
-    closed: bool,
+    pub closed: bool,
     #[serde(
         rename = "v",
         deserialize_with = "vec_from_array",
         serialize_with = "array_from_vec"
     )]
-    vertices: Vec<Vector2D>,
+    pub vertices: Vec<Vector2D>,
     #[serde(
         rename = "i",
         deserialize_with = "vec_from_array",
         serialize_with = "array_from_vec"
     )]
-    in_tangent: Vec<Vector2D>,
+    pub in_tangent: Vec<Vector2D>,
     #[serde(
         rename = "o",
         deserialize_with = "vec_from_array",
         serialize_with = "array_from_vec"
     )]
-    out_tangent: Vec<Vector2D>,
+    pub out_tangent: Vec<Vector2D>,
 }

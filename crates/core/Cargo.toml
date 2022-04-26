@@ -4,6 +4,7 @@ name = "lottie-core"
 version = "0.1.0"
 
 [dependencies]
+flo_curves = "0.6.1"
 thiserror = "1.0.30"
 
 [dependencies.lottie-ast]
