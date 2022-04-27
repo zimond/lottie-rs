@@ -1,11 +1,9 @@
 use std::fmt;
 
 use super::*;
-use serde::{
-    de::{Error, Visitor},
-    ser::SerializeSeq,
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::de::{Error, Visitor};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where

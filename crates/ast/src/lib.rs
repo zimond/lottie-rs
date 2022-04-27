@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-pub use euclid::{default::Rect, rect};
+pub use euclid::default::Rect;
+pub use euclid::rect;
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 pub type Vector2D = euclid::default::Vector2D<f32>;
@@ -9,7 +10,7 @@ mod helpers;
 use helpers::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LottieModel {
+pub struct Model {
     #[serde(rename = "nm")]
     pub name: Option<String>,
     #[serde(rename = "v")]
@@ -29,7 +30,11 @@ pub struct LottieModel {
     pub assets: Vec<Precomposition>,
 }
 
-impl LottieModel {
+impl Model {
+    pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, serde_json::Error> {
+        serde_json::from_reader(r)
+    }
+
     pub fn duration(&self) -> f32 {
         (self.end_frame - self.start_frame) as f32 / self.frame_rate as f32
     }
@@ -569,12 +574,6 @@ pub struct Ellipse {
     pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
     pub size: Animated<Vector2D>,
-}
-
-impl LottieModel {
-    pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, serde_json::Error> {
-        serde_json::from_reader(r)
-    }
 }
 
 pub enum Assets {

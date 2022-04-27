@@ -1,43 +1,123 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
-use lottie_ast::{rect, Animated, Bezier, Ellipse, KeyFrame, Rect, Vector2D};
+use lottie_ast::*;
 
-use crate::Lottie;
+use crate::AnimatedExt;
 
-pub trait AnimatedExt {
-    type Target;
-    fn initial_value(&self) -> Self::Target;
-    fn value(&self, frame: u32) -> Self::Target;
-    fn is_animated(&self) -> bool;
+pub struct ShapeIter {
+    shapes: Vec<ShapeLayer>,
+    index: usize,
 }
 
-impl<T> AnimatedExt for Animated<T>
-where
-    T: Clone,
-{
-    type Target = T;
+impl<'a> Iterator for ShapeIter {
+    type Item = StyledShape;
 
-    fn initial_value(&self) -> Self::Target {
-        self.keyframes[0].value.clone()
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.shapes.len() {
+            self.shapes.pop();
+        }
+        while self.index < self.shapes.len() && !self.shapes[self.index].shape.is_shape() {
+            self.index += 1;
+        }
+        if self.index >= self.shapes.len() {
+            return None;
+        }
+        let shape = self.shapes[self.index].clone();
+        let mut fill = None;
+        let mut transform = Transform::default();
+        let mut strokes = vec![];
+        let mut styles = vec![];
+        self.index += 1;
+        while self.index < self.shapes.len() {
+            if self.shapes[self.index].shape.is_style() {
+                if let Shape::Fill(f) = &self.shapes[self.index].shape {
+                    if fill.is_none() {
+                        fill = Some(f.clone());
+                    }
+                } else if let Shape::Stroke(stroke) = &self.shapes[self.index].shape {
+                    strokes.push(stroke.clone());
+                } else {
+                    styles.push(self.shapes[self.index].clone());
+                }
+                self.index += 1;
+            } else if let Shape::Transform(t) = &self.shapes[self.index].shape {
+                transform = t.clone();
+                self.index += 1;
+            } else if self.shapes[self.index].shape.is_shape() {
+                self.index -= 1;
+                break;
+            }
+        }
+        let fill = match fill {
+            Some(f) => f,
+            None if strokes.is_empty() => return self.next(),
+            _ => Fill::transparent(),
+        };
+        Some(StyledShape {
+            shape,
+            styles,
+            strokes,
+            fill,
+            transform,
+        })
+    }
+}
+
+pub trait ShapeIterator {
+    fn shapes(&self) -> ShapeIter;
+}
+
+impl ShapeIterator for ShapeGroup {
+    fn shapes(&self) -> ShapeIter {
+        let shapes = flatten(&self.shapes);
+        ShapeIter { shapes, index: 0 }
+    }
+}
+
+fn flatten(shapes: &Vec<ShapeLayer>) -> Vec<ShapeLayer> {
+    shapes
+        .iter()
+        .flat_map(|shape| {
+            if let Shape::Group { shapes } = &shape.shape {
+                flatten(shapes).into_iter()
+            } else {
+                vec![shape.clone()].into_iter()
+            }
+        })
+        .collect()
+}
+
+pub struct StyledShape {
+    pub shape: ShapeLayer,
+    pub fill: Fill,
+    pub strokes: Vec<Stroke>,
+    pub transform: Transform,
+    pub styles: Vec<ShapeLayer>,
+}
+
+pub trait ShapeExt {
+    fn is_style(&self) -> bool;
+    fn is_shape(&self) -> bool;
+}
+
+impl ShapeExt for Shape {
+    fn is_style(&self) -> bool {
+        match &self {
+            Shape::Fill { .. }
+            | Shape::Stroke { .. }
+            | Shape::GradientFill { .. }
+            | Shape::GradientStroke { .. } => true,
+            _ => false,
+        }
     }
 
-    fn value(&self, mut frame: u32) -> Self::Target {
-        if !self.is_animated() {
-            return self.initial_value();
+    fn is_shape(&self) -> bool {
+        match &self {
+            Shape::Rectangle { .. }
+            | Shape::Ellipse { .. }
+            | Shape::PolyStar { .. }
+            | Shape::Path { .. } => true,
+            _ => false,
         }
-        let len = self.keyframes.len() - 1;
-        frame = std::cmp::max(self.keyframes[0].start_frame.unwrap_or(0), frame);
-        frame = std::cmp::min(self.keyframes[len].start_frame.unwrap_or(0), frame);
-        if let Some(window) = self.keyframes.windows(2).find(|window| {
-            frame >= window[0].start_frame.unwrap() && frame < window[1].start_frame.unwrap()
-        }) {
-            window[0].value.clone()
-        } else {
-            self.keyframes[len].value.clone()
-        }
-    }
-
-    fn is_animated(&self) -> bool {
-        self.animated
     }
 }
 
@@ -51,26 +131,6 @@ impl Shaped for Ellipse {
         let p = self.position.value(frame) - w / 2.0;
         Rect::new(p.to_point(), w.to_size())
     }
-}
-
-pub trait KeyFrameExt {
-    fn alter_value<U>(&self, value: U) -> KeyFrame<U>;
-}
-
-impl<T> KeyFrameExt for KeyFrame<T> {
-    fn alter_value<U>(&self, value: U) -> KeyFrame<U> {
-        KeyFrame {
-            value,
-            start_frame: self.start_frame.clone(),
-            easing_out: self.easing_out.clone(),
-            easing_in: self.easing_in.clone(),
-        }
-    }
-}
-
-pub trait Renderer {
-    fn load_lottie(&mut self, lottie: Lottie);
-    fn render(&mut self);
 }
 
 pub trait PathExt {

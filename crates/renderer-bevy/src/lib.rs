@@ -1,4 +1,4 @@
-mod layer_container;
+mod render;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -10,25 +10,22 @@ use bevy_tweening::{
 };
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use layer_container::*;
+use lottie_core::prelude::StyledShape;
 use lottie_core::*;
+use render::*;
 use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::prelude::Transform;
 
-#[derive(Bundle)]
-struct LottieBundle {
-    transform: Transform,
-    global_transform: GlobalTransform,
-    comp: LottieComp,
-}
+#[derive(Component, Deref, DerefMut)]
+pub struct LottieComp(Lottie);
 
 #[derive(Component)]
 struct LottieShapeComp(StyledShape);
 
 #[derive(Component)]
-struct LottieLayerAnimationInfo {
+struct LayerAnimationInfo {
     start_frame: u32,
     end_frame: u32,
 }
@@ -167,7 +164,7 @@ impl Renderer for BevyRenderer {
 fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Res<Lottie>) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
-    let lottie = lottie.clone();
+    let mut lottie = lottie.clone();
     commands.remove_resource::<Lottie>();
     window.set_title(
         lottie
@@ -192,23 +189,25 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
     });
     commands.spawn_bundle(camera);
 
-    let comp = LottieComp::new(lottie, scale);
-    comp.spawn_layers(&mut commands);
-    commands.spawn_bundle(LottieBundle {
-        comp,
-        global_transform: GlobalTransform::default(),
-        transform: Transform::default(),
-    });
+    lottie.scale = scale;
+    let comp = LottieComp(lottie);
+    for layer in comp.flatten_layers() {
+        layer.spawn(&mut commands);
+    }
+    commands
+        .spawn()
+        .insert(comp)
+        .insert_bundle(TransformBundle::default());
 }
 
 fn lottie_animate_system(
-    query: Query<(&LottieLayerAnimationInfo, &Children)>,
+    query: Query<(&LayerAnimationInfo, &Children)>,
     mut animated_shapes: Query<(&mut Visibility, &mut Animator<Transform>)>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
     let t = time.delta_seconds() * (info.frame_rate as f32);
-    info.current_frame = (info.current_frame + t.round() as u32);
+    info.current_frame = info.current_frame + t.round() as u32;
 
     for (i, children) in query.iter() {
         for child in children.iter() {
