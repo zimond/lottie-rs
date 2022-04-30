@@ -1,3 +1,4 @@
+use bevy::ecs::system::EntityCommands;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Color, Entity};
 use bevy_prototype_lyon::prelude::*;
@@ -11,37 +12,48 @@ use lottie_core::prelude::*;
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, commands: &mut Commands);
-    fn spawn_shape(&self, shape: StyledShape, commands: &mut Commands) -> Option<Entity>;
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity;
+    fn spawn_shape(
+        &self,
+        frame: u32,
+        shape: StyledShape,
+        commands: &mut Commands,
+    ) -> Option<Entity>;
 }
 
-impl<'a> LayerRenderer for StagedLayer<'a> {
-    fn spawn(&self, commands: &mut Commands) {
+impl LayerRenderer for StagedLayer {
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
-        match self.content() {
-            LayerContent::Shape(shapes) => {
+        match &self.content {
+            RenderableContent::Shape(shapes) => {
                 for shape in shapes.shapes() {
-                    if let Some(entity) = self.spawn_shape(shape, c.commands()) {
+                    if let Some(entity) = self.spawn_shape(frame, shape, c.commands()) {
                         c.add_child(entity);
                     }
                 }
             }
-            _ => {}
+            _ => todo!(),
         }
 
         c.insert_bundle(TransformBundle::default());
         c.insert(LayerAnimationInfo {
-            start_frame: self.start_frame(),
-            end_frame: self.end_frame(),
+            start_frame: self.start_frame,
+            end_frame: self.end_frame,
         });
         c.insert(Visibility { is_visible: false });
+        c.id()
     }
 
-    fn spawn_shape(&self, shape: StyledShape, commands: &mut Commands) -> Option<Entity> {
+    fn spawn_shape(
+        &self,
+        frame: u32,
+        shape: StyledShape,
+        commands: &mut Commands,
+    ) -> Option<Entity> {
         if shape.shape.hidden {
             return None;
         }
-        let frame_rate = self.frame_rate();
+        let frame_rate = self.frame_rate;
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { position, size } = ellipse;
@@ -70,8 +82,8 @@ impl<'a> LayerRenderer for StagedLayer<'a> {
                 let mut tweens = vec![];
                 if shape.transform.position.is_animated() {
                     tweens.push(shape.transform.position.keyframes.tween(
-                        self.start_frame(),
-                        self.end_frame(),
+                        self.start_frame,
+                        self.end_frame,
                         frame_rate,
                         |start, end| TransformPositionLens {
                             start: Vec3::new(start.x, start.y, 0.0),
@@ -81,8 +93,8 @@ impl<'a> LayerRenderer for StagedLayer<'a> {
                 }
                 if shape.transform.scale.is_animated() {
                     tweens.push(shape.transform.scale.keyframes.tween(
-                        self.start_frame(),
-                        self.end_frame(),
+                        self.start_frame,
+                        self.end_frame,
                         frame_rate,
                         |start, end| TransformScaleLens {
                             start: Vec3::new(start.x, start.y, 0.0) / 100.0,
@@ -92,7 +104,11 @@ impl<'a> LayerRenderer for StagedLayer<'a> {
                 }
                 if !tweens.is_empty() {
                     let tracks = Tracks::new(tweens);
-                    let animator = Animator::new(tracks).with_state(AnimatorState::Paused);
+                    let mut animator = Animator::new(tracks);
+                    animator.set_progress(
+                        (frame - self.start_frame) as f32
+                            / (self.end_frame - self.start_frame) as f32,
+                    );
                     c.insert(animator);
                 }
                 c.insert(LottieShapeComp(shape));

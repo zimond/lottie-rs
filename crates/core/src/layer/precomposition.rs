@@ -2,7 +2,7 @@ use lottie_ast::{Layer, PreCompositionRef, Precomposition};
 
 use crate::Lottie;
 
-use super::staged::{StagedLayer, StagedLayerExt};
+use super::staged::StagedLayer;
 
 /// A wrapper representing a precomposition
 pub struct PrecompositionContainer<'a> {
@@ -12,20 +12,20 @@ pub struct PrecompositionContainer<'a> {
     pub(crate) layer: &'a Layer,
 }
 
-impl<'a> StagedLayerExt<'a> for PrecompositionContainer<'a> {
-    type Iter = impl Iterator<Item = StagedLayer<'a>>;
+// impl<'a> StagedLayerExt<'a> for PrecompositionContainer<'a> {
+//     type Iter = impl Iterator<Item = StagedLayer<'a>>;
 
-    fn layers(self) -> Self::Iter {
-        self.asset.layers.iter().map(|layer| {
-            let mut staged = StagedLayer::new(
-                layer,
-                self.asset
-                    .frame_rate
-                    .unwrap_or_else(|| self.comp.model.frame_rate),
-            );
-            staged.set_start_frame(self.layer.start_frame + layer.start_frame);
-            staged.set_end_frame(self.layer.end_frame + layer.end_frame);
-            staged
-        })
-    }
-}
+//     fn layers(self) -> Self::Iter {
+//         self.asset.layers.iter().map(|layer| {
+//             let mut staged = StagedLayer::new(
+//                 layer,
+//                 self.asset
+//                     .frame_rate
+//                     .unwrap_or_else(|| self.comp.model.frame_rate),
+//             );
+//             staged.set_start_frame(self.layer.start_frame +
+// layer.start_frame);             staged.set_end_frame(self.layer.end_frame +
+// layer.end_frame);             staged
+//         })
+//     }
+// }

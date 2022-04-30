@@ -5,6 +5,9 @@ version = "0.1.0"
 
 [dependencies]
 flo_curves = "0.6.1"
+multimap = "0.8.3"
+ordered-multimap = "0.4.3"
+slotmap = "1.0.6"
 thiserror = "1.0.30"
 
 [dependencies.lottie-ast]

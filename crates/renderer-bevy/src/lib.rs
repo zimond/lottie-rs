@@ -10,9 +10,10 @@ use bevy_tweening::{
 };
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::prelude::StyledShape;
+use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
 use lottie_core::*;
 use render::*;
+use std::cmp::min;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,6 +24,9 @@ pub struct LottieComp(Lottie);
 
 #[derive(Component)]
 struct LottieShapeComp(StyledShape);
+
+#[derive(Component)]
+struct LayerId(TimelineItemId);
 
 #[derive(Component)]
 struct LayerAnimationInfo {
@@ -140,7 +144,7 @@ impl BevyRenderer {
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
-            .add_system(lottie_animate_system);
+            .add_system(animate_system);
         BevyRenderer { app }
     }
 
@@ -191,41 +195,45 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
 
     lottie.scale = scale;
     let comp = LottieComp(lottie);
-    for layer in comp.flatten_layers() {
-        layer.spawn(&mut commands);
-    }
     commands
         .spawn()
         .insert(comp)
         .insert_bundle(TransformBundle::default());
 }
 
-fn lottie_animate_system(
-    query: Query<(&LayerAnimationInfo, &Children)>,
-    mut animated_shapes: Query<(&mut Visibility, &mut Animator<Transform>)>,
+fn animate_system(
+    mut commands: Commands,
+    query: Query<(Entity, &LayerAnimationInfo)>,
+    comp: Query<&LottieComp>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    let t = time.delta_seconds() * (info.frame_rate as f32);
-    info.current_frame = info.current_frame + t.round() as u32;
-
-    for (i, children) in query.iter() {
-        for child in children.iter() {
-            if let Ok((mut visibility, mut animator)) = animated_shapes.get_mut(*child) {
-                if info.current_frame < i.start_frame || info.current_frame >= i.end_frame {
-                    visibility.is_visible = false;
-                    animator.stop();
-                } else {
-                    visibility.is_visible = true;
-                    if animator.state == AnimatorState::Paused {
-                        animator.state = AnimatorState::Playing;
-                        animator.set_progress(
-                            info.current_frame as f32 / (i.end_frame - i.start_frame) as f32,
-                        );
+    let frame_window = (time.delta_seconds() * (info.frame_rate as f32)).round() as u32;
+    let frame_window = min(info.end_frame - info.current_frame, frame_window);
+    let comp = comp.get_single().unwrap();
+    for delta in 0..frame_window {
+        let frame = info.current_frame + delta;
+        let items = comp.timeline().events_at(frame).into_iter().flatten();
+        for item in items {
+            match item {
+                TimelineAction::Spawn(id) => {
+                    if let Some(layer) = comp.timeline().item(*id) {
+                        layer.spawn(info.current_frame + frame_window, &mut commands);
                     }
                 }
+                _ => {} // Skip destory event as we are destroying directly from bevy
             }
         }
     }
+
+    info.current_frame = info.current_frame + frame_window;
+
+    // Destory ended layers
+    for (entity, layer_info) in query.iter() {
+        if layer_info.end_frame <= info.current_frame {
+            commands.entity(entity).despawn_descendants();
+        }
+    }
+
     info.current_frame %= info.end_frame;
 }

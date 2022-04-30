@@ -3,20 +3,23 @@
 pub use animated::*;
 pub use error::Error;
 use layer::precomposition::PrecompositionContainer;
-use layer::staged::{StagedLayer, StagedLayerExt};
+use layer::staged::StagedLayer;
 pub use lottie_ast::*;
 pub use renderer::*;
+use timeline::Timeline;
 
 mod animated;
 mod error;
 mod layer;
 pub mod prelude;
 mod renderer;
+mod timeline;
 
 #[derive(Clone)]
 pub struct Lottie {
     pub model: Model,
     pub scale: f32,
+    timeline: Timeline,
     id_counter: u32,
 }
 
@@ -33,38 +36,17 @@ impl Lottie {
                 }
             }
         }
+        let timeline = Timeline::new(&model);
         Ok(Lottie {
             model,
+            timeline,
             id_counter,
             scale: 1.0,
         })
     }
 
-    /// Get an iterator which outputs every actual rendered layer in this
-    /// Lottie. More concisely, this method flattens precomposition layers
-    /// into normal layers.
-    pub fn flatten_layers(&self) -> impl Iterator<Item = StagedLayer<'_>> {
-        self.layers()
-            .filter_map(move |layer: StagedLayer<'_>| {
-                Some(match &layer.layer.content {
-                    LayerContent::Precomposition(pre) => {
-                        let asset = self
-                            .model
-                            .assets
-                            .iter()
-                            .find(|asset| asset.id == pre.ref_id)?;
-                        let pre = PrecompositionContainer {
-                            asset,
-                            layer: &layer.layer,
-                            comp: &self,
-                            ref_item: pre,
-                        };
-                        pre.layers().collect::<Vec<_>>()
-                    }
-                    _ => vec![layer],
-                })
-            })
-            .flat_map(|s| s)
+    pub fn timeline(&self) -> &Timeline {
+        &self.timeline
     }
 
     // pub fn query_asset_by_id(&self, id: &str) -> Option<PrecompositionContainer>
