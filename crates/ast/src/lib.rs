@@ -59,6 +59,8 @@ pub struct Layer {
     pub start_frame: u32,
     #[serde(rename = "op", deserialize_with = "u32_from_number")]
     pub end_frame: u32,
+    #[serde(rename = "st", deserialize_with = "u32_from_number")]
+    pub start_time: u32,
     #[serde(rename = "nm")]
     name: Option<String>,
     #[serde(rename = "ks", default)]

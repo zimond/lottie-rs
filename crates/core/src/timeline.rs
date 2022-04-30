@@ -6,6 +6,7 @@ use multimap::MultiMap;
 use slotmap::SlotMap;
 
 use crate::layer::staged::{RenderableContent, StagedLayer, TargetRef};
+use crate::layer::LayerExt;
 
 slotmap::new_key_type! {
     pub struct Id;
@@ -60,12 +61,14 @@ impl Timeline {
         let default_frame_rate = model.frame_rate;
         while !layers.is_empty() {
             let (layer, target) = layers.pop_front().unwrap();
+            let start_frame = layer.spawn_frame(default_frame_rate);
+            let end_frame = layer.despawn_frame(default_frame_rate);
             let layer = match layer.content {
                 LayerContent::Shape(shape_group) => StagedLayer {
                     content: RenderableContent::Shape(shape_group),
                     target,
-                    start_frame: layer.start_frame,
-                    end_frame: layer.end_frame,
+                    start_frame,
+                    end_frame,
                     frame_rate: default_frame_rate,
                 },
                 LayerContent::Precomposition(r) => {
@@ -75,16 +78,25 @@ impl Timeline {
                     };
                     for asset_layer in &asset.layers {
                         let mut asset_layer = asset_layer.clone();
-                        asset_layer.start_frame += layer.start_frame;
-                        asset_layer.end_frame += layer.start_frame;
-                        if asset_layer.start_frame < model.end_frame {
+                        asset_layer.start_frame = min(asset_layer.start_frame, layer.start_frame);
+                        asset_layer.end_frame = min(asset_layer.end_frame, layer.end_frame);
+                        asset_layer.start_time += layer.start_time;
+                        // TODO: adjust layer frame_rate
+                        if asset_layer.spawn_frame(default_frame_rate) < model.end_frame {
                             layers.push_back((asset_layer, TargetRef::Asset(r.ref_id.clone())));
                         }
                     }
                     continue;
                 }
+                LayerContent::Empty => {
+                    continue;
+                }
                 _ => todo!(),
             };
+            println!(
+                "add a layer start {} end {}",
+                layer.start_frame, layer.end_frame
+            );
             timeline.add_item(layer);
         }
         timeline
