@@ -1,4 +1,5 @@
 mod render;
+mod shape;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -48,8 +49,6 @@ where
     type Key;
     fn tween(
         &self,
-        start_frame: u32,
-        end_frame: u32,
         frame_rate: u32,
         producer: fn(start: Self::Key, end: Self::Key) -> L,
     ) -> Sequence<Transform>;
@@ -62,8 +61,6 @@ where
     type Key = Vector2D;
     fn tween(
         &self,
-        start_frame: u32,
-        end_frame: u32,
         frame_rate: u32,
         producer: fn(start: Self::Key, end: Self::Key) -> T,
     ) -> Sequence<Transform> {
@@ -101,9 +98,9 @@ where
                 Duration::from_secs_f32(secs),
                 producer(start, end),
             );
-            let t = if self[0].start_frame.unwrap() > start_frame && tween.is_none() {
+            let t = if self[0].start_frame.unwrap() > 0 && tween.is_none() {
                 Delay::new(Duration::from_secs_f32(
-                    (self[0].start_frame.unwrap() - start_frame) as f32 / (frame_rate as f32),
+                    self[0].start_frame.unwrap() as f32 / (frame_rate as f32),
                 ))
                 .then(t)
             } else {
@@ -114,14 +111,7 @@ where
                 None => Sequence::from_single(t),
             });
         }
-        let mut seq = tween.unwrap();
-        if self[self.len() - 1].start_frame.unwrap() < end_frame {
-            seq = seq.then(Delay::new(Duration::from_secs_f32(
-                (end_frame - self[self.len() - 1].start_frame.unwrap()) as f32
-                    / (frame_rate as f32),
-            )));
-        }
-        seq
+        tween.unwrap()
     }
 }
 
@@ -231,7 +221,7 @@ fn animate_system(
     // Destory ended layers
     for (entity, layer_info) in query.iter() {
         if layer_info.end_frame <= info.current_frame {
-            commands.entity(entity).despawn_descendants();
+            commands.entity(entity).despawn_recursive();
         }
     }
 

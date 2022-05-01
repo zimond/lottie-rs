@@ -61,8 +61,8 @@ impl Timeline {
         let default_frame_rate = model.frame_rate;
         while !layers.is_empty() {
             let (layer, target) = layers.pop_front().unwrap();
-            let start_frame = layer.spawn_frame(default_frame_rate);
-            let end_frame = layer.despawn_frame(default_frame_rate);
+            let start_frame = layer.spawn_frame();
+            let end_frame = layer.despawn_frame();
             let layer = match layer.content {
                 LayerContent::Shape(shape_group) => StagedLayer {
                     content: RenderableContent::Shape(shape_group),
@@ -82,7 +82,7 @@ impl Timeline {
                         asset_layer.end_frame = min(asset_layer.end_frame, layer.end_frame);
                         asset_layer.start_time += layer.start_time;
                         // TODO: adjust layer frame_rate
-                        if asset_layer.spawn_frame(default_frame_rate) < model.end_frame {
+                        if asset_layer.spawn_frame() < model.end_frame {
                             layers.push_back((asset_layer, TargetRef::Asset(r.ref_id.clone())));
                         }
                     }

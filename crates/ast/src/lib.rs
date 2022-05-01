@@ -64,7 +64,7 @@ pub struct Layer {
     #[serde(rename = "nm")]
     name: Option<String>,
     #[serde(rename = "ks", default)]
-    transform: Option<Transform>,
+    pub transform: Option<Transform>,
     #[serde(flatten)]
     pub content: LayerContent,
 }

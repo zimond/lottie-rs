@@ -2,8 +2,6 @@
 
 pub use animated::*;
 pub use error::Error;
-use layer::precomposition::PrecompositionContainer;
-use layer::staged::StagedLayer;
 pub use lottie_ast::*;
 pub use renderer::*;
 use timeline::Timeline;
@@ -48,11 +46,6 @@ impl Lottie {
     pub fn timeline(&self) -> &Timeline {
         &self.timeline
     }
-
-    // pub fn query_asset_by_id(&self, id: &str) -> Option<PrecompositionContainer>
-    // {     let asset = self.model.assets.iter().find(|asset| asset.id == id)?;
-    //     Some(PrecompositionContainer { asset, comp: &self })
-    // }
 }
 
 fn assign_id(layer: &mut ShapeLayer, id_counter: &mut u32) {

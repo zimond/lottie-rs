@@ -127,9 +127,9 @@ pub trait Shaped {
 
 impl Shaped for Ellipse {
     fn bbox(&self, frame: u32) -> Rect<f32> {
-        let w = self.size.value(frame);
-        let p = self.position.value(frame) - w / 2.0;
-        Rect::new(p.to_point(), w.to_size())
+        let s = self.size.value(frame);
+        let p = self.position.value(frame) - s / 2.0;
+        Rect::new(p.to_point(), s.to_size())
     }
 }
 
@@ -233,5 +233,15 @@ impl Shaped for Bezier {
             bbox.max().1 - bbox.min().1,
         )
         .cast()
+    }
+}
+
+impl Shaped for Shape {
+    fn bbox(&self, frame: u32) -> Rect<f32> {
+        match &self {
+            Shape::Ellipse(e) => e.bbox(frame),
+            Shape::Path { d } => d.value(frame).bbox(frame),
+            _ => unimplemented!(),
+        }
     }
 }
