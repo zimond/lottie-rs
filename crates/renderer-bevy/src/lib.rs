@@ -3,12 +3,12 @@ mod shape;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
+use bevy::utils::tracing::Id;
+use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{
-    Animator, AnimatorState, Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType,
-};
+use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
@@ -40,6 +40,7 @@ struct LottieAnimationInfo {
     end_frame: u32,
     frame_rate: u32,
     current_frame: u32,
+    entities: HashMap<TimelineItemId, Entity>,
 }
 
 trait TweenProducer<T, L>
@@ -180,6 +181,7 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
         end_frame: lottie.model.end_frame,
         frame_rate: lottie.model.frame_rate,
         current_frame: 0,
+        entities: HashMap::new(),
     });
     commands.spawn_bundle(camera);
 
@@ -208,7 +210,12 @@ fn animate_system(
             match item {
                 TimelineAction::Spawn(id) => {
                     if let Some(layer) = comp.timeline().item(*id) {
-                        layer.spawn(info.current_frame + frame_window, &mut commands);
+                        let entity = layer.spawn(info.current_frame + frame_window, &mut commands);
+                        if let Some(parent_entity) =
+                            layer.parent.and_then(|id| info.entities.get(&id))
+                        {
+                            commands.entity(*parent_entity).add_child(entity);
+                        }
                     }
                 }
                 _ => {} // Skip destory event as we are destroying directly from bevy

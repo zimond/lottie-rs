@@ -2,7 +2,7 @@ use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Color, Entity};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
-use bevy_tweening::{Animator, AnimatorState, Tracks};
+use bevy_tweening::{Animator, Tracks};
 use lottie_core::*;
 
 use bevy::prelude::Transform;
@@ -32,6 +32,7 @@ impl LayerRenderer for StagedLayer {
                     }
                 }
             }
+            RenderableContent::Group => {}
             _ => todo!(),
         }
 

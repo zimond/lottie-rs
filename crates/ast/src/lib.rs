@@ -128,6 +128,13 @@ impl Default for Transform {
     }
 }
 
+impl Transform {
+    pub fn is_identity(&self) -> bool {
+        false
+        // TODO:
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RepeaterTransform {
     #[serde(rename = "a")]
