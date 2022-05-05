@@ -1,9 +1,8 @@
 mod render;
-mod shape;
+mod utils;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use bevy::utils::tracing::Id;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};

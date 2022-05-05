@@ -9,9 +9,14 @@ use timeline::Timeline;
 mod animated;
 mod error;
 mod layer;
-pub mod prelude;
 mod renderer;
 mod timeline;
+
+pub mod prelude {
+    pub use crate::layer::shape::{PathExt, ShapeIterator, Shaped, StyledShape};
+    pub use crate::layer::staged::{RenderableContent, StagedLayer};
+    pub use crate::timeline::{Id, TimelineAction};
+}
 
 #[derive(Clone)]
 pub struct Lottie {

@@ -62,12 +62,9 @@ impl Timeline {
         let default_frame_rate = model.frame_rate;
         while !layers.is_empty() {
             let (layer, target, parent) = layers.pop_front().unwrap();
-            println!(
-                "add a layer start {} end {}",
-                layer.start_frame, layer.end_frame
-            );
             let start_frame = layer.spawn_frame();
             let end_frame = layer.despawn_frame();
+            println!("add a layer start {} end {}", start_frame, end_frame);
             match layer.content {
                 LayerContent::Shape(shape_group) => {
                     let layer = StagedLayer {

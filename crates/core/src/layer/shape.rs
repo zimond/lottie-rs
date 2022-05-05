@@ -136,6 +136,7 @@ impl Shaped for Ellipse {
 pub trait PathExt {
     fn to_svg_d(&self) -> String;
     fn move_origin(&mut self, x: f32, y: f32);
+    fn inverse_y_orientation(&mut self);
 }
 
 impl PathExt for Vec<Bezier> {
@@ -149,6 +150,12 @@ impl PathExt for Vec<Bezier> {
     fn move_origin(&mut self, x: f32, y: f32) {
         for b in self.iter_mut() {
             b.move_origin(x, y)
+        }
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        for i in self.iter_mut() {
+            i.inverse_y_orientation();
         }
     }
 }
@@ -173,7 +180,7 @@ impl PathExt for Bezier {
                 ));
             } else if let Some(pc1) = prev_c1 {
                 result.push_str(&format!(
-                    "{} {} {} {} C {} {}",
+                    "{} {} {} {} C {} {} ",
                     p1.x + pc1.x,
                     p1.y + pc1.y,
                     p1.x,
@@ -195,6 +202,12 @@ impl PathExt for Bezier {
         for p1 in &mut self.vertices {
             p1.x += x;
             p1.y += y;
+        }
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        for p in &mut self.vertices {
+            p.y *= -1.0;
         }
     }
 }

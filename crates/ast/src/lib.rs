@@ -105,7 +105,7 @@ pub struct Transform {
     #[serde(rename = "s", default = "default_vec2_100")]
     pub scale: Animated<Vector2D>,
     #[serde(rename = "r", default)]
-    rotation: Animated<f32>,
+    pub rotation: Animated<f32>,
     #[serde(rename = "o", default = "default_number_100")]
     opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
@@ -558,13 +558,13 @@ pub struct Stroke {
     #[serde(rename = "ml")]
     miter_limit: f32,
     #[serde(rename = "o")]
-    opacity: Animated<f32>,
+    pub opacity: Animated<f32>,
     #[serde(rename = "w")]
     pub width: Animated<f32>,
     #[serde(rename = "d", default)]
     dashes: Vec<StrokeDash>,
     #[serde(rename = "c")]
-    color: Animated<Rgb>,
+    pub color: Animated<Rgb>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
