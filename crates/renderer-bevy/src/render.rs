@@ -149,7 +149,11 @@ impl LayerRenderer for StagedLayer {
                     let tween = d
                         .keyframes
                         .tween(self.frame_rate, |start, end| PathLens { start, end });
-                    c.insert(Animator::new(tween));
+                    let mut animator = Animator::new(tween);
+                    let progress = (frame - self.start_frame) as f32
+                        / (self.end_frame - self.start_frame) as f32;
+                    animator.set_progress(progress);
+                    c.insert(animator);
                 }
                 c.id()
             }

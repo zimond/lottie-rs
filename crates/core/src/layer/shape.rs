@@ -60,6 +60,9 @@ impl<'a> Iterator for ShapeIter {
             return self.next();
         }
         let fill = fill.unwrap_or_else(Fill::transparent);
+        if !find_stroke {
+            self.shape_index -= 1;
+        }
         Some(StyledShape {
             shape,
             styles: vec![],

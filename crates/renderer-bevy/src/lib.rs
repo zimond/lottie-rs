@@ -8,7 +8,10 @@ use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType};
+use bevy_tweening::{
+    component_animator_system, Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin,
+    TweeningType,
+};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
@@ -138,6 +141,7 @@ impl BevyRenderer {
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
+            .add_system(component_animator_system::<Path>)
             .add_system(animate_system);
         BevyRenderer { app }
     }
