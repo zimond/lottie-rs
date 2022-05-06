@@ -1,30 +1,34 @@
 mod bezier;
 mod render;
+mod tween;
 mod utils;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
+use bevy::reflect::TypeUuid;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{
-    component_animator_system, Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin,
-    TweeningType,
-};
-use flo_curves::bezier::{curve_intersects_line, Curve};
-use flo_curves::{BezierCurveFactory, Coord2};
+use bevy_tweening::{component_animator_system, TweeningPlugin};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
 use lottie_core::*;
 use render::*;
 use std::cmp::min;
-use std::sync::Arc;
-use std::time::Duration;
 
 use bevy::prelude::Transform;
 
-#[derive(Component, Deref, DerefMut)]
-pub struct LottieComp(Lottie);
+#[derive(TypeUuid)]
+#[uuid = "760e41e4-94c0-44e7-bbc8-f00ea42d2420"]
+pub struct PrecompositionAsset {
+    data: Precomposition,
+}
+
+#[derive(Component)]
+pub struct LottieComp {
+    lottie: Lottie,
+    asset_handles: HashMap<String, Handle<PrecompositionAsset>>,
+}
 
 #[derive(Component)]
 struct LottieShapeComp(StyledShape);
@@ -44,82 +48,6 @@ struct LottieAnimationInfo {
     frame_rate: u32,
     current_frame: u32,
     entities: HashMap<TimelineItemId, Entity>,
-}
-
-trait TweenProducer<T, L>
-where
-    L: Lens<T> + Send + Sync + 'static,
-    T: 'static,
-{
-    type Key;
-    fn tween(
-        &self,
-        frame_rate: u32,
-        producer: fn(start: Self::Key, end: Self::Key) -> L,
-    ) -> Sequence<T>;
-}
-
-impl<L, T, V> TweenProducer<T, L> for Vec<KeyFrame<V>>
-where
-    L: Lens<T> + Send + Sync + 'static,
-    T: 'static,
-    V: Clone,
-{
-    type Key = V;
-    fn tween(
-        &self,
-        frame_rate: u32,
-        producer: fn(start: Self::Key, end: Self::Key) -> L,
-    ) -> Sequence<T> {
-        let mut tween: Option<Sequence<T>> = None;
-        for p in self.windows(2) {
-            let p0 = &p[0];
-            let p1 = &p[1];
-            let start = p0.value.clone();
-            let end = p1.value.clone();
-            let ease_out = p0.easing_out.clone().unwrap();
-            let ease_in = p0.easing_in.clone().unwrap();
-            let frames = p1.start_frame.unwrap() - p0.start_frame.unwrap();
-            let secs = frames as f32 / frame_rate as f32;
-            let curve = Curve::from_points(
-                Coord2(0.0, 0.0),
-                (
-                    Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
-                    Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
-                ),
-                Coord2(1.0, 1.0),
-            );
-            let t = Tween::new(
-                EaseMethod::CustomFunction(Arc::new(move |x| {
-                    let intersection = curve_intersects_line(
-                        &curve,
-                        &(Coord2(x as f64, 0.0), Coord2(x as f64, 1.0)),
-                    );
-                    if intersection.is_empty() {
-                        x
-                    } else {
-                        intersection[0].2 .1 as f32
-                    }
-                })),
-                TweeningType::Once,
-                Duration::from_secs_f32(secs),
-                producer(start, end),
-            );
-            let t = if self[0].start_frame.unwrap() > 0 && tween.is_none() {
-                Delay::new(Duration::from_secs_f32(
-                    self[0].start_frame.unwrap() as f32 / (frame_rate as f32),
-                ))
-                .then(t)
-            } else {
-                Sequence::from_single(t)
-            };
-            tween = Some(match tween {
-                Some(seq) => seq.then(t),
-                None => Sequence::from_single(t),
-            });
-        }
-        tween.unwrap()
-    }
 }
 
 pub struct BevyRenderer {
@@ -193,7 +121,10 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
     commands.spawn_bundle(camera);
 
     lottie.scale = scale;
-    let comp = LottieComp(lottie);
+    let comp = LottieComp {
+        lottie,
+        asset_handles: HashMap::new(),
+    };
     commands
         .spawn()
         .insert(comp)
@@ -212,11 +143,16 @@ fn animate_system(
     let comp = comp.get_single().unwrap();
     for delta in 0..frame_window {
         let frame = info.current_frame + delta;
-        let items = comp.timeline().events_at(frame).into_iter().flatten();
+        let items = comp
+            .lottie
+            .timeline()
+            .events_at(frame)
+            .into_iter()
+            .flatten();
         for item in items {
             match item {
                 TimelineAction::Spawn(id) => {
-                    if let Some(layer) = comp.timeline().item(*id) {
+                    if let Some(layer) = comp.lottie.timeline().item(*id) {
                         let entity = layer.spawn(info.current_frame + frame_window, &mut commands);
                         if let Some(parent_entity) =
                             layer.parent.and_then(|id| info.entities.get(&id))

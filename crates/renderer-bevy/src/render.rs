@@ -1,6 +1,6 @@
 use bevy::ecs::system::EntityCommands;
 use bevy::math::{Vec2, Vec3};
-use bevy::prelude::{Color, Entity};
+use bevy::prelude::Entity;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{Animator, Tracks};
@@ -10,6 +10,7 @@ use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
 
 use crate::bezier::PathLens;
+use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
