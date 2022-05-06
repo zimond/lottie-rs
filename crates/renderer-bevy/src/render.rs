@@ -136,7 +136,6 @@ impl LayerRenderer for StagedLayer {
                     svg_doc_size_in_px: Vec2::new(0.0, 0.0),
                     svg_path_string: beziers.to_svg_d(),
                 };
-                println!("path: {}", path_shape.svg_path_string);
                 let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(
                     &path_shape,

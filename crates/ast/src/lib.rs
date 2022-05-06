@@ -552,7 +552,7 @@ impl Fill {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stroke {
     #[serde(rename = "lc")]
-    line_cap: LineCap,
+    pub line_cap: LineCap,
     #[serde(rename = "lj")]
     line_join: LineJoin,
     #[serde(rename = "ml")]

@@ -1,33 +1,44 @@
 use bevy::math::{Quat, Vec3};
 use bevy::prelude::{Color, Transform};
-use bevy_prototype_lyon::prelude::{DrawMode, FillMode, StrokeMode};
+use bevy_prototype_lyon::prelude::{DrawMode, FillMode, LineCap, StrokeMode};
 use lottie_core::prelude::StyledShape;
-use lottie_core::{AnimatedExt, Rgb, Transform as LottieTransform};
+use lottie_core::{AnimatedExt, LineCap as LottieLineCap, Rgb, Transform as LottieTransform};
 
 pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
     let fill = shape.fill.color.initial_value();
     let fill_opacity = (shape.fill.opacity.initial_value() * 255.0) as u8;
     let stroke_width: f32 = shape
-        .strokes
-        .iter()
+        .stroke
+        .as_ref()
         .map(|stroke| stroke.width.initial_value())
-        .sum();
+        .unwrap_or(0.0);
     let stroke = shape
-        .strokes
-        .first()
-        .map(|s| s.color.initial_value())
+        .stroke
+        .as_ref()
+        .map(|stroke| stroke.color.initial_value())
         .unwrap_or(Rgb::new_u8(0, 0, 0));
     let stroke_opacity = shape
-        .strokes
-        .first()
-        .map(|s| s.opacity.initial_value() * 255.0)
+        .stroke
+        .as_ref()
+        .map(|stroke| stroke.opacity.initial_value() * 255.0)
         .unwrap_or(0.0) as u8;
+    let fill_mode = FillMode::color(Color::rgba_u8(fill.r, fill.g, fill.b, fill_opacity));
+    let mut stroke_mode = StrokeMode::new(
+        Color::rgba_u8(stroke.r, stroke.g, stroke.b, stroke_opacity),
+        stroke_width,
+    );
+    if let Some(stroke) = shape.stroke.as_ref() {
+        let line_cap = match stroke.line_cap {
+            LottieLineCap::Butt => LineCap::Butt,
+            LottieLineCap::Round => LineCap::Round,
+            LottieLineCap::Square => LineCap::Square,
+        };
+        stroke_mode.options.start_cap = line_cap;
+        stroke_mode.options.end_cap = line_cap;
+    }
     DrawMode::Outlined {
-        fill_mode: FillMode::color(Color::rgba_u8(fill.r, fill.g, fill.b, fill_opacity)),
-        outline_mode: StrokeMode::new(
-            Color::rgba_u8(stroke.r, stroke.g, stroke.b, stroke_opacity),
-            stroke_width,
-        ),
+        fill_mode,
+        outline_mode: stroke_mode,
     }
 }
 

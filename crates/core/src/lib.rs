@@ -1,4 +1,4 @@
-#![feature(type_alias_impl_trait)]
+#![feature(type_alias_impl_trait, let_chains)]
 
 pub use animated::*;
 pub use error::Error;

@@ -5,59 +5,67 @@ use crate::AnimatedExt;
 
 pub struct ShapeIter {
     shapes: Vec<ShapeLayer>,
-    index: usize,
+    shape_index: isize,
+    stroke_index: usize,
 }
 
 impl<'a> Iterator for ShapeIter {
     type Item = StyledShape;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.shapes.len() {
-            self.shapes.pop();
+        while self.shape_index >= 0 && !self.shapes[self.shape_index as usize].shape.is_shape() {
+            self.shape_index -= 1;
         }
-        while self.index < self.shapes.len() && !self.shapes[self.index].shape.is_shape() {
-            self.index += 1;
-        }
-        if self.index >= self.shapes.len() {
+        if self.shape_index < 0 {
             return None;
         }
-        let shape = self.shapes[self.index].clone();
+        let shape = self.shapes[self.shape_index as usize].clone();
         let mut fill = None;
-        let mut transform = Transform::default();
-        let mut strokes = vec![];
-        let mut styles = vec![];
-        self.index += 1;
-        while self.index < self.shapes.len() {
-            if self.shapes[self.index].shape.is_style() {
-                if let Shape::Fill(f) = &self.shapes[self.index].shape {
-                    if fill.is_none() {
-                        fill = Some(f.clone());
-                    }
-                } else if let Shape::Stroke(stroke) = &self.shapes[self.index].shape {
-                    strokes.push(stroke.clone());
-                } else {
-                    styles.push(self.shapes[self.index].clone());
-                }
-                self.index += 1;
-            } else if let Shape::Transform(t) = &self.shapes[self.index].shape {
-                transform = t.clone();
-                self.index += 1;
-            } else if self.shapes[self.index].shape.is_shape() {
-                self.index -= 1;
+        let mut transform = None;
+        let mut stroke = None;
+        for index in (self.shape_index as usize + 1)..self.shapes.len() {
+            let shape = &self.shapes[index];
+            if let Shape::Transform(t) = &shape.shape {
+                transform = Some(t.clone());
+                self.stroke_index = index;
                 break;
             }
         }
-        let fill = match fill {
-            Some(f) => f,
-            None if strokes.is_empty() => return self.next(),
-            _ => Fill::transparent(),
-        };
+        if transform.is_none() && self.stroke_index <= self.shape_index as usize {
+            self.stroke_index = self.shapes.len();
+        }
+        let mut find_stroke = false;
+        let mut target_stroke_index = self.stroke_index;
+        for index in (self.shape_index as usize + 1)..self.shapes.len() {
+            let shape = &self.shapes[index];
+            if shape.shape.is_style() {
+                if let Shape::Fill(f) = &shape.shape && fill.is_none() {
+                    fill = Some(f.clone());
+                } else if let Shape::Stroke(s) = &shape.shape {
+                    find_stroke = true;
+                    if index < self.stroke_index {
+                        stroke = Some(s.clone());
+                        target_stroke_index = index;
+                    }
+                }
+            }
+        }
+        self.stroke_index = target_stroke_index;
+        if stroke.is_none() && find_stroke {
+            self.shape_index -= 1;
+            return self.next();
+        }
+        if fill.is_none() && stroke.is_none() {
+            self.shape_index -= 1;
+            return self.next();
+        }
+        let fill = fill.unwrap_or_else(Fill::transparent);
         Some(StyledShape {
             shape,
-            styles,
-            strokes,
+            styles: vec![],
+            stroke,
             fill,
-            transform,
+            transform: transform.unwrap_or_default(),
         })
     }
 }
@@ -69,7 +77,11 @@ pub trait ShapeIterator {
 impl ShapeIterator for ShapeGroup {
     fn shapes(&self) -> ShapeIter {
         let shapes = flatten(&self.shapes);
-        ShapeIter { shapes, index: 0 }
+        ShapeIter {
+            shape_index: shapes.len() as isize - 1,
+            stroke_index: 0,
+            shapes,
+        }
     }
 }
 
@@ -89,7 +101,7 @@ fn flatten(shapes: &Vec<ShapeLayer>) -> Vec<ShapeLayer> {
 pub struct StyledShape {
     pub shape: ShapeLayer,
     pub fill: Fill,
-    pub strokes: Vec<Stroke>,
+    pub stroke: Option<Stroke>,
     pub transform: Transform,
     pub styles: Vec<ShapeLayer>,
 }
