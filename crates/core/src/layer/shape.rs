@@ -177,7 +177,7 @@ impl PathExt for Bezier {
         let mut result = String::new();
         let mut prev_c1: Option<Vector2D> = None;
         for ((p1, c1), c2) in self
-            .vertices
+            .verticies
             .iter()
             .zip(self.in_tangent.iter())
             .zip(self.out_tangent.iter())
@@ -211,14 +211,14 @@ impl PathExt for Bezier {
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
-        for p1 in &mut self.vertices {
+        for p1 in &mut self.verticies {
             p1.x += x;
             p1.y += y;
         }
     }
 
     fn inverse_y_orientation(&mut self) {
-        for p in &mut self.vertices {
+        for p in &mut self.verticies {
             p.y *= -1.0;
         }
     }
@@ -235,18 +235,21 @@ impl Shaped for Vec<Bezier> {
 
 impl Shaped for Bezier {
     fn bbox(&self, _: u32) -> Rect<f32> {
-        let bbox = (0..(self.vertices.len() - 1))
+        let bbox = (0..(self.verticies.len() - 1))
             .map(|i| {
-                let w1 = Coord2(self.vertices[i].x as f64, self.vertices[i].y as f64);
+                let w1 = Coord2(self.verticies[i].x as f64, self.verticies[i].y as f64);
                 let w2 = Coord2(
-                    self.out_tangent[i].x as f64 + self.vertices[i].x as f64,
-                    self.out_tangent[i].y as f64 + self.vertices[i].y as f64,
+                    self.out_tangent[i].x as f64 + self.verticies[i].x as f64,
+                    self.out_tangent[i].y as f64 + self.verticies[i].y as f64,
                 );
                 let w3 = Coord2(
-                    self.in_tangent[i].x as f64 + self.vertices[i + 1].x as f64,
-                    self.in_tangent[i].y as f64 + self.vertices[i + 1].y as f64,
+                    self.in_tangent[i].x as f64 + self.verticies[i + 1].x as f64,
+                    self.in_tangent[i].y as f64 + self.verticies[i + 1].y as f64,
                 );
-                let w4 = Coord2(self.vertices[i + 1].x as f64, self.vertices[i + 1].y as f64);
+                let w4 = Coord2(
+                    self.verticies[i + 1].x as f64,
+                    self.verticies[i + 1].y as f64,
+                );
                 flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
             })
             .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))

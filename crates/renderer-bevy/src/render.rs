@@ -6,10 +6,10 @@ use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{Animator, Tracks};
 use lottie_core::*;
 
-use bevy::prelude::Transform;
 use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
 
+use crate::bezier::PathLens;
 use crate::*;
 
 pub trait LayerRenderer {
@@ -143,6 +143,14 @@ impl LayerRenderer for StagedLayer {
                     initial_transform,
                 ));
                 self.spawn_transform(frame, &shape.transform, &mut c);
+
+                // Add bezier tween
+                if d.animated {
+                    let tween = d
+                        .keyframes
+                        .tween(self.frame_rate, |start, end| PathLens { start, end });
+                    c.insert(Animator::new(tween));
+                }
                 c.id()
             }
             Shape::Group { .. } => {

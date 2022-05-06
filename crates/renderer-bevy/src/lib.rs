@@ -1,3 +1,4 @@
+mod bezier;
 mod render;
 mod utils;
 
@@ -5,7 +6,7 @@ use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
-use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+// use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningPlugin, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
@@ -45,31 +46,34 @@ struct LottieAnimationInfo {
 trait TweenProducer<T, L>
 where
     L: Lens<T> + Send + Sync + 'static,
+    T: 'static,
 {
     type Key;
     fn tween(
         &self,
         frame_rate: u32,
         producer: fn(start: Self::Key, end: Self::Key) -> L,
-    ) -> Sequence<Transform>;
+    ) -> Sequence<T>;
 }
 
-impl<T> TweenProducer<Transform, T> for Vec<KeyFrame<Vector2D>>
+impl<L, T, V> TweenProducer<T, L> for Vec<KeyFrame<V>>
 where
-    T: Lens<Transform> + Send + Sync + 'static,
+    L: Lens<T> + Send + Sync + 'static,
+    T: 'static,
+    V: Clone,
 {
-    type Key = Vector2D;
+    type Key = V;
     fn tween(
         &self,
         frame_rate: u32,
-        producer: fn(start: Self::Key, end: Self::Key) -> T,
-    ) -> Sequence<Transform> {
-        let mut tween: Option<Sequence<Transform>> = None;
+        producer: fn(start: Self::Key, end: Self::Key) -> L,
+    ) -> Sequence<T> {
+        let mut tween: Option<Sequence<T>> = None;
         for p in self.windows(2) {
             let p0 = &p[0];
             let p1 = &p[1];
-            let start = p0.value;
-            let end = p1.value;
+            let start = p0.value.clone();
+            let end = p1.value.clone();
             let ease_out = p0.easing_out.clone().unwrap();
             let ease_in = p0.easing_in.clone().unwrap();
             let frames = p1.start_frame.unwrap() - p0.start_frame.unwrap();

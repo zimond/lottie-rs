@@ -615,7 +615,7 @@ pub struct Bezier {
         deserialize_with = "vec_from_array",
         serialize_with = "array_from_vec"
     )]
-    pub vertices: Vec<Vector2D>,
+    pub verticies: Vec<Vector2D>,
     #[serde(
         rename = "i",
         deserialize_with = "vec_from_array",
