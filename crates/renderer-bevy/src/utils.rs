@@ -1,8 +1,11 @@
 use bevy::math::{Quat, Vec3};
 use bevy::prelude::{Color, Transform};
-use bevy_prototype_lyon::prelude::{DrawMode, FillMode, LineCap, StrokeMode};
+use bevy_prototype_lyon::prelude::{DrawMode, FillMode, LineCap, LineJoin, StrokeMode};
 use lottie_core::prelude::StyledShape;
-use lottie_core::{AnimatedExt, LineCap as LottieLineCap, Rgb, Transform as LottieTransform};
+use lottie_core::{
+    AnimatedExt, LineCap as LottieLineCap, LineJoin as LottieLineJoin, Rgb,
+    Transform as LottieTransform,
+};
 
 pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
     let fill = shape.fill.color.initial_value();
@@ -35,6 +38,11 @@ pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
         };
         stroke_mode.options.start_cap = line_cap;
         stroke_mode.options.end_cap = line_cap;
+        stroke_mode.options.line_join = match stroke.line_join {
+            LottieLineJoin::Miter => LineJoin::Miter,
+            LottieLineJoin::Round => LineJoin::Round,
+            LottieLineJoin::Bevel => LineJoin::Bevel,
+        };
     }
     DrawMode::Outlined {
         fill_mode,

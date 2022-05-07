@@ -554,7 +554,7 @@ pub struct Stroke {
     #[serde(rename = "lc")]
     pub line_cap: LineCap,
     #[serde(rename = "lj")]
-    line_join: LineJoin,
+    pub line_join: LineJoin,
     #[serde(rename = "ml")]
     miter_limit: f32,
     #[serde(rename = "o")]

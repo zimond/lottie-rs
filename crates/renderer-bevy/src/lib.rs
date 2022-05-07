@@ -1,11 +1,13 @@
+mod asset;
 mod bezier;
 mod render;
 mod tween;
 mod utils;
 
+use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -17,12 +19,6 @@ use render::*;
 use std::cmp::min;
 
 use bevy::prelude::Transform;
-
-#[derive(TypeUuid)]
-#[uuid = "760e41e4-94c0-44e7-bbc8-f00ea42d2420"]
-pub struct PrecompositionAsset {
-    data: Precomposition,
-}
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -63,6 +59,7 @@ impl BevyRenderer {
         plugin_group_builder.disable::<WinitPlugin>();
         // Disable gamepad support
         plugin_group_builder.disable::<GilrsPlugin>();
+        plugin_group_builder.disable::<LogPlugin>();
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
             .add_plugin(TweeningPlugin)
@@ -138,11 +135,11 @@ fn animate_system(
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    let frame_window = (time.delta_seconds() * (info.frame_rate as f32)).round() as u32;
-    let frame_window = min(info.end_frame - info.current_frame, frame_window);
+    let current_frame = (time.time_since_startup().as_secs_f32() * info.frame_rate as f32).round()
+        as u32
+        % info.end_frame;
     let comp = comp.get_single().unwrap();
-    for delta in 0..frame_window {
-        let frame = info.current_frame + delta;
+    for frame in info.current_frame..current_frame {
         let items = comp
             .lottie
             .timeline()
@@ -153,7 +150,7 @@ fn animate_system(
             match item {
                 TimelineAction::Spawn(id) => {
                     if let Some(layer) = comp.lottie.timeline().item(*id) {
-                        let entity = layer.spawn(info.current_frame + frame_window, &mut commands);
+                        let entity = layer.spawn(frame, &mut commands);
                         if let Some(parent_entity) =
                             layer.parent.and_then(|id| info.entities.get(&id))
                         {
@@ -166,7 +163,7 @@ fn animate_system(
         }
     }
 
-    info.current_frame = info.current_frame + frame_window;
+    info.current_frame = current_frame;
 
     // Destory ended layers
     for (entity, layer_info) in query.iter() {

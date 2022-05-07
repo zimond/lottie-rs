@@ -32,10 +32,19 @@ pub trait LayerRenderer {
 impl LayerRenderer for StagedLayer {
     fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
+        let transform = utils::initial_transform(&self.transform);
+        log::trace!(
+            "spawn layer {:?}: start {}, end {}, transform: {:?}",
+            c.id(),
+            self.start_frame,
+            self.end_frame,
+            transform
+        );
         match &self.content {
             RenderableContent::Shape(shapes) => {
                 for shape in shapes.shapes() {
                     if let Some(entity) = self.spawn_shape(frame, shape, c.commands()) {
+                        log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
                     }
                 }
@@ -45,7 +54,7 @@ impl LayerRenderer for StagedLayer {
         }
 
         c.insert_bundle(TransformBundle {
-            local: utils::initial_transform(&self.transform),
+            local: transform,
             global: Default::default(),
         });
         c.insert(LayerAnimationInfo {
