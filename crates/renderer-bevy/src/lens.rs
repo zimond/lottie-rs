@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy_prototype_lyon::prelude::{Path, PathBuilder};
+use bevy_prototype_lyon::prelude::{DrawMode, Path, PathBuilder};
 use bevy_tweening::Lens;
 use lottie_core::Bezier;
 
@@ -36,5 +36,21 @@ impl Lens<Path> for PathLens {
             }
         }
         *target = builder.build();
+    }
+}
+
+pub struct StrokeWidthLens {
+    pub(crate) start: f32,
+    pub(crate) end: f32,
+}
+
+impl Lens<DrawMode> for StrokeWidthLens {
+    fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
+        let w = self.start + (self.end - self.start) * ratio;
+        match target {
+            DrawMode::Stroke(s) => s.options.line_width = w,
+            DrawMode::Outlined { outline_mode, .. } => outline_mode.options.line_width = w,
+            _ => {}
+        }
     }
 }

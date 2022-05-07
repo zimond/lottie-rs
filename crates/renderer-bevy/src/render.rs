@@ -9,7 +9,7 @@ use lottie_core::*;
 use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
 
-use crate::bezier::PathLens;
+use crate::lens::{PathLens, StrokeWidthLens};
 use crate::tween::TweenProducer;
 use crate::*;
 
@@ -21,6 +21,7 @@ pub trait LayerRenderer {
         transform: &LottieTransform,
         commands: &mut EntityCommands,
     );
+    fn spawn_stroke(&self, frame: u32, stroke: &Stroke, commands: &mut EntityCommands);
     fn spawn_shape(
         &self,
         frame: u32,
@@ -132,6 +133,9 @@ impl LayerRenderer for StagedLayer {
                     initial_transform,
                 ));
                 self.spawn_transform(frame, &shape.transform, &mut c);
+                if let Some(stroke) = shape.stroke.as_ref() {
+                    self.spawn_stroke(frame, stroke, &mut c);
+                }
                 c.insert(LottieShapeComp(shape));
                 c.id()
             }
@@ -153,6 +157,9 @@ impl LayerRenderer for StagedLayer {
                     initial_transform,
                 ));
                 self.spawn_transform(frame, &shape.transform, &mut c);
+                if let Some(stroke) = shape.stroke.as_ref() {
+                    self.spawn_stroke(frame, stroke, &mut c);
+                }
 
                 // Add bezier tween
                 if d.animated {
@@ -176,5 +183,26 @@ impl LayerRenderer for StagedLayer {
             }
         };
         Some(entity)
+    }
+
+    fn spawn_stroke(&self, frame: u32, stroke: &Stroke, commands: &mut EntityCommands) {
+        let mut tweens = vec![];
+        let frame_rate = self.frame_rate;
+        if stroke.width.is_animated() {
+            tweens.push(
+                stroke
+                    .width
+                    .keyframes
+                    .tween(frame_rate, |start, end| StrokeWidthLens { start, end }),
+            );
+        }
+        if !tweens.is_empty() {
+            let tracks = Tracks::new(tweens);
+            let mut animator = Animator::new(tracks);
+            let progress =
+                (frame - self.start_frame) as f32 / (self.end_frame - self.start_frame) as f32;
+            animator.set_progress(progress);
+            commands.insert(animator);
+        }
     }
 }

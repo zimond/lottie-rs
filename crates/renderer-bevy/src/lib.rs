@@ -1,5 +1,5 @@
 mod asset;
-mod bezier;
+mod lens;
 mod render;
 mod tween;
 mod utils;
@@ -67,6 +67,7 @@ impl BevyRenderer {
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
             .add_system(component_animator_system::<Path>)
+            .add_system(component_animator_system::<DrawMode>)
             .add_system(animate_system);
         BevyRenderer { app }
     }
