@@ -6,6 +6,7 @@ mod utils;
 
 use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
+use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
@@ -73,6 +74,10 @@ impl BevyRenderer {
 
     pub fn add_plugin(&mut self, plugin: impl Plugin) {
         self.app.add_plugin(plugin);
+    }
+
+    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) {
+        self.app.add_system(system);
     }
 }
 
@@ -159,16 +164,16 @@ fn animate_system(
             match item {
                 TimelineAction::Spawn(id) => {
                     if let Some(layer) = comp.lottie.timeline().item(*id) {
-                        let [pentity, entity] = layer.spawn(frame, &mut commands);
+                        let entity = layer.spawn(frame, &mut commands);
                         info.entities.insert(layer.id, entity);
                         if let Some(parent_entity) =
                             layer.parent.and_then(|id| info.entities.get(&id))
                         {
-                            log::trace!("adding {:?} -> {:?}", pentity, parent_entity);
-                            commands.entity(*parent_entity).add_child(pentity);
+                            log::trace!("adding {:?} -> {:?}", entity, parent_entity);
+                            commands.entity(*parent_entity).add_child(entity);
                         } else {
-                            log::trace!("adding {:?} -> {:?}", pentity, root_entity);
-                            commands.entity(root_entity).add_child(pentity);
+                            log::trace!("adding {:?} -> {:?}", entity, root_entity);
+                            commands.entity(root_entity).add_child(entity);
                         }
                     }
                 }

@@ -14,7 +14,7 @@ use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> [Entity; 2];
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity;
     fn spawn_transform(
         &self,
         frame: u32,
@@ -31,21 +31,13 @@ pub trait LayerRenderer {
 }
 
 impl LayerRenderer for StagedLayer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> [Entity; 2] {
-        let mut parent = commands.spawn();
-        let pid = parent.id();
-        let (mut transform, anchor) = utils::initial_transform_and_anchor(&self.transform);
-        parent.insert_bundle(TransformBundle {
-            local: Transform::from_translation(anchor * 2.0),
-            global: Default::default(),
-        });
-        // transform.translation -= anchor;
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
+        let mut c = commands.spawn();
+        let (transform, anchor) = utils::initial_transform_and_anchor(&self.transform);
 
-        let mut c = parent.commands().spawn();
         log::trace!(
-            "spawn layer {:?} -> {:?}: start {}, end {}, transform: {:?}",
+            "spawn layer {:?}: start {}, end {}, transform: {:?}",
             c.id(),
-            pid,
             self.start_frame,
             self.end_frame,
             transform
@@ -62,22 +54,22 @@ impl LayerRenderer for StagedLayer {
             RenderableContent::Group => {}
             _ => todo!(),
         }
-        let mut local = Transform::from_scale(transform.scale);
-        local.rotate_around(anchor, transform.rotation);
+        let local = Mat4::from_translation(anchor)
+            * Mat4::from_scale(transform.scale)
+            * Mat4::from_rotation_z(transform.rotation.z)
+            * Mat4::from_translation(-anchor);
+        let local = Transform::from_matrix(local);
         c.insert_bundle(TransformBundle {
             local,
             global: Default::default(),
         });
         let id = c.id();
 
-        log::trace!("adding {:?} -> {:?}", id, parent.id());
-
-        parent.add_child(id);
-        parent.insert(LayerAnimationInfo {
+        c.insert(LayerAnimationInfo {
             start_frame: self.start_frame,
             end_frame: self.end_frame,
         });
-        [parent.id(), id]
+        id
     }
 
     fn spawn_transform(
