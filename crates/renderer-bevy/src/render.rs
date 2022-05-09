@@ -1,6 +1,6 @@
 use bevy::ecs::system::EntityCommands;
 use bevy::math::{Vec2, Vec3};
-use bevy::prelude::Entity;
+use bevy::prelude::{Entity, Transform};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{Animator, Tracks};
@@ -14,7 +14,7 @@ use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity;
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> [Entity; 2];
     fn spawn_transform(
         &self,
         frame: u32,
@@ -31,12 +31,21 @@ pub trait LayerRenderer {
 }
 
 impl LayerRenderer for StagedLayer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
-        let mut c = commands.spawn();
-        let transform = utils::initial_transform(&self.transform);
+    fn spawn(&self, frame: u32, commands: &mut Commands) -> [Entity; 2] {
+        let mut parent = commands.spawn();
+        let pid = parent.id();
+        let (mut transform, anchor) = utils::initial_transform_and_anchor(&self.transform);
+        parent.insert_bundle(TransformBundle {
+            local: Transform::from_translation(anchor * 2.0),
+            global: Default::default(),
+        });
+        // transform.translation -= anchor;
+
+        let mut c = parent.commands().spawn();
         log::trace!(
-            "spawn layer {:?}: start {}, end {}, transform: {:?}",
+            "spawn layer {:?} -> {:?}: start {}, end {}, transform: {:?}",
             c.id(),
+            pid,
             self.start_frame,
             self.end_frame,
             transform
@@ -53,16 +62,22 @@ impl LayerRenderer for StagedLayer {
             RenderableContent::Group => {}
             _ => todo!(),
         }
-
+        let mut local = Transform::from_scale(transform.scale);
+        local.rotate_around(anchor, transform.rotation);
         c.insert_bundle(TransformBundle {
-            local: transform,
+            local,
             global: Default::default(),
         });
-        c.insert(LayerAnimationInfo {
+        let id = c.id();
+
+        log::trace!("adding {:?} -> {:?}", id, parent.id());
+
+        parent.add_child(id);
+        parent.insert(LayerAnimationInfo {
             start_frame: self.start_frame,
             end_frame: self.end_frame,
         });
-        c.id()
+        [parent.id(), id]
     }
 
     fn spawn_transform(
@@ -112,7 +127,8 @@ impl LayerRenderer for StagedLayer {
             return None;
         }
         let draw_mode = utils::shape_draw_mode(&shape);
-        let initial_transform = utils::initial_transform(&shape.transform);
+        // TODO: handle anchor
+        let (initial_transform, _) = utils::initial_transform_and_anchor(&shape.transform);
         // let bbox = shape.shape.shape.bbox(0);
         // let center = bbox.center();
         // initial_transform.translation += Vec3::new(center.x, center.y, 0.0);
@@ -127,6 +143,7 @@ impl LayerRenderer for StagedLayer {
                 };
 
                 let mut c = commands.spawn();
+                c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(
                     &ellipse_shape,
                     draw_mode,
@@ -151,6 +168,7 @@ impl LayerRenderer for StagedLayer {
                     svg_path_string: beziers.to_svg_d(),
                 };
                 let mut c = commands.spawn();
+                c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(
                     &path_shape,
                     draw_mode,

@@ -99,7 +99,7 @@ pub struct PreCompositionRef {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transform {
     #[serde(rename = "a", default)]
-    anchor: Animated<Vector2D>,
+    pub anchor: Animated<Vector2D>,
     #[serde(rename = "p", default)]
     pub position: Animated<Vector2D>,
     #[serde(rename = "s", default = "default_vec2_100")]

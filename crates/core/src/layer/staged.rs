@@ -17,6 +17,7 @@ pub enum TargetRef {
 /// A wrapper for [Layer], ready to be rendered
 #[derive(Debug, Clone)]
 pub struct StagedLayer {
+    pub id: Id,
     pub content: RenderableContent,
     pub target: TargetRef,
     pub start_frame: u32,

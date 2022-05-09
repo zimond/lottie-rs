@@ -16,7 +16,6 @@ use bevy_tweening::{component_animator_system, TweeningPlugin};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
 use lottie_core::*;
 use render::*;
-use std::cmp::min;
 
 use bevy::prelude::Transform;
 
@@ -132,14 +131,23 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
 fn animate_system(
     mut commands: Commands,
     query: Query<(Entity, &LayerAnimationInfo)>,
-    comp: Query<&LottieComp>,
+    comp: Query<(Entity, &LottieComp)>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    let current_frame = (time.time_since_startup().as_secs_f32() * info.frame_rate as f32).round()
-        as u32
+    let mut current_frame = (time.time_since_startup().as_secs_f32() * info.frame_rate as f32)
+        .round() as u32
         % info.end_frame;
-    let comp = comp.get_single().unwrap();
+    if current_frame < info.current_frame {
+        current_frame = 1;
+        info.current_frame = 0;
+        info.entities.clear();
+        log::trace!("destroy all entities");
+        for (entity, _) in comp.iter() {
+            commands.entity(entity).despawn_descendants();
+        }
+    }
+    let (root_entity, comp) = comp.get_single().unwrap();
     for frame in info.current_frame..current_frame {
         let items = comp
             .lottie
@@ -151,11 +159,16 @@ fn animate_system(
             match item {
                 TimelineAction::Spawn(id) => {
                     if let Some(layer) = comp.lottie.timeline().item(*id) {
-                        let entity = layer.spawn(frame, &mut commands);
+                        let [pentity, entity] = layer.spawn(frame, &mut commands);
+                        info.entities.insert(layer.id, entity);
                         if let Some(parent_entity) =
                             layer.parent.and_then(|id| info.entities.get(&id))
                         {
-                            commands.entity(*parent_entity).add_child(entity);
+                            log::trace!("adding {:?} -> {:?}", pentity, parent_entity);
+                            commands.entity(*parent_entity).add_child(pentity);
+                        } else {
+                            log::trace!("adding {:?} -> {:?}", pentity, root_entity);
+                            commands.entity(root_entity).add_child(pentity);
                         }
                     }
                 }
@@ -164,14 +177,12 @@ fn animate_system(
         }
     }
 
-    info.current_frame = current_frame;
-
     // Destory ended layers
     for (entity, layer_info) in query.iter() {
-        if layer_info.end_frame <= info.current_frame {
+        if layer_info.end_frame <= current_frame {
             commands.entity(entity).despawn_recursive();
         }
     }
 
-    info.current_frame %= info.end_frame;
+    info.current_frame = current_frame % info.end_frame;
 }

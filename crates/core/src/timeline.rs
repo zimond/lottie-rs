@@ -32,13 +32,16 @@ impl Timeline {
         self.frame_rate = frame_rate;
     }
 
-    pub fn add_item(&mut self, layer: StagedLayer) -> Id {
+    pub fn add_item(&mut self, mut layer: StagedLayer) -> Id {
         let start_frame = layer.start_frame;
         let end_frame = layer.end_frame;
         self.start_frame = min(start_frame, self.start_frame);
         self.end_frame = max(end_frame, self.end_frame);
 
-        let id = self.store.insert(layer);
+        let id = self.store.insert_with_key(|key| {
+            layer.id = key;
+            layer
+        });
         self.events.insert(start_frame, TimelineAction::Spawn(id));
         self.events.insert(end_frame, TimelineAction::Destroy(id));
         id
@@ -68,6 +71,7 @@ impl Timeline {
             match layer.content {
                 LayerContent::Shape(shape_group) => {
                     let layer = StagedLayer {
+                        id: Id::default(),
                         content: RenderableContent::Shape(shape_group),
                         target,
                         parent,
@@ -92,6 +96,7 @@ impl Timeline {
                         None
                     } else {
                         Some(timeline.add_item(StagedLayer {
+                            id: Id::default(),
                             content: RenderableContent::Group,
                             target,
                             start_frame,
