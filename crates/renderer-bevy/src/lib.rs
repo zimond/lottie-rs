@@ -140,10 +140,11 @@ fn animate_system(
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    let mut current_frame = (time.time_since_startup().as_secs_f32() * info.frame_rate as f32)
-        .round() as u32
-        % info.end_frame;
-    if current_frame < info.current_frame {
+    // let mut current_frame = (time.time_since_startup().as_secs_f32() *
+    // info.frame_rate as f32)     .round() as u32
+    //     % info.end_frame;
+    let mut current_frame = info.current_frame + 1;
+    if current_frame >= info.end_frame {
         current_frame = 1;
         info.current_frame = 0;
         info.entities.clear();
@@ -184,7 +185,7 @@ fn animate_system(
 
     // Destory ended layers
     for (entity, layer_info) in query.iter() {
-        if layer_info.end_frame <= current_frame {
+        if layer_info.end_frame < current_frame {
             commands.entity(entity).despawn_recursive();
         }
     }

@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use lottie_ast::{LayerContent, Model};
 use multimap::MultiMap;
@@ -23,6 +23,7 @@ pub struct Timeline {
     start_frame: u32,
     end_frame: u32,
     frame_rate: u32,
+    index_id_map: HashMap<u32, Id>,
     store: SlotMap<Id, StagedLayer>,
     events: MultiMap<u32, TimelineAction>,
 }
@@ -63,12 +64,12 @@ impl Timeline {
             .map(|layer| (layer.clone(), TargetRef::Layer(layer.id), None))
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
+        let mut standby_map: HashMap<u32, Vec<Id>> = HashMap::new();
         while !layers.is_empty() {
             let (layer, target, parent) = layers.pop_front().unwrap();
             let start_frame = layer.spawn_frame();
             let end_frame = layer.despawn_frame();
-            println!("add a layer start {} end {}", start_frame, end_frame);
-            match layer.content {
+            let id = match layer.content {
                 LayerContent::Shape(shape_group) => {
                     let layer = StagedLayer {
                         id: Id::default(),
@@ -80,32 +81,28 @@ impl Timeline {
                         transform: layer.transform.unwrap_or_default(),
                         frame_rate: default_frame_rate,
                     };
-                    timeline.add_item(layer);
+                    timeline.add_item(layer)
                 }
                 LayerContent::Precomposition(r) => {
                     let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
                         Some(a) => a,
                         None => continue,
                     };
-                    let identity_transform = layer
-                        .transform
-                        .as_ref()
-                        .map(|t| t.is_identity())
-                        .unwrap_or(true);
-                    let parent_id = if identity_transform {
-                        None
-                    } else {
-                        Some(timeline.add_item(StagedLayer {
-                            id: Id::default(),
-                            content: RenderableContent::Group,
-                            target,
-                            start_frame,
-                            end_frame,
-                            frame_rate: default_frame_rate,
-                            parent,
-                            transform: layer.transform.expect("unreachable"),
-                        }))
-                    };
+                    // let identity_transform = layer
+                    //     .transform
+                    //     .as_ref()
+                    //     .map(|t| t.is_identity())
+                    //     .unwrap_or(true);
+                    let parent_id = timeline.add_item(StagedLayer {
+                        id: Id::default(),
+                        content: RenderableContent::Group,
+                        target,
+                        start_frame,
+                        end_frame,
+                        frame_rate: default_frame_rate,
+                        parent,
+                        transform: layer.transform.expect("unreachable"),
+                    });
                     for asset_layer in &asset.layers {
                         let mut asset_layer = asset_layer.clone();
                         asset_layer.start_frame = min(asset_layer.start_frame, layer.start_frame);
@@ -116,16 +113,35 @@ impl Timeline {
                             layers.push_back((
                                 asset_layer,
                                 TargetRef::Asset(r.ref_id.clone()),
-                                parent_id,
+                                Some(parent_id),
                             ));
                         }
                     }
-                    continue;
+                    parent_id
                 }
-                LayerContent::Empty => {
-                    continue;
-                }
+                LayerContent::Empty => timeline.add_item(StagedLayer {
+                    id: Id::default(),
+                    content: RenderableContent::Group,
+                    target,
+                    start_frame,
+                    end_frame,
+                    frame_rate: default_frame_rate,
+                    parent,
+                    transform: layer.transform.unwrap_or_default(),
+                }),
                 _ => todo!(),
+            };
+
+            if let Some(index) = layer.parent_index {
+                standby_map.entry(index).or_default().push(id);
+            }
+
+            if let Some(index) = layer.index {
+                for child_id in standby_map.remove(&index).into_iter().flatten() {
+                    if let Some(child) = timeline.store.get_mut(child_id) {
+                        child.parent = Some(id);
+                    }
+                }
             }
         }
         timeline

@@ -26,7 +26,7 @@ fn main() {
     let lottie = Lottie::from_reader(f).unwrap();
     let mut renderer = BevyRenderer::new();
     renderer.add_plugin(WinitPlugin);
-    // renderer.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
+    renderer.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
     // renderer.add_plugin(DebugLinesPlugin::default());
     // renderer.add_system(axis_system);
     renderer.load_lottie(lottie);

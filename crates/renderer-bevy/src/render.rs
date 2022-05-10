@@ -36,11 +36,12 @@ impl LayerRenderer for StagedLayer {
         let (transform, anchor) = utils::initial_transform_and_anchor(&self.transform);
 
         log::trace!(
-            "spawn layer {:?}: start {}, end {}, transform: {:?}",
+            "spawn layer {:?}: start {}, end {}, transform: {:?}, anchor: {:?}",
             c.id(),
             self.start_frame,
             self.end_frame,
-            transform
+            transform,
+            anchor
         );
         match &self.content {
             RenderableContent::Shape(shapes) => {
@@ -56,7 +57,7 @@ impl LayerRenderer for StagedLayer {
         }
         let local = Mat4::from_translation(anchor)
             * Mat4::from_scale(transform.scale)
-            * Mat4::from_rotation_z(transform.rotation.z)
+            * Mat4::from_rotation_z(transform.rotation.to_axis_angle().1)
             * Mat4::from_translation(-anchor);
         let local = Transform::from_matrix(local);
         c.insert_bundle(TransformBundle {
