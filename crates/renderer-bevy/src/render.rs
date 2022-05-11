@@ -1,6 +1,7 @@
 use bevy::ecs::system::EntityCommands;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Entity, Transform};
+use bevy_prototype_lyon::prelude::tess::path::path::Builder;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{Animator, Tracks};
@@ -156,10 +157,9 @@ impl LayerRenderer for StagedLayer {
                 // result correct
                 beziers.inverse_y_orientation();
 
-                let path_shape = shapes::SvgPathShape {
-                    svg_doc_size_in_px: Vec2::new(0.0, 0.0),
-                    svg_path_string: beziers.to_svg_d(),
-                };
+                let mut builder = Builder::new();
+                beziers.to_path(&mut builder);
+                let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(

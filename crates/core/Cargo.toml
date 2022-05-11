@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 flo_curves = "0.6.1"
+lyon_path = "0.17.7"
 multimap = "0.8.3"
 ordered-multimap = "0.4.3"
 slotmap = "1.0.6"

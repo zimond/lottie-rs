@@ -49,6 +49,8 @@ pub struct Layer {
         default
     )]
     is_3d: bool,
+    #[serde(rename = "hd", default)]
+    pub hidden: bool,
     #[serde(rename = "ind", default)]
     pub index: Option<u32>,
     #[serde(rename = "parent", default)]
@@ -137,7 +139,7 @@ impl Transform {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RepeaterTransform {
-    #[serde(rename = "a")]
+    #[serde(rename = "a", default)]
     anchor: Animated<Vector2D>,
     #[serde(rename = "p")]
     position: Animated<Vector2D>,
@@ -189,7 +191,8 @@ pub struct Animated<T> {
     #[serde(
         deserialize_with = "bool_from_int",
         serialize_with = "int_from_bool",
-        rename = "a"
+        rename = "a",
+        default
     )]
     pub animated: bool,
     #[serde(
@@ -307,20 +310,7 @@ pub enum Shape {
     #[serde(rename = "el")]
     Ellipse(Ellipse),
     #[serde(rename = "sr")]
-    PolyStar {
-        #[serde(rename = "p")]
-        position: Animated<Vector2D>,
-        #[serde(rename = "or")]
-        outer_radius: Animated<f32>,
-        #[serde(rename = "os")]
-        outer_roundness: Animated<f32>,
-        #[serde(rename = "r")]
-        rotation: Animated<f32>,
-        #[serde(rename = "pt")]
-        points: Animated<f32>,
-        #[serde(rename = "sy")]
-        star_type: PolyStarType,
-    },
+    PolyStar(PolyStar),
     #[serde(rename = "sh")]
     Path {
         #[serde(rename = "ks")]
@@ -583,6 +573,22 @@ pub struct Ellipse {
     pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
     pub size: Animated<Vector2D>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PolyStar {
+    #[serde(rename = "p")]
+    position: Animated<Vector2D>,
+    #[serde(rename = "or")]
+    outer_radius: Animated<f32>,
+    #[serde(rename = "os")]
+    outer_roundness: Animated<f32>,
+    #[serde(rename = "r")]
+    rotation: Animated<f32>,
+    #[serde(rename = "pt")]
+    points: Animated<f32>,
+    #[serde(rename = "sy")]
+    star_type: PolyStarType,
 }
 
 pub enum Assets {

@@ -1,5 +1,6 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
 use lottie_ast::*;
+use lyon_path::path::Builder;
 
 use crate::AnimatedExt;
 
@@ -149,19 +150,12 @@ impl Shaped for Ellipse {
 }
 
 pub trait PathExt {
-    fn to_svg_d(&self) -> String;
+    fn to_path(&self, builder: &mut Builder);
     fn move_origin(&mut self, x: f32, y: f32);
     fn inverse_y_orientation(&mut self);
 }
 
 impl PathExt for Vec<Bezier> {
-    fn to_svg_d(&self) -> String {
-        self.iter()
-            .map(|b| b.to_svg_d())
-            .collect::<Vec<_>>()
-            .join(" ")
-    }
-
     fn move_origin(&mut self, x: f32, y: f32) {
         for b in self.iter_mut() {
             b.move_origin(x, y)
@@ -173,46 +167,15 @@ impl PathExt for Vec<Bezier> {
             i.inverse_y_orientation();
         }
     }
+
+    fn to_path(&self, builder: &mut Builder) {
+        for b in self.iter() {
+            b.to_path(builder);
+        }
+    }
 }
 
 impl PathExt for Bezier {
-    fn to_svg_d(&self) -> String {
-        let mut result = String::new();
-        let mut prev_c1: Option<Vector2D> = None;
-        for ((p1, c1), c2) in self
-            .verticies
-            .iter()
-            .zip(self.in_tangent.iter())
-            .zip(self.out_tangent.iter())
-        {
-            if result.is_empty() {
-                result.push_str(&format!(
-                    "M {} {} C {} {} ",
-                    p1.x,
-                    p1.y,
-                    p1.x + c2.x,
-                    p1.y + c2.y
-                ));
-            } else if let Some(pc1) = prev_c1 {
-                result.push_str(&format!(
-                    "{} {} {} {} C {} {} ",
-                    p1.x + pc1.x,
-                    p1.y + pc1.y,
-                    p1.x,
-                    p1.y,
-                    p1.x + c2.x,
-                    p1.y + c2.y
-                ));
-            }
-            prev_c1 = Some(*c1);
-        }
-        result.truncate(result.rmatch_indices("C").next().unwrap().0);
-        if self.closed {
-            result.push('Z');
-        }
-        result
-    }
-
     fn move_origin(&mut self, x: f32, y: f32) {
         for p1 in &mut self.verticies {
             p1.x += x;
@@ -223,6 +186,35 @@ impl PathExt for Bezier {
     fn inverse_y_orientation(&mut self) {
         for p in &mut self.verticies {
             p.y *= -1.0;
+        }
+    }
+
+    fn to_path(&self, builder: &mut Builder) {
+        let mut started = false;
+        let mut prev_c1: Option<Vector2D> = None;
+        let mut prev_c2: Option<Vector2D> = None;
+        for ((p1, c1), c2) in self
+            .verticies
+            .iter()
+            .zip(self.in_tangent.iter())
+            .zip(self.out_tangent.iter())
+        {
+            if !started {
+                builder.begin(p1.to_point());
+                prev_c2 = Some(*p1 + *c2);
+                started = true;
+            } else if let Some(pc1) = prev_c1 {
+                builder.cubic_bezier_to(
+                    prev_c2.unwrap().to_point(),
+                    (*p1 + pc1).to_point(),
+                    p1.to_point(),
+                );
+                prev_c2 = Some(*p1 + *c2);
+            }
+            prev_c1 = Some(*c1);
+        }
+        if self.closed {
+            builder.close();
         }
     }
 }
