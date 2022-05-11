@@ -578,17 +578,17 @@ pub struct Ellipse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolyStar {
     #[serde(rename = "p")]
-    position: Animated<Vector2D>,
+    pub position: Animated<Vector2D>,
     #[serde(rename = "or")]
-    outer_radius: Animated<f32>,
+    pub outer_radius: Animated<f32>,
     #[serde(rename = "os")]
-    outer_roundness: Animated<f32>,
+    pub outer_roundness: Animated<f32>,
     #[serde(rename = "r")]
-    rotation: Animated<f32>,
+    pub rotation: Animated<f32>,
     #[serde(rename = "pt")]
-    points: Animated<f32>,
+    pub points: Animated<f32>,
     #[serde(rename = "sy")]
-    star_type: PolyStarType,
+    pub star_type: PolyStarType,
 }
 
 pub enum Assets {

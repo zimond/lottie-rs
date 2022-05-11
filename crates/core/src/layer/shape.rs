@@ -137,25 +137,41 @@ impl ShapeExt for Shape {
     }
 }
 
-pub trait Shaped {
+pub trait PathExt {
     fn bbox(&self, frame: u32) -> Rect<f32>;
+    fn to_path(&self, frame: u32, builder: &mut Builder);
+    fn move_origin(&mut self, x: f32, y: f32);
+    fn inverse_y_orientation(&mut self);
 }
 
-impl Shaped for Ellipse {
+impl PathExt for Ellipse {
     fn bbox(&self, frame: u32) -> Rect<f32> {
         let s = self.size.value(frame);
         let p = self.position.value(frame) - s / 2.0;
         Rect::new(p.to_point(), s.to_size())
     }
-}
 
-pub trait PathExt {
-    fn to_path(&self, builder: &mut Builder);
-    fn move_origin(&mut self, x: f32, y: f32);
-    fn inverse_y_orientation(&mut self);
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
+        todo!()
+    }
+
+    fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        todo!()
+    }
 }
 
 impl PathExt for Vec<Bezier> {
+    fn bbox(&self, frame: u32) -> Rect<f32> {
+        self.iter()
+            .map(|b| b.bbox(frame))
+            .reduce(|acc, item| acc.union(&item))
+            .unwrap()
+    }
+
     fn move_origin(&mut self, x: f32, y: f32) {
         for b in self.iter_mut() {
             b.move_origin(x, y)
@@ -168,14 +184,43 @@ impl PathExt for Vec<Bezier> {
         }
     }
 
-    fn to_path(&self, builder: &mut Builder) {
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
         for b in self.iter() {
-            b.to_path(builder);
+            b.to_path(frame, builder);
         }
     }
 }
 
 impl PathExt for Bezier {
+    fn bbox(&self, _: u32) -> Rect<f32> {
+        let bbox = (0..(self.verticies.len() - 1))
+            .map(|i| {
+                let w1 = Coord2(self.verticies[i].x as f64, self.verticies[i].y as f64);
+                let w2 = Coord2(
+                    self.out_tangent[i].x as f64 + self.verticies[i].x as f64,
+                    self.out_tangent[i].y as f64 + self.verticies[i].y as f64,
+                );
+                let w3 = Coord2(
+                    self.in_tangent[i].x as f64 + self.verticies[i + 1].x as f64,
+                    self.in_tangent[i].y as f64 + self.verticies[i + 1].y as f64,
+                );
+                let w4 = Coord2(
+                    self.verticies[i + 1].x as f64,
+                    self.verticies[i + 1].y as f64,
+                );
+                flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
+            })
+            .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))
+            .unwrap();
+        rect(
+            bbox.min().0,
+            bbox.min().1,
+            bbox.max().0 - bbox.min().0,
+            bbox.max().1 - bbox.min().1,
+        )
+        .cast()
+    }
+
     fn move_origin(&mut self, x: f32, y: f32) {
         for p1 in &mut self.verticies {
             p1.x += x;
@@ -189,7 +234,7 @@ impl PathExt for Bezier {
         }
     }
 
-    fn to_path(&self, builder: &mut Builder) {
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
         let mut started = false;
         let mut prev_c1: Option<Vector2D> = None;
         let mut prev_c2: Option<Vector2D> = None;
@@ -219,52 +264,42 @@ impl PathExt for Bezier {
     }
 }
 
-impl Shaped for Vec<Bezier> {
+impl PathExt for PolyStar {
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
+        let num_points = self.points.value(frame) as u32 * 2;
+    }
+
+    fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        todo!()
+    }
+
     fn bbox(&self, frame: u32) -> Rect<f32> {
-        self.iter()
-            .map(|b| b.bbox(frame))
-            .reduce(|acc, item| acc.union(&item))
-            .unwrap()
+        todo!()
     }
 }
 
-impl Shaped for Bezier {
-    fn bbox(&self, _: u32) -> Rect<f32> {
-        let bbox = (0..(self.verticies.len() - 1))
-            .map(|i| {
-                let w1 = Coord2(self.verticies[i].x as f64, self.verticies[i].y as f64);
-                let w2 = Coord2(
-                    self.out_tangent[i].x as f64 + self.verticies[i].x as f64,
-                    self.out_tangent[i].y as f64 + self.verticies[i].y as f64,
-                );
-                let w3 = Coord2(
-                    self.in_tangent[i].x as f64 + self.verticies[i + 1].x as f64,
-                    self.in_tangent[i].y as f64 + self.verticies[i + 1].y as f64,
-                );
-                let w4 = Coord2(
-                    self.verticies[i + 1].x as f64,
-                    self.verticies[i + 1].y as f64,
-                );
-                flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
-            })
-            .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))
-            .unwrap();
-        rect(
-            bbox.min().0,
-            bbox.min().1,
-            bbox.max().0 - bbox.min().0,
-            bbox.max().1 - bbox.min().1,
-        )
-        .cast()
-    }
-}
-
-impl Shaped for Shape {
+impl PathExt for Shape {
     fn bbox(&self, frame: u32) -> Rect<f32> {
         match &self {
             Shape::Ellipse(e) => e.bbox(frame),
             Shape::Path { d } => d.value(frame).bbox(frame),
             _ => unimplemented!(),
         }
+    }
+
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
+        todo!()
+    }
+
+    fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        todo!()
     }
 }

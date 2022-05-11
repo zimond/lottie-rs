@@ -150,6 +150,27 @@ impl LayerRenderer for StagedLayer {
                 c.insert(LottieShapeComp(shape));
                 c.id()
             }
+            Shape::PolyStar(star) => {
+                // let initial_size = size.initial_value() / 2.0;
+                // let ellipse_shape = shapes::Ellipse {
+                //     radii: Vec2::new(initial_size.x, initial_size.y),
+                //     center: Vec2::new(0.0, 0.0),
+                // };
+
+                let mut c = commands.spawn();
+                // c.insert_bundle(TransformBundle::default());
+                // c.insert_bundle(GeometryBuilder::build_as(
+                //     &ellipse_shape,
+                //     draw_mode,
+                //     initial_transform,
+                // ));
+                // self.spawn_transform(frame, &shape.transform, &mut c);
+                // if let Some(stroke) = shape.stroke.as_ref() {
+                //     self.spawn_stroke(frame, stroke, &mut c);
+                // }
+                // c.insert(LottieShapeComp(shape));
+                c.id()
+            }
             Shape::Path { d } => {
                 let mut beziers = d.initial_value();
                 // Since we already globally changed the axis system, here bevy_lyon_prototype's
@@ -158,7 +179,7 @@ impl LayerRenderer for StagedLayer {
                 beziers.inverse_y_orientation();
 
                 let mut builder = Builder::new();
-                beziers.to_path(&mut builder);
+                beziers.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(TransformBundle::default());
