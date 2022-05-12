@@ -506,6 +506,12 @@ pub enum ShapeDirection {
     CounterClockwise = 2,
 }
 
+impl Default for ShapeDirection {
+    fn default() -> Self {
+        ShapeDirection::Clockwise
+    }
+}
+
 #[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum MergeMode {
@@ -559,6 +565,8 @@ pub struct Stroke {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Rectangle {
+    #[serde(rename = "d")]
+    pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
@@ -569,6 +577,8 @@ pub struct Rectangle {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Ellipse {
+    #[serde(rename = "d")]
+    pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,
     #[serde(rename = "s")]
@@ -577,12 +587,18 @@ pub struct Ellipse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolyStar {
+    #[serde(rename = "d")]
+    pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,
     #[serde(rename = "or")]
     pub outer_radius: Animated<f32>,
     #[serde(rename = "os")]
     pub outer_roundness: Animated<f32>,
+    #[serde(rename = "ir")]
+    pub inner_radius: Animated<f32>,
+    #[serde(rename = "is")]
+    pub inner_roundness: Animated<f32>,
     #[serde(rename = "r")]
     pub rotation: Animated<f32>,
     #[serde(rename = "pt")]
