@@ -499,7 +499,9 @@ pub enum TrimMultipleShape {
     Simultaneously = 2,
 }
 
-#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[derive(
+    serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy, PartialEq,
+)]
 #[repr(u8)]
 pub enum ShapeDirection {
     Clockwise = 1,
@@ -565,7 +567,7 @@ pub struct Stroke {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Rectangle {
-    #[serde(rename = "d")]
+    #[serde(rename = "d", default)]
     pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,
@@ -577,7 +579,7 @@ pub struct Rectangle {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Ellipse {
-    #[serde(rename = "d")]
+    #[serde(rename = "d", default)]
     pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,
@@ -587,7 +589,7 @@ pub struct Ellipse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolyStar {
-    #[serde(rename = "d")]
+    #[serde(rename = "d", default)]
     pub direction: ShapeDirection,
     #[serde(rename = "p")]
     pub position: Animated<Vector2D>,

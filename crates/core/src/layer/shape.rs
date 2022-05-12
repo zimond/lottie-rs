@@ -1,5 +1,6 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
 use lottie_ast::*;
+use lyon_path::geom::euclid::{point2, vec2};
 use lyon_path::path::Builder;
 
 use crate::AnimatedExt;
@@ -266,7 +267,55 @@ impl PathExt for Bezier {
 
 impl PathExt for PolyStar {
     fn to_path(&self, frame: u32, builder: &mut Builder) {
+        const PI: f32 = std::f32::consts::PI;
+        const MAGIC_NUM: f32 = 0.47829 / 0.28;
         let num_points = self.points.value(frame) as u32 * 2;
+        let mut long_flag = false;
+        let outer_rad = self.outer_radius.value(frame);
+        let inner_rad = self.inner_radius.value(frame);
+        let outer_round = self.outer_roundness.value(frame) / 100.0;
+        let inner_round = self.inner_roundness.value(frame) / 100.0;
+        let outer: Vector2D = vec2(outer_rad, outer_round);
+        let inner = vec2(inner_rad, inner_round);
+        let mut current_ang = (self.rotation.value(frame) - 90.0) * PI / 180.0;
+        let angle_per_point = 2.0 * PI / num_points as f32;
+        let has_roundness = outer_round != 0.0 && inner_round != 0.0;
+        let angle_dir = if self.direction == ShapeDirection::Clockwise {
+            1.0
+        } else {
+            -1.0
+        };
+
+        let mut p = vec2(current_ang.cos(), current_ang.sin()) * outer.x;
+        builder.begin(p.to_point());
+        current_ang += angle_per_point * angle_dir;
+        for i in 0..num_points {
+            let (cp1_info, cp2_info) = if long_flag {
+                (inner, outer)
+            } else {
+                (outer, inner)
+            };
+            if has_roundness {
+                let prev = p;
+                p = vec2(current_ang.cos(), current_ang.sin()) * cp2_info.x;
+                let cp1_theta = prev.y.atan2(prev.x) - PI / 2.0 * angle_dir;
+                let cp1_d = vec2(cp1_theta.cos(), cp1_theta.sin());
+                let cp2_theta = p.y.atan2(p.x) - PI / 2.0 * angle_dir;
+                let cp2_d = vec2(cp2_theta.cos(), cp2_theta.sin());
+                let cp1 = cp1_d * (cp1_info.x * cp1_info.y * MAGIC_NUM / num_points as f32 * 2.0);
+                let cp2 = cp2_d * (cp2_info.x * cp2_info.y * MAGIC_NUM / num_points as f32 * 2.0);
+                builder.cubic_bezier_to(
+                    (prev - cp1).to_point(),
+                    (p + cp2).to_point(),
+                    p.to_point(),
+                );
+            } else {
+                builder.line_to(p.to_point());
+            }
+            current_ang += angle_per_point;
+            long_flag = !long_flag;
+        }
+        builder.end(true);
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
