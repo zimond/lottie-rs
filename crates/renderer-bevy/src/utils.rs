@@ -58,7 +58,7 @@ pub fn initial_transform_and_anchor(transform: &LottieTransform) -> (Transform, 
     let anchor = Vec3::new(anchor.x, anchor.y, 0.0);
     (
         Transform {
-            translation: Vec3::new(pos.x, pos.y, 0.0) - anchor,
+            translation: Vec3::new(pos.x, pos.y, 0.0),
             rotation: Quat::from_rotation_z(rotation),
             scale: Vec3::new(scale.x / 100.0, scale.y / 100.0, 1.0),
         },

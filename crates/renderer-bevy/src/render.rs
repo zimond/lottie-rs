@@ -122,19 +122,17 @@ impl LayerRenderer for StagedLayer {
         }
         let draw_mode = utils::shape_draw_mode(&shape);
         // TODO: handle anchor
-        let (initial_transform, _) = utils::initial_transform_and_anchor(&shape.transform);
-        // let bbox = shape.shape.shape.bbox(0);
-        // let center = bbox.center();
-        // initial_transform.translation += Vec3::new(center.x, center.y, 0.0);
+        let (mut initial_transform, _) = utils::initial_transform_and_anchor(&shape.transform);
 
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
                 let initial_pos = position.initial_value();
+                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
+                initial_transform.translation -= initial_pos;
                 let transform = Transform::from_matrix(
-                    initial_transform.compute_matrix()
-                        * Mat4::from_translation(Vec3::new(initial_pos.x, initial_pos.y, 0.0)),
+                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
                 );
                 let ellipse_shape = shapes::Ellipse {
                     radii: Vec2::new(initial_size.x, initial_size.y),
@@ -171,15 +169,17 @@ impl LayerRenderer for StagedLayer {
                 c.id()
             }
             Shape::Rectangle(rect) => {
+                let initial_pos = rect.position.initial_value();
+                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
+                initial_transform.translation -= initial_pos;
+                let transform = Transform::from_matrix(
+                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
+                );
                 let mut builder = Builder::new();
                 rect.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
-                c.insert_bundle(GeometryBuilder::build_as(
-                    &path_shape,
-                    draw_mode,
-                    initial_transform,
-                ));
+                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 self.spawn_transform(frame, &shape.transform, &mut c);
                 if let Some(stroke) = shape.stroke.as_ref() {
                     self.spawn_stroke(frame, stroke, &mut c);

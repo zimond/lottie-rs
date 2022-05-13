@@ -342,7 +342,7 @@ impl PathExt for Rectangle {
     }
 
     fn to_path(&self, frame: u32, builder: &mut Builder) {
-        let center = self.position.value(frame).to_point();
+        let center = point2(0.0, 0.0);
         let size = self.size.value(frame) / 2.0;
         let mut pts = vec![
             center - size,
