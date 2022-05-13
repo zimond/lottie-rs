@@ -61,6 +61,7 @@ impl Timeline {
         let mut layers = model
             .layers
             .iter()
+            .rev()
             .map(|layer| (layer.clone(), TargetRef::Layer(layer.id), None))
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
