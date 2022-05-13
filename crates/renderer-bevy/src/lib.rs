@@ -153,6 +153,7 @@ fn animate_system(
             commands.entity(entity).despawn_descendants();
         }
     }
+
     let (root_entity, comp) = comp.get_single().unwrap();
     for frame in info.current_frame..current_frame {
         let items = comp

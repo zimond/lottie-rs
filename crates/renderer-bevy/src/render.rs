@@ -153,15 +153,17 @@ impl LayerRenderer for StagedLayer {
                 c.id()
             }
             Shape::PolyStar(star) => {
+                let initial_pos = star.position.initial_value();
+                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
+                initial_transform.translation -= initial_pos;
+                let transform = Transform::from_matrix(
+                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
+                );
                 let mut builder = Builder::new();
                 star.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
-                c.insert_bundle(GeometryBuilder::build_as(
-                    &path_shape,
-                    draw_mode,
-                    initial_transform,
-                ));
+                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 self.spawn_transform(frame, &shape.transform, &mut c);
                 if let Some(stroke) = shape.stroke.as_ref() {
                     self.spawn_stroke(frame, stroke, &mut c);

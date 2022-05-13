@@ -300,9 +300,9 @@ impl PathExt for PolyStar {
             } else {
                 (outer, inner)
             };
+            let prev = p;
+            p = vec2(current_ang.cos(), current_ang.sin()) * cp2_info.x;
             if has_roundness {
-                let prev = p;
-                p = vec2(current_ang.cos(), current_ang.sin()) * cp2_info.x;
                 let cp1_theta = prev.y.atan2(prev.x) - PI / 2.0 * angle_dir;
                 let cp1_d = vec2(cp1_theta.cos(), cp1_theta.sin());
                 let cp2_theta = p.y.atan2(p.x) - PI / 2.0 * angle_dir;
