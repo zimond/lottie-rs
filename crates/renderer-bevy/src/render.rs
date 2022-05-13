@@ -129,19 +129,23 @@ impl LayerRenderer for StagedLayer {
 
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
-                let Ellipse { size, .. } = ellipse;
+                let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
+                let initial_pos = position.initial_value();
+                let transform = Transform::from_matrix(
+                    initial_transform.compute_matrix()
+                        * Mat4::from_translation(Vec3::new(initial_pos.x, initial_pos.y, 0.0)),
+                );
                 let ellipse_shape = shapes::Ellipse {
                     radii: Vec2::new(initial_size.x, initial_size.y),
                     center: Vec2::new(0.0, 0.0),
                 };
 
                 let mut c = commands.spawn();
-                c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(
                     &ellipse_shape,
                     draw_mode,
-                    initial_transform,
+                    transform,
                 ));
                 self.spawn_transform(frame, &shape.transform, &mut c);
                 if let Some(stroke) = shape.stroke.as_ref() {
@@ -155,7 +159,22 @@ impl LayerRenderer for StagedLayer {
                 star.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
-                c.insert_bundle(TransformBundle::default());
+                c.insert_bundle(GeometryBuilder::build_as(
+                    &path_shape,
+                    draw_mode,
+                    initial_transform,
+                ));
+                self.spawn_transform(frame, &shape.transform, &mut c);
+                if let Some(stroke) = shape.stroke.as_ref() {
+                    self.spawn_stroke(frame, stroke, &mut c);
+                }
+                c.id()
+            }
+            Shape::Rectangle(rect) => {
+                let mut builder = Builder::new();
+                rect.to_path(frame, &mut builder);
+                let path_shape = Path(builder.build());
+                let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(
                     &path_shape,
                     draw_mode,

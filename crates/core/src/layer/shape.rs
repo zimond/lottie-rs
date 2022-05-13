@@ -29,7 +29,9 @@ impl<'a> Iterator for ShapeIter {
             let shape = &self.shapes[index];
             if let Shape::Transform(t) = &shape.shape {
                 transform = Some(t.clone());
-                self.stroke_index = index;
+                if self.stroke_index as isize == self.shape_index {
+                    self.stroke_index = index;
+                }
                 break;
             }
         }
@@ -40,7 +42,7 @@ impl<'a> Iterator for ShapeIter {
         let mut target_stroke_index = self.stroke_index;
         for index in (self.shape_index as usize + 1)..self.shapes.len() {
             let shape = &self.shapes[index];
-            if shape.shape.is_style() {
+            if shape.shape.is_style() && !shape.hidden {
                 if let Shape::Fill(f) = &shape.shape && fill.is_none() {
                     fill = Some(f.clone());
                 } else if let Shape::Stroke(s) = &shape.shape {
@@ -55,15 +57,18 @@ impl<'a> Iterator for ShapeIter {
         self.stroke_index = target_stroke_index;
         if stroke.is_none() && find_stroke {
             self.shape_index -= 1;
+            self.stroke_index = self.shape_index as usize;
             return self.next();
         }
         if fill.is_none() && stroke.is_none() {
             self.shape_index -= 1;
+            self.stroke_index = self.shape_index as usize;
             return self.next();
         }
         let fill = fill.unwrap_or_else(Fill::transparent);
         if !find_stroke {
             self.shape_index -= 1;
+            self.stroke_index = self.shape_index as usize;
         }
         Some(StyledShape {
             shape,
@@ -331,11 +336,45 @@ impl PathExt for PolyStar {
     }
 }
 
+impl PathExt for Rectangle {
+    fn bbox(&self, frame: u32) -> Rect<f32> {
+        todo!()
+    }
+
+    fn to_path(&self, frame: u32, builder: &mut Builder) {
+        let center = self.position.value(frame).to_point();
+        let size = self.size.value(frame) / 2.0;
+        let mut pts = vec![
+            center - size,
+            center + vec2(size.x, -size.y),
+            center + size,
+            center + vec2(-size.x, size.y),
+        ];
+        if self.direction == ShapeDirection::CounterClockwise {
+            pts.reverse();
+        }
+        builder.begin(pts[0]);
+        builder.line_to(pts[1]);
+        builder.line_to(pts[2]);
+        builder.line_to(pts[3]);
+        builder.end(true);
+    }
+
+    fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn inverse_y_orientation(&mut self) {
+        todo!()
+    }
+}
+
 impl PathExt for Shape {
     fn bbox(&self, frame: u32) -> Rect<f32> {
         match &self {
             Shape::Ellipse(e) => e.bbox(frame),
             Shape::Path { d } => d.value(frame).bbox(frame),
+            Shape::Rectangle(r) => r.bbox(frame),
             _ => unimplemented!(),
         }
     }
