@@ -16,19 +16,15 @@ use crate::*;
 
 pub trait LayerRenderer {
     fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity;
-    fn spawn_transform(
-        &self,
-        frame: u32,
-        transform: &LottieTransform,
-        commands: &mut EntityCommands,
-    );
-    fn spawn_stroke(&self, frame: u32, stroke: &Stroke, commands: &mut EntityCommands);
     fn spawn_shape(
         &self,
         frame: u32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity>;
+    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
+    fn stroke_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
+    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32);
 }
 
 impl LayerRenderer for StagedLayer {
@@ -74,43 +70,6 @@ impl LayerRenderer for StagedLayer {
         id
     }
 
-    fn spawn_transform(
-        &self,
-        frame: u32,
-        transform: &LottieTransform,
-        commands: &mut EntityCommands,
-    ) {
-        let mut tweens = vec![];
-        let frame_rate = self.frame_rate;
-        if transform.position.is_animated() {
-            tweens.push(
-                transform
-                    .position
-                    .keyframes
-                    .tween(frame_rate, |start, end| TransformPositionLens {
-                        start: Vec3::new(start.x, start.y, 0.0),
-                        end: Vec3::new(end.x, end.y, 0.0),
-                    }),
-            );
-        }
-        if transform.scale.is_animated() {
-            tweens.push(transform.scale.keyframes.tween(frame_rate, |start, end| {
-                TransformScaleLens {
-                    start: Vec3::new(start.x, start.y, 0.0) / 100.0,
-                    end: Vec3::new(end.x, end.y, 0.0) / 100.0,
-                }
-            }));
-        }
-        if !tweens.is_empty() {
-            let tracks = Tracks::new(tweens);
-            let mut animator = Animator::new(tracks);
-            let progress =
-                (frame - self.start_frame) as f32 / (self.end_frame - self.start_frame) as f32;
-            animator.set_progress(progress);
-            commands.insert(animator);
-        }
-    }
-
     fn spawn_shape(
         &self,
         frame: u32,
@@ -145,9 +104,15 @@ impl LayerRenderer for StagedLayer {
                     draw_mode,
                     transform,
                 ));
-                self.spawn_transform(frame, &shape.transform, &mut c);
-                if let Some(stroke) = shape.stroke.as_ref() {
-                    self.spawn_stroke(frame, stroke, &mut c);
+                if let Some(mut animator) = self.transform_animator(&shape.transform) {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
+                }
+                if let Some(mut animator) =
+                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
                 }
                 c.insert(LottieShapeComp(shape));
                 c.id()
@@ -164,9 +129,15 @@ impl LayerRenderer for StagedLayer {
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
-                self.spawn_transform(frame, &shape.transform, &mut c);
-                if let Some(stroke) = shape.stroke.as_ref() {
-                    self.spawn_stroke(frame, stroke, &mut c);
+                if let Some(mut animator) = self.transform_animator(&shape.transform) {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
+                }
+                if let Some(mut animator) =
+                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
                 }
                 c.id()
             }
@@ -182,9 +153,15 @@ impl LayerRenderer for StagedLayer {
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
-                self.spawn_transform(frame, &shape.transform, &mut c);
-                if let Some(stroke) = shape.stroke.as_ref() {
-                    self.spawn_stroke(frame, stroke, &mut c);
+                if let Some(mut animator) = self.transform_animator(&shape.transform) {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
+                }
+                if let Some(mut animator) =
+                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
                 }
                 c.id()
             }
@@ -205,9 +182,15 @@ impl LayerRenderer for StagedLayer {
                     draw_mode,
                     initial_transform,
                 ));
-                self.spawn_transform(frame, &shape.transform, &mut c);
-                if let Some(stroke) = shape.stroke.as_ref() {
-                    self.spawn_stroke(frame, stroke, &mut c);
+                if let Some(mut animator) = self.transform_animator(&shape.transform) {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
+                }
+                if let Some(mut animator) =
+                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                {
+                    self.sync_animator(&mut animator, frame);
+                    c.insert(animator);
                 }
 
                 // Add bezier tween
@@ -234,7 +217,37 @@ impl LayerRenderer for StagedLayer {
         Some(entity)
     }
 
-    fn spawn_stroke(&self, frame: u32, stroke: &Stroke, commands: &mut EntityCommands) {
+    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
+        let mut tweens = vec![];
+        let frame_rate = self.frame_rate;
+        if transform.position.is_animated() {
+            tweens.push(
+                transform
+                    .position
+                    .keyframes
+                    .tween(frame_rate, |start, end| TransformPositionLens {
+                        start: Vec3::new(start.x, start.y, 0.0),
+                        end: Vec3::new(end.x, end.y, 0.0),
+                    }),
+            );
+        }
+        if transform.scale.is_animated() {
+            tweens.push(transform.scale.keyframes.tween(frame_rate, |start, end| {
+                TransformScaleLens {
+                    start: Vec3::new(start.x, start.y, 0.0) / 100.0,
+                    end: Vec3::new(end.x, end.y, 0.0) / 100.0,
+                }
+            }));
+        }
+        if !tweens.is_empty() {
+            let tracks = Tracks::new(tweens);
+            Some(Animator::new(tracks))
+        } else {
+            None
+        }
+    }
+
+    fn stroke_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if stroke.width.is_animated() {
@@ -247,11 +260,15 @@ impl LayerRenderer for StagedLayer {
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
-            let mut animator = Animator::new(tracks);
-            let progress =
-                (frame - self.start_frame) as f32 / (self.end_frame - self.start_frame) as f32;
-            animator.set_progress(progress);
-            commands.insert(animator);
+            Some(Animator::new(tracks))
+        } else {
+            None
         }
+    }
+
+    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32) {
+        let progress =
+            (frame - self.start_frame) as f32 / (self.end_frame - self.start_frame) as f32;
+        animator.set_progress(progress);
     }
 }
