@@ -3,14 +3,13 @@ use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Entity, Transform};
 use bevy_prototype_lyon::prelude::tess::path::path::Builder;
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::{Animator, Tracks};
 use lottie_core::*;
 
 use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
 
-use crate::lens::{PathLens, StrokeWidthLens};
+use crate::lens::{PathLens, StrokeWidthLens, TransformLens};
 use crate::tween::TweenProducer;
 use crate::*;
 
@@ -30,15 +29,14 @@ pub trait LayerRenderer {
 impl LayerRenderer for StagedLayer {
     fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
-        let (transform, anchor) = utils::initial_transform_and_anchor(&self.transform);
+        let initial_transform = Transform::from_matrix(self.transform.value(0));
 
         log::trace!(
-            "spawn layer {:?}: start {}, end {}, transform: {:?}, anchor: {:?}",
+            "spawn layer {:?}: start {}, end {}, transform: {:?}",
             c.id(),
             self.start_frame,
             self.end_frame,
-            transform,
-            anchor
+            initial_transform
         );
         match &self.content {
             RenderableContent::Shape(shapes) => {
@@ -52,13 +50,8 @@ impl LayerRenderer for StagedLayer {
             RenderableContent::Group => {}
             _ => todo!(),
         }
-        let local = Mat4::from_translation(anchor)
-            * Mat4::from_scale(transform.scale)
-            * Mat4::from_rotation_z(transform.rotation.to_axis_angle().1)
-            * Mat4::from_translation(-anchor);
-        let local = Transform::from_matrix(local);
         c.insert_bundle(TransformBundle {
-            local,
+            local: initial_transform,
             global: Default::default(),
         });
         let id = c.id();
@@ -80,22 +73,16 @@ impl LayerRenderer for StagedLayer {
             return None;
         }
         let draw_mode = utils::shape_draw_mode(&shape);
-        // TODO: handle anchor
-        let (mut initial_transform, _) = utils::initial_transform_and_anchor(&shape.transform);
+        let transform = Transform::from_matrix(shape.transform.value(0));
 
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
                 let initial_pos = position.initial_value();
-                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
-                initial_transform.translation -= initial_pos;
-                let transform = Transform::from_matrix(
-                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
-                );
                 let ellipse_shape = shapes::Ellipse {
                     radii: Vec2::new(initial_size.x, initial_size.y),
-                    center: Vec2::new(0.0, 0.0),
+                    center: Vec2::new(initial_pos.x, initial_pos.y),
                 };
 
                 let mut c = commands.spawn();
@@ -119,11 +106,11 @@ impl LayerRenderer for StagedLayer {
             }
             Shape::PolyStar(star) => {
                 let initial_pos = star.position.initial_value();
-                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
-                initial_transform.translation -= initial_pos;
-                let transform = Transform::from_matrix(
-                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
-                );
+                // let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
+                // initial_transform.translation -= initial_pos;
+                // let transform = Transform::from_matrix(
+                //     initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
+                // );
                 let mut builder = Builder::new();
                 star.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
@@ -144,10 +131,10 @@ impl LayerRenderer for StagedLayer {
             Shape::Rectangle(rect) => {
                 let initial_pos = rect.position.initial_value();
                 let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
-                initial_transform.translation -= initial_pos;
-                let transform = Transform::from_matrix(
-                    initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
-                );
+                // initial_transform.translation -= initial_pos;
+                // let transform = Transform::from_matrix(
+                //     initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
+                // );
                 let mut builder = Builder::new();
                 rect.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
@@ -177,11 +164,7 @@ impl LayerRenderer for StagedLayer {
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(TransformBundle::default());
-                c.insert_bundle(GeometryBuilder::build_as(
-                    &path_shape,
-                    draw_mode,
-                    initial_transform,
-                ));
+                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -220,24 +203,8 @@ impl LayerRenderer for StagedLayer {
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
-        if transform.position.is_animated() {
-            tweens.push(
-                transform
-                    .position
-                    .keyframes
-                    .tween(frame_rate, |start, end| TransformPositionLens {
-                        start: Vec3::new(start.x, start.y, 0.0),
-                        end: Vec3::new(end.x, end.y, 0.0),
-                    }),
-            );
-        }
-        if transform.scale.is_animated() {
-            tweens.push(transform.scale.keyframes.tween(frame_rate, |start, end| {
-                TransformScaleLens {
-                    start: Vec3::new(start.x, start.y, 0.0) / 100.0,
-                    end: Vec3::new(end.x, end.y, 0.0) / 100.0,
-                }
-            }));
+        if transform.is_animated() {
+            tweens.push(transform.tween(frame_rate, |data, _| TransformLens { data, frames: 0 }));
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);

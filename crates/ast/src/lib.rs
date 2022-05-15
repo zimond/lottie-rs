@@ -7,6 +7,7 @@ pub use serde_json::Error;
 pub type Vector2D = euclid::default::Vector2D<f32>;
 
 mod helpers;
+
 use helpers::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,9 +102,9 @@ pub struct PreCompositionRef {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transform {
     #[serde(rename = "a", default)]
-    pub anchor: Animated<Vector2D>,
+    pub anchor: Option<Animated<Vector2D>>,
     #[serde(rename = "p", default)]
-    pub position: Animated<Vector2D>,
+    pub position: Option<Animated<Vector2D>>,
     #[serde(rename = "s", default = "default_vec2_100")]
     pub scale: Animated<Vector2D>,
     #[serde(rename = "r", default)]
@@ -215,31 +216,6 @@ where
         }
     }
 }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct Animated {
-//     #[serde(
-//         deserialize_with = "bool_from_int",
-//         serialize_with = "int_from_bool",
-//         rename = "a"
-//     )]
-//     pub animated: bool,
-//     #[serde(
-//         deserialize_with = "f32_from_array_or_number",
-//         serialize_with = "array_or_number_from_f32",
-//         rename = "k"
-//     )]
-//     pub keyframes: Vec<KeyFrame<f32>>,
-// }
-
-// impl Default for Animated {
-//     fn default() -> Self {
-//         Self {
-//             animated: false,
-//             keyframes: vec![KeyFrame::from_value(0.0)],
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct Rgba {

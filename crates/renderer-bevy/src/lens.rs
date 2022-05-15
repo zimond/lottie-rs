@@ -1,7 +1,8 @@
 use bevy::math::Vec2;
+use bevy::prelude::Transform;
 use bevy_prototype_lyon::prelude::{DrawMode, Path, PathBuilder};
 use bevy_tweening::Lens;
-use lottie_core::Bezier;
+use lottie_core::{Bezier, Transform as LottieTransform, AnimatedExt};
 
 pub struct PathLens {
     pub(crate) start: Vec<Bezier>,
@@ -52,5 +53,19 @@ impl Lens<DrawMode> for StrokeWidthLens {
             DrawMode::Outlined { outline_mode, .. } => outline_mode.options.line_width = w,
             _ => {}
         }
+    }
+}
+
+/// Lerp [LottieTransform] as a whole
+pub struct TransformLens {
+    pub(crate) data: LottieTransform,
+    pub(crate) frames: u32
+}
+
+impl Lens<Transform> for TransformLens {
+    fn lerp(&mut self, target: &mut Transform, ratio: f32) {
+        let frame = (self.frames as f32 * ratio).round() as u32;
+        let value = self.data.value(frame);
+        *target = Transform::from_matrix(value)
     }
 }

@@ -1,10 +1,14 @@
+use std::cmp::max;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bevy::prelude::Transform;
 use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::KeyFrame;
+use lottie_core::{KeyFrame, Transform as LottieTransform};
+
+use crate::lens::TransformLens;
 
 pub(crate) trait TweenProducer<T, L>
 where
@@ -80,4 +84,45 @@ where
         }
         tween.unwrap()
     }
+}
+
+impl TweenProducer<Transform, TransformLens> for LottieTransform {
+    type Key = LottieTransform;
+
+    fn tween(
+        &self,
+        frame_rate: u32,
+        producer: fn(start: Self::Key, end: Self::Key) -> TransformLens,
+    ) -> Sequence<Transform> {
+        let anchor_frames = self
+            .anchor
+            .as_ref()
+            .and_then(|a| a.keyframes.last().unwrap().start_frame)
+            .unwrap_or(0);
+        let pos_frames = self
+            .position
+            .as_ref()
+            .and_then(|a| a.keyframes.last().unwrap().start_frame)
+            .unwrap_or(0);
+        let scale_frames = self
+            .scale.keyframes.last().unwrap().start_frame
+            .unwrap_or(0);
+        let rotation_frames = self
+            .rotation.keyframes.last().unwrap().start_frame
+            .unwrap_or(0);
+        let frames = max(
+            max(max(anchor_frames, pos_frames), scale_frames),
+            rotation_frames,
+        );
+        let secs = frames as f32 / frame_rate as f32;
+        let mut transform =  producer(self.clone(), self.clone());
+        transform.frames = frames;
+        let tween = Tween::new(
+            EaseMethod::Linear,
+            TweeningType::Once,
+            Duration::from_secs_f32(secs), transform,
+        );
+        Sequence::from_single(tween)
+    }
+    //
 }

@@ -264,9 +264,7 @@ impl PathExt for Bezier {
             }
             prev_c1 = Some(*c1);
         }
-        if self.closed {
-            builder.close();
-        }
+        builder.end(self.closed);
     }
 }
 
@@ -274,6 +272,7 @@ impl PathExt for PolyStar {
     fn to_path(&self, frame: u32, builder: &mut Builder) {
         const PI: f32 = std::f32::consts::PI;
         const MAGIC_NUM: f32 = 0.47829 / 0.28;
+        let cp = self.position.value(frame);
         let num_points = self.points.value(frame) as u32 * 2;
         let mut long_flag = false;
         let outer_rad = self.outer_radius.value(frame);
@@ -292,9 +291,9 @@ impl PathExt for PolyStar {
         };
 
         let mut p = vec2(current_ang.cos(), current_ang.sin()) * outer.x;
-        builder.begin(p.to_point());
+        builder.begin(p.to_point() + cp);
         current_ang += angle_per_point * angle_dir;
-        for i in 0..num_points {
+        for _ in 0..num_points {
             let (cp1_info, cp2_info) = if long_flag {
                 (inner, outer)
             } else {
@@ -310,12 +309,12 @@ impl PathExt for PolyStar {
                 let cp1 = cp1_d * (cp1_info.x * cp1_info.y * MAGIC_NUM / num_points as f32 * 2.0);
                 let cp2 = cp2_d * (cp2_info.x * cp2_info.y * MAGIC_NUM / num_points as f32 * 2.0);
                 builder.cubic_bezier_to(
-                    (prev - cp1).to_point(),
-                    (p + cp2).to_point(),
-                    p.to_point(),
+                    (prev - cp1).to_point() + cp,
+                    (p + cp2).to_point() + cp,
+                    p.to_point() + cp,
                 );
             } else {
-                builder.line_to(p.to_point());
+                builder.line_to(p.to_point() + cp);
             }
             current_ang += angle_per_point;
             long_flag = !long_flag;
