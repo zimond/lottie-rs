@@ -42,7 +42,7 @@ struct LottieAnimationInfo {
     start_frame: u32,
     end_frame: u32,
     frame_rate: u32,
-    current_frame: u32,
+    current_time: f32,
     entities: HashMap<TimelineItemId, Entity>,
 }
 
@@ -117,7 +117,7 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
         start_frame: lottie.model.start_frame,
         end_frame: lottie.model.end_frame,
         frame_rate: lottie.model.frame_rate,
-        current_frame: 0,
+        current_time: 0.0,
         entities: HashMap::new(),
     });
     commands.spawn_bundle(camera);
@@ -143,19 +143,22 @@ fn animate_system(
     // let mut current_frame = (time.time_since_startup().as_secs_f32() *
     // info.frame_rate as f32)     .round() as u32
     //     % info.end_frame;
-    let mut current_frame = info.current_frame + 1;
-    if current_frame >= info.end_frame {
-        current_frame = 1;
-        info.current_frame = 0;
+    let mut current_time = time.time_since_startup().as_secs_f32();
+    let total_time = (info.end_frame - info.start_frame) as f32 / info.frame_rate as f32;
+    let mut current_time = current_time - (current_time / total_time).floor() * total_time;
+    if current_time < info.current_time {
+        info.current_time = 0.0;
         info.entities.clear();
         log::trace!("destroy all entities");
         for (entity, _) in comp.iter() {
             commands.entity(entity).despawn_descendants();
         }
     }
+    let prev_frame = (info.current_time * info.frame_rate as f32).ceil() as u32;
+    let current_frame = (current_time * info.frame_rate as f32).ceil() as u32;
 
     let (root_entity, comp) = comp.get_single().unwrap();
-    for frame in info.current_frame..current_frame {
+    for frame in prev_frame..current_frame {
         let items = comp
             .lottie
             .timeline()
@@ -191,5 +194,5 @@ fn animate_system(
         }
     }
 
-    info.current_frame = current_frame % info.end_frame;
+    info.current_time = current_time;
 }

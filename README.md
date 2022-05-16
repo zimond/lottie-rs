@@ -1,2 +1,3 @@
 # lottie-rs
-A Lottie file toolkit written in Rust
+A Lottie file toolkit written in Rust.
+
