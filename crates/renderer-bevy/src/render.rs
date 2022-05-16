@@ -54,6 +54,9 @@ impl LayerRenderer for StagedLayer {
             local: initial_transform,
             global: Default::default(),
         });
+        if let Some(animator) = self.transform_animator(&self.transform) {
+            c.insert(animator);
+        }
         let id = c.id();
 
         c.insert(LayerAnimationInfo {
@@ -105,12 +108,6 @@ impl LayerRenderer for StagedLayer {
                 c.id()
             }
             Shape::PolyStar(star) => {
-                let initial_pos = star.position.initial_value();
-                // let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
-                // initial_transform.translation -= initial_pos;
-                // let transform = Transform::from_matrix(
-                //     initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
-                // );
                 let mut builder = Builder::new();
                 star.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());
@@ -129,12 +126,6 @@ impl LayerRenderer for StagedLayer {
                 c.id()
             }
             Shape::Rectangle(rect) => {
-                let initial_pos = rect.position.initial_value();
-                let initial_pos = Vec3::new(initial_pos.x, initial_pos.y, 0.0);
-                // initial_transform.translation -= initial_pos;
-                // let transform = Transform::from_matrix(
-                //     initial_transform.compute_matrix() * Mat4::from_translation(initial_pos),
-                // );
                 let mut builder = Builder::new();
                 rect.to_path(frame, &mut builder);
                 let path_shape = Path(builder.build());

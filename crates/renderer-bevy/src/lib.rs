@@ -140,12 +140,9 @@ fn animate_system(
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    // let mut current_frame = (time.time_since_startup().as_secs_f32() *
-    // info.frame_rate as f32)     .round() as u32
-    //     % info.end_frame;
-    let mut current_time = time.time_since_startup().as_secs_f32();
+    let current_time = time.time_since_startup().as_secs_f32();
     let total_time = (info.end_frame - info.start_frame) as f32 / info.frame_rate as f32;
-    let mut current_time = current_time - (current_time / total_time).floor() * total_time;
+    let current_time = current_time - (current_time / total_time).floor() * total_time;
     if current_time < info.current_time {
         info.current_time = 0.0;
         info.entities.clear();
@@ -158,6 +155,7 @@ fn animate_system(
     let current_frame = (current_time * info.frame_rate as f32).ceil() as u32;
 
     let (root_entity, comp) = comp.get_single().unwrap();
+    let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     for frame in prev_frame..current_frame {
         let items = comp
             .lottie
@@ -171,14 +169,22 @@ fn animate_system(
                     if let Some(layer) = comp.lottie.timeline().item(*id) {
                         let entity = layer.spawn(frame, &mut commands);
                         info.entities.insert(layer.id, entity);
-                        if let Some(parent_entity) =
-                            layer.parent.and_then(|id| info.entities.get(&id))
-                        {
-                            log::trace!("adding {:?} -> {:?}", entity, parent_entity);
-                            commands.entity(*parent_entity).add_child(entity);
+                        if let Some(parent_id) = layer.parent {
+                            if let Some(parent_entity) = info.entities.get(&parent_id) {
+                                log::trace!("adding {:?} -> {:?}", entity, parent_entity);
+                                commands.entity(*parent_entity).add_child(entity);
+                            } else {
+                                unresolved.entry(parent_id).or_default().push(entity);
+                            }
                         } else {
                             log::trace!("adding {:?} -> {:?}", entity, root_entity);
                             commands.entity(root_entity).add_child(entity);
+                        }
+                        if let Some(entities) = unresolved.remove(&layer.id) {
+                            let mut current = commands.entity(entity);
+                            for entity in entities {
+                                current.add_child(entity);
+                            }
                         }
                     }
                 }

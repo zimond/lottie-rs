@@ -66,6 +66,7 @@ impl Timeline {
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
         let mut standby_map: HashMap<u32, Vec<Id>> = HashMap::new();
+        let mut parents_map = HashMap::new();
         while !layers.is_empty() {
             let (layer, target, parent) = layers.pop_front().unwrap();
             let start_frame = layer.spawn_frame();
@@ -133,8 +134,18 @@ impl Timeline {
                 _ => todo!(),
             };
 
+            if let Some(ind) = layer.index {
+                parents_map.insert(ind, id);
+            }
+
             if let Some(index) = layer.parent_index {
-                standby_map.entry(index).or_default().push(id);
+                if let Some(parent_id) = parents_map.get(&index) {
+                    if let Some(child) = timeline.store.get_mut(id) {
+                        child.parent = Some(*parent_id);
+                    }
+                } else {
+                    standby_map.entry(index).or_default().push(id);
+                }
             }
 
             if let Some(index) = layer.index {
