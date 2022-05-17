@@ -71,6 +71,23 @@ impl AnimatedExt for Transform {
     }
 
     fn value(&self, frame: u32) -> Self::Target {
+        let mut angle = 0.0;
+        if let Some(position) = self.position.as_ref() && self.auto_orient {
+            if position.is_animated() {
+                let len = position.keyframes.len() - 1;
+                let mut frame =
+                    std::cmp::max(position.keyframes[0].start_frame.unwrap_or(0), frame);
+                frame = std::cmp::min(position.keyframes[len].start_frame.unwrap_or(0), frame);
+                if let Some(window) = position.keyframes.windows(2).find(|window| {
+                    frame >= window[0].start_frame.unwrap()
+                        && frame < window[1].start_frame.unwrap()
+                }) {
+                    let p0 = &window[0];
+                    let p1 = &window[1];
+                    angle = (p1.value - p0.value).angle_from_x_axis().to_degrees();
+                }
+            }
+        }
         let anchor = self
             .anchor
             .as_ref()
@@ -82,7 +99,7 @@ impl AnimatedExt for Transform {
             .map(|a| a.value(frame))
             .unwrap_or_default();
         let scale = self.scale.value(frame) / 100.0;
-        let rotation = self.rotation.value(frame);
+        let rotation = self.rotation.value(frame) + angle;
         mat4(anchor, position, scale, rotation)
     }
 
@@ -105,8 +122,6 @@ fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) ->
     let anchor = Vec3::new(anchor.x, anchor.y, 0.0);
     let scale = Vec3::new(scale.x, scale.y, 1.0);
     let position = Vec3::new(position.x, position.y, 0.0);
-    // let transform = Mat4::from_scale_rotation_translation(scale, rotation,
-    // position);
     Mat4::from_translation(position)
         * Mat4::from_rotation_z(rotation * std::f32::consts::PI / 180.0)
         * Mat4::from_scale(scale)

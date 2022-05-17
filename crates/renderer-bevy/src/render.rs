@@ -22,7 +22,7 @@ pub trait LayerRenderer {
         commands: &mut Commands,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
-    fn stroke_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
+    fn stroke_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
     fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32);
 }
 
@@ -98,8 +98,10 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) =
-                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                if let Some(mut animator) = shape
+                    .stroke
+                    .as_ref()
+                    .and_then(|s| self.stroke_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -117,8 +119,10 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) =
-                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                if let Some(mut animator) = shape
+                    .stroke
+                    .as_ref()
+                    .and_then(|s| self.stroke_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -135,8 +139,10 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) =
-                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                if let Some(mut animator) = shape
+                    .stroke
+                    .as_ref()
+                    .and_then(|s| self.stroke_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -160,8 +166,10 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) =
-                    shape.stroke.as_ref().and_then(|s| self.stroke_animator(s))
+                if let Some(mut animator) = shape
+                    .stroke
+                    .as_ref()
+                    .and_then(|s| self.stroke_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -205,7 +213,7 @@ impl LayerRenderer for StagedLayer {
         }
     }
 
-    fn stroke_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
+    fn stroke_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if stroke.width.is_animated() {

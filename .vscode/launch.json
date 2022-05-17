@@ -59,7 +59,7 @@
             },
             "args": [
                 "-i",
-                "../../fixtures/fractal.json"
+                "../../fixtures/auto_orient.json"
             ],
             "cwd": "${workspaceFolder}/crates/player",
             "env": {

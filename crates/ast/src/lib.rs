@@ -58,6 +58,13 @@ pub struct Layer {
     pub parent_index: Option<u32>,
     #[serde(skip)]
     pub id: u32,
+    #[serde(
+        rename = "ao",
+        deserialize_with = "bool_from_int",
+        serialize_with = "int_from_bool",
+        default
+    )]
+    pub auto_orient: bool,
     #[serde(rename = "ip", deserialize_with = "u32_from_number")]
     pub start_frame: u32,
     #[serde(rename = "op", deserialize_with = "u32_from_number")]
@@ -109,6 +116,8 @@ pub struct Transform {
     pub scale: Animated<Vector2D>,
     #[serde(rename = "r", default)]
     pub rotation: Animated<f32>,
+    #[serde(skip)]
+    pub auto_orient: bool,
     #[serde(rename = "o", default = "default_number_100")]
     opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
@@ -127,6 +136,7 @@ impl Default for Transform {
             opacity: default_number_100(),
             skew: Default::default(),
             skew_axis: Default::default(),
+            auto_orient: false,
         }
     }
 }

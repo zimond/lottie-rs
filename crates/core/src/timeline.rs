@@ -73,6 +73,8 @@ impl Timeline {
             let end_frame = layer.despawn_frame();
             let id = match layer.content {
                 LayerContent::Shape(shape_group) => {
+                    let mut transform = layer.transform.unwrap_or_default();
+                    transform.auto_orient = layer.auto_orient;
                     let layer = StagedLayer {
                         id: Id::default(),
                         content: RenderableContent::Shape(shape_group),
@@ -80,7 +82,7 @@ impl Timeline {
                         parent,
                         start_frame,
                         end_frame,
-                        transform: layer.transform.unwrap_or_default(),
+                        transform,
                         frame_rate: default_frame_rate,
                     };
                     timeline.add_item(layer)
@@ -90,11 +92,8 @@ impl Timeline {
                         Some(a) => a,
                         None => continue,
                     };
-                    // let identity_transform = layer
-                    //     .transform
-                    //     .as_ref()
-                    //     .map(|t| t.is_identity())
-                    //     .unwrap_or(true);
+                    let mut transform = layer.transform.expect("unreachable");
+                    transform.auto_orient = layer.auto_orient;
                     let parent_id = timeline.add_item(StagedLayer {
                         id: Id::default(),
                         content: RenderableContent::Group,
@@ -103,7 +102,7 @@ impl Timeline {
                         end_frame,
                         frame_rate: default_frame_rate,
                         parent,
-                        transform: layer.transform.expect("unreachable"),
+                        transform,
                     });
                     for asset_layer in &asset.layers {
                         let mut asset_layer = asset_layer.clone();
@@ -121,16 +120,20 @@ impl Timeline {
                     }
                     parent_id
                 }
-                LayerContent::Empty => timeline.add_item(StagedLayer {
-                    id: Id::default(),
-                    content: RenderableContent::Group,
-                    target,
-                    start_frame,
-                    end_frame,
-                    frame_rate: default_frame_rate,
-                    parent,
-                    transform: layer.transform.unwrap_or_default(),
-                }),
+                LayerContent::Empty => {
+                    let mut transform = layer.transform.unwrap_or_default();
+                    transform.auto_orient = layer.auto_orient;
+                    timeline.add_item(StagedLayer {
+                        id: Id::default(),
+                        content: RenderableContent::Group,
+                        target,
+                        start_frame,
+                        end_frame,
+                        frame_rate: default_frame_rate,
+                        parent,
+                        transform,
+                    })
+                }
                 _ => todo!(),
             };
 
