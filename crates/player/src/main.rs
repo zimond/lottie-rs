@@ -1,5 +1,3 @@
-use bevy::math::Vec3;
-use bevy::prelude::ResMut;
 use bevy::winit::WinitPlugin;
 use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 use clap::Parser;
@@ -14,10 +12,10 @@ struct Args {
     input: String,
 }
 
-fn axis_system(mut lines: ResMut<DebugLines>) {
-    lines.line(Vec3::new(0.0, 250.0, 0.0), Vec3::new(0.0, -250.0, 0.0), 1.0);
-    lines.line(Vec3::new(250.0, 0.0, 0.0), Vec3::new(-250.0, 0.0, 0.0), 1.0);
-}
+// fn axis_system(mut lines: ResMut<DebugLines>) {
+//     lines.line(Vec3::new(0.0, 250.0, 0.0), Vec3::new(0.0, -250.0, 0.0), 1.0);
+//     lines.line(Vec3::new(250.0, 0.0, 0.0), Vec3::new(-250.0, 0.0, 0.0), 1.0);
+// }
 
 fn main() {
     env_logger::init();

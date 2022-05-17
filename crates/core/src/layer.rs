@@ -1,6 +1,6 @@
 use lottie_ast::Layer;
 
-pub mod precomposition;
+pub mod opacity;
 pub mod shape;
 pub mod staged;
 

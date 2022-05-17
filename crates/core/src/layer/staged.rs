@@ -2,6 +2,7 @@ use lottie_ast::{Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
 
+use super::opacity::OpacityHierarchy;
 use super::LayerExt;
 
 #[derive(Debug, Clone)]
@@ -27,6 +28,7 @@ pub struct StagedLayer {
     pub frame_rate: u32,
     pub parent: Option<Id>,
     pub transform: Transform,
+    pub opacity: OpacityHierarchy,
 }
 
 impl StagedLayer {
@@ -49,6 +51,7 @@ impl StagedLayer {
             end_frame,
             transform,
             frame_rate: 0,
+            opacity: OpacityHierarchy::default(),
         }
     }
 }

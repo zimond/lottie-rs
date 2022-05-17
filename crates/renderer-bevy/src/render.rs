@@ -1,5 +1,4 @@
-use bevy::ecs::system::EntityCommands;
-use bevy::math::{Vec2, Vec3};
+use bevy::math::Vec2;
 use bevy::prelude::{Entity, Transform};
 use bevy_prototype_lyon::prelude::tess::path::path::Builder;
 use bevy_prototype_lyon::prelude::*;
@@ -22,7 +21,7 @@ pub trait LayerRenderer {
         commands: &mut Commands,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
-    fn stroke_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
+    fn draw_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
     fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32);
 }
 
@@ -101,7 +100,7 @@ impl LayerRenderer for StagedLayer {
                 if let Some(mut animator) = shape
                     .stroke
                     .as_ref()
-                    .and_then(|s| self.stroke_mode_animator(s))
+                    .and_then(|s| self.draw_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -122,7 +121,7 @@ impl LayerRenderer for StagedLayer {
                 if let Some(mut animator) = shape
                     .stroke
                     .as_ref()
-                    .and_then(|s| self.stroke_mode_animator(s))
+                    .and_then(|s| self.draw_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -142,7 +141,7 @@ impl LayerRenderer for StagedLayer {
                 if let Some(mut animator) = shape
                     .stroke
                     .as_ref()
-                    .and_then(|s| self.stroke_mode_animator(s))
+                    .and_then(|s| self.draw_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -169,7 +168,7 @@ impl LayerRenderer for StagedLayer {
                 if let Some(mut animator) = shape
                     .stroke
                     .as_ref()
-                    .and_then(|s| self.stroke_mode_animator(s))
+                    .and_then(|s| self.draw_mode_animator(s))
                 {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
@@ -213,7 +212,7 @@ impl LayerRenderer for StagedLayer {
         }
     }
 
-    fn stroke_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
+    fn draw_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if stroke.width.is_animated() {

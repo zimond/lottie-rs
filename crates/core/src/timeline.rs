@@ -5,6 +5,7 @@ use lottie_ast::{LayerContent, Model};
 use multimap::MultiMap;
 use slotmap::SlotMap;
 
+use crate::layer::opacity::OpacityHierarchy;
 use crate::layer::staged::{RenderableContent, StagedLayer, TargetRef};
 use crate::layer::LayerExt;
 
@@ -119,6 +120,35 @@ impl Timeline {
                 }
             }
         }
+        timeline.build_opacity_hierarchy();
         timeline
+    }
+
+    fn opacity(&self, id: Id) -> Option<OpacityHierarchy> {
+        let mut layer = self.item(id)?;
+        let mut stack = vec![layer.transform.opacity.clone()];
+        while let Some(parent) = layer.parent {
+            if let Some(l) = self.item(parent) {
+                stack.push(l.transform.opacity.clone());
+                layer = l;
+            } else {
+                break;
+            }
+        }
+        Some(OpacityHierarchy { stack })
+    }
+
+    fn build_opacity_hierarchy(&mut self) {
+        let mut result = vec![];
+        for id in self.store.keys() {
+            if let Some(opacity) = self.opacity(id) {
+                result.push((id, opacity));
+            }
+        }
+        for (id, opacity) in result {
+            if let Some(layer) = self.store.get_mut(id) {
+                layer.opacity = opacity;
+            }
+        }
     }
 }

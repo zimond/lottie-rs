@@ -119,7 +119,7 @@ pub struct Transform {
     #[serde(skip)]
     pub auto_orient: bool,
     #[serde(rename = "o", default = "default_number_100")]
-    opacity: Animated<f32>,
+    pub opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
     skew: Option<Animated<Vector2D>>,
     #[serde(rename = "sa", default)]
