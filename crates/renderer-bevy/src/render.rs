@@ -1,14 +1,16 @@
+use std::time::Duration;
+
 use bevy::math::Vec2;
 use bevy::prelude::{Entity, Transform};
 use bevy_prototype_lyon::prelude::tess::path::path::Builder;
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{Animator, Tracks};
+use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween, TweeningType};
 use lottie_core::*;
 
 use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
 
-use crate::lens::{PathLens, StrokeWidthLens, TransformLens};
+use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::tween::TweenProducer;
 use crate::*;
 
@@ -21,7 +23,7 @@ pub trait LayerRenderer {
         commands: &mut Commands,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
-    fn draw_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>>;
+    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>>;
     fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32);
 }
 
@@ -74,7 +76,23 @@ impl LayerRenderer for StagedLayer {
         if shape.shape.hidden {
             return None;
         }
-        let draw_mode = utils::shape_draw_mode(&shape);
+        let mut draw_mode = utils::shape_draw_mode(&shape);
+        let global_opacity = self.opacity.initial_value();
+        if global_opacity < 1.0 {
+            match &mut draw_mode {
+                DrawMode::Fill(f) => f.color.set_a(f.color.a() * global_opacity),
+                DrawMode::Stroke(s) => s.color.set_a(s.color.a() * global_opacity),
+                DrawMode::Outlined {
+                    fill_mode,
+                    outline_mode,
+                } => {
+                    fill_mode.color.set_a(fill_mode.color.a() * global_opacity);
+                    outline_mode
+                        .color
+                        .set_a(outline_mode.color.a() * global_opacity)
+                }
+            };
+        }
         let transform = Transform::from_matrix(shape.transform.value(0));
 
         let entity = match &shape.shape.shape {
@@ -97,11 +115,7 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) = shape
-                    .stroke
-                    .as_ref()
-                    .and_then(|s| self.draw_mode_animator(s))
-                {
+                if let Some(mut animator) = self.draw_mode_animator(&shape) {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
@@ -118,11 +132,7 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) = shape
-                    .stroke
-                    .as_ref()
-                    .and_then(|s| self.draw_mode_animator(s))
-                {
+                if let Some(mut animator) = self.draw_mode_animator(&shape) {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
@@ -138,11 +148,7 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) = shape
-                    .stroke
-                    .as_ref()
-                    .and_then(|s| self.draw_mode_animator(s))
-                {
+                if let Some(mut animator) = self.draw_mode_animator(&shape) {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
@@ -165,11 +171,7 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
-                if let Some(mut animator) = shape
-                    .stroke
-                    .as_ref()
-                    .and_then(|s| self.draw_mode_animator(s))
-                {
+                if let Some(mut animator) = self.draw_mode_animator(&shape) {
                     self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
@@ -212,17 +214,37 @@ impl LayerRenderer for StagedLayer {
         }
     }
 
-    fn draw_mode_animator(&self, stroke: &Stroke) -> Option<Animator<DrawMode>> {
+    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
-        if stroke.width.is_animated() {
-            tweens.push(
-                stroke
-                    .width
-                    .keyframes
-                    .tween(frame_rate, |start, end| StrokeWidthLens { start, end }),
-            );
+        if let Some(stroke) = shape.stroke.as_ref() {
+            if stroke.width.is_animated() {
+                tweens.push(
+                    stroke
+                        .width
+                        .keyframes
+                        .tween(frame_rate, |start, end| StrokeWidthLens { start, end }),
+                );
+            }
         }
+
+        if self.opacity.is_animated() {
+            let opacity_lens = OpacityLens {
+                opacity: self.opacity.clone(),
+                frames: self.end_frame - self.start_frame,
+                fill_opacity: shape.fill.opacity.clone(),
+                stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity.clone()),
+            };
+            let secs = opacity_lens.frames as f32 / self.frame_rate as f32;
+            let tween = Tween::new(
+                EaseMethod::Linear,
+                TweeningType::Once,
+                Duration::from_secs_f32(secs),
+                opacity_lens,
+            );
+            tweens.push(Sequence::from_single(tween));
+        }
+
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
             Some(Animator::new(tracks))

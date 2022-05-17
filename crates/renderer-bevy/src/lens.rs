@@ -2,7 +2,8 @@ use bevy::math::Vec2;
 use bevy::prelude::Transform;
 use bevy_prototype_lyon::prelude::{DrawMode, Path, PathBuilder};
 use bevy_tweening::Lens;
-use lottie_core::{Bezier, Transform as LottieTransform, AnimatedExt};
+use lottie_core::prelude::OpacityHierarchy;
+use lottie_core::{Animated, AnimatedExt, Bezier, Transform as LottieTransform};
 
 pub struct PathLens {
     pub(crate) start: Vec<Bezier>,
@@ -59,7 +60,7 @@ impl Lens<DrawMode> for StrokeWidthLens {
 /// Lerp [LottieTransform] as a whole
 pub struct TransformLens {
     pub(crate) data: LottieTransform,
-    pub(crate) frames: u32
+    pub(crate) frames: u32,
 }
 
 impl Lens<Transform> for TransformLens {
@@ -67,5 +68,36 @@ impl Lens<Transform> for TransformLens {
         let frame = (self.frames as f32 * ratio).round() as u32;
         let value = self.data.value(frame);
         *target = Transform::from_matrix(value)
+    }
+}
+
+pub struct OpacityLens {
+    pub(crate) opacity: OpacityHierarchy,
+    pub(crate) frames: u32,
+    pub(crate) fill_opacity: Animated<f32>,
+    pub(crate) stroke_opacity: Option<Animated<f32>>,
+}
+
+impl Lens<DrawMode> for OpacityLens {
+    fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
+        let frame = (self.frames as f32 * ratio).round() as u32;
+        let value = self.opacity.value(frame);
+        let fill_opacity = self.fill_opacity.value(frame) / 100.0;
+        let stroke_opacity = self
+            .stroke_opacity
+            .as_ref()
+            .map(|o| o.value(frame) / 100.0)
+            .unwrap_or(1.0);
+        match target {
+            DrawMode::Fill(fill) => fill.color.set_a(value * fill_opacity),
+            DrawMode::Stroke(stroke) => stroke.color.set_a(value * stroke_opacity),
+            DrawMode::Outlined {
+                fill_mode,
+                outline_mode,
+            } => {
+                fill_mode.color.set_a(value * fill_opacity);
+                outline_mode.color.set_a(value * stroke_opacity)
+            }
+        };
     }
 }

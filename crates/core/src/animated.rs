@@ -25,8 +25,6 @@ where
             return self.initial_value();
         }
         let len = self.keyframes.len() - 1;
-        frame = std::cmp::max(self.keyframes[0].start_frame.unwrap_or(0), frame);
-        frame = std::cmp::min(self.keyframes[len].start_frame.unwrap_or(0), frame);
         if let Some(window) = self.keyframes.windows(2).find(|window| {
             frame >= window[0].start_frame.unwrap() && frame < window[1].start_frame.unwrap()
         }) {
@@ -53,8 +51,10 @@ where
                 intersection[0].2 .1 as f32
             };
             p1.value.lerp(&p0.value, ratio)
-        } else {
+        } else if frame >= self.keyframes[len].start_frame.unwrap_or(0) {
             self.keyframes[len].value.clone()
+        } else {
+            self.keyframes[0].value.clone()
         }
     }
 
