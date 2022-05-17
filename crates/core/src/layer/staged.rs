@@ -1,6 +1,8 @@
-use lottie_ast::{ShapeGroup, Transform};
+use lottie_ast::{Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
+
+use super::LayerExt;
 
 #[derive(Debug, Clone)]
 pub enum RenderableContent {
@@ -25,4 +27,28 @@ pub struct StagedLayer {
     pub frame_rate: u32,
     pub parent: Option<Id>,
     pub transform: Transform,
+}
+
+impl StagedLayer {
+    pub fn new(layer: Layer) -> Self {
+        let start_frame = layer.spawn_frame();
+        let end_frame = layer.despawn_frame();
+        let content = match layer.content {
+            LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
+            LayerContent::Precomposition(_) | LayerContent::Empty => RenderableContent::Group,
+            _ => todo!(),
+        };
+        let mut transform = layer.transform.unwrap_or_default();
+        transform.auto_orient = layer.auto_orient;
+        StagedLayer {
+            id: Id::default(),
+            content,
+            target: TargetRef::Layer(0),
+            parent: None,
+            start_frame,
+            end_frame,
+            transform,
+            frame_rate: 0,
+        }
+    }
 }

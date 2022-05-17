@@ -69,79 +69,39 @@ impl Timeline {
         let mut parents_map = HashMap::new();
         while !layers.is_empty() {
             let (layer, target, parent) = layers.pop_front().unwrap();
-            let start_frame = layer.spawn_frame();
-            let end_frame = layer.despawn_frame();
-            let id = match layer.content {
-                LayerContent::Shape(shape_group) => {
-                    let mut transform = layer.transform.unwrap_or_default();
-                    transform.auto_orient = layer.auto_orient;
-                    let layer = StagedLayer {
-                        id: Id::default(),
-                        content: RenderableContent::Shape(shape_group),
-                        target,
-                        parent,
-                        start_frame,
-                        end_frame,
-                        transform,
-                        frame_rate: default_frame_rate,
-                    };
-                    timeline.add_item(layer)
-                }
-                LayerContent::Precomposition(r) => {
-                    let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
-                        Some(a) => a,
-                        None => continue,
-                    };
-                    let mut transform = layer.transform.expect("unreachable");
-                    transform.auto_orient = layer.auto_orient;
-                    let parent_id = timeline.add_item(StagedLayer {
-                        id: Id::default(),
-                        content: RenderableContent::Group,
-                        target,
-                        start_frame,
-                        end_frame,
-                        frame_rate: default_frame_rate,
-                        parent,
-                        transform,
-                    });
-                    for asset_layer in &asset.layers {
-                        let mut asset_layer = asset_layer.clone();
-                        asset_layer.start_frame = min(asset_layer.start_frame, layer.start_frame);
-                        asset_layer.end_frame = min(asset_layer.end_frame, layer.end_frame);
-                        asset_layer.start_time += layer.start_time;
-                        // TODO: adjust layer frame_rate
-                        if asset_layer.spawn_frame() < model.end_frame {
-                            layers.push_back((
-                                asset_layer,
-                                TargetRef::Asset(r.ref_id.clone()),
-                                Some(parent_id),
-                            ));
-                        }
+            let index = layer.index;
+            let parent_index = layer.parent_index;
+            let mut assets = vec![];
+            if let LayerContent::Precomposition(r) = &layer.content {
+                let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
+                    Some(a) => a,
+                    None => continue,
+                };
+                for asset_layer in &asset.layers {
+                    let mut asset_layer = asset_layer.clone();
+                    asset_layer.start_frame = min(asset_layer.start_frame, layer.start_frame);
+                    asset_layer.end_frame = min(asset_layer.end_frame, layer.end_frame);
+                    asset_layer.start_time += layer.start_time;
+                    // TODO: adjust layer frame_rate
+                    if asset_layer.spawn_frame() < model.end_frame {
+                        assets.push((asset_layer, TargetRef::Asset(r.ref_id.clone())));
                     }
-                    parent_id
                 }
-                LayerContent::Empty => {
-                    let mut transform = layer.transform.unwrap_or_default();
-                    transform.auto_orient = layer.auto_orient;
-                    timeline.add_item(StagedLayer {
-                        id: Id::default(),
-                        content: RenderableContent::Group,
-                        target,
-                        start_frame,
-                        end_frame,
-                        frame_rate: default_frame_rate,
-                        parent,
-                        transform,
-                    })
-                }
-                _ => todo!(),
-            };
+            }
+            let mut staged = StagedLayer::new(layer);
+            staged.target = target;
+            staged.parent = parent;
+            staged.frame_rate = default_frame_rate;
+            let id = timeline.add_item(staged);
+            for (asset, target) in assets {
+                layers.push_back((asset, target, Some(id)))
+            }
 
-            if let Some(ind) = layer.index {
+            if let Some(ind) = index {
                 parents_map.insert(ind, id);
             }
 
-            if let Some(index) = layer.parent_index {
+            if let Some(index) = parent_index {
                 if let Some(parent_id) = parents_map.get(&index) {
                     if let Some(child) = timeline.store.get_mut(id) {
                         child.parent = Some(*parent_id);
@@ -151,7 +111,7 @@ impl Timeline {
                 }
             }
 
-            if let Some(index) = layer.index {
+            if let Some(index) = index {
                 for child_id in standby_map.remove(&index).into_iter().flatten() {
                     if let Some(child) = timeline.store.get_mut(child_id) {
                         child.parent = Some(id);
