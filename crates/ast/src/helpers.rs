@@ -156,7 +156,14 @@ impl Value {
 #[serde(untagged)]
 enum AnimatedHelper {
     Plain(Value),
-    AnimatedHelper(Vec<KeyFrame<Value>>),
+    AnimatedHelper(Vec<FalseTolerantKeyframe>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum FalseTolerantKeyframe {
+    KeyFrame(KeyFrame<Value>),
+    Any { t: u32 },
 }
 
 impl<'a, T> From<&'a Vec<KeyFrame<T>>> for AnimatedHelper {
@@ -181,6 +188,10 @@ where
             }
             AnimatedHelper::AnimatedHelper(v) => v
                 .into_iter()
+                .filter_map(|k| match k {
+                    FalseTolerantKeyframe::KeyFrame(k) => Some(k),
+                    FalseTolerantKeyframe::Any { t } => None,
+                })
                 .map(|keyframe| KeyFrame {
                     value: T::from(keyframe.value),
                     start_frame: keyframe.start_frame,
@@ -252,7 +263,7 @@ where
     D: Deserializer<'de>,
     T: FromTo<Value>,
 {
-    let result = AnimatedHelper::deserialize(deserializer).unwrap();
+    let result = AnimatedHelper::deserialize(deserializer)?;
     Ok(result.into())
 }
 

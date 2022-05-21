@@ -618,7 +618,7 @@ pub struct ShapeGroup {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bezier {
-    #[serde(rename = "c")]
+    #[serde(rename = "c", default)]
     pub closed: bool,
     #[serde(
         rename = "v",
