@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 
-use lottie_ast::{LayerContent, Model};
+use lottie_model::{LayerContent, Model};
 use multimap::MultiMap;
 use slotmap::SlotMap;
 

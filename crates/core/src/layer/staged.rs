@@ -1,4 +1,4 @@
-use lottie_ast::{Layer, LayerContent, ShapeGroup, Transform};
+use lottie_model::{Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
 

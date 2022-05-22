@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "lottie-ast"
+name = "lottie-model"
 version = "0.1.0"
 
 [dependencies]

@@ -1,4 +1,4 @@
-use lottie_ast::Animated;
+use lottie_model::Animated;
 
 use crate::AnimatedExt;
 

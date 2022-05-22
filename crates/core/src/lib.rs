@@ -2,7 +2,7 @@
 
 pub use animated::*;
 pub use error::Error;
-pub use lottie_ast::*;
+pub use lottie_model::*;
 pub use renderer::*;
 use timeline::Timeline;
 
@@ -28,7 +28,7 @@ pub struct Lottie {
 }
 
 impl Lottie {
-    pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, lottie_ast::Error> {
+    pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, lottie_model::Error> {
         let mut model = Model::from_reader(r)?;
         // assign ids to shapes
         let mut id_counter = 1;

@@ -1,5 +1,5 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
-use lottie_ast::*;
+use lottie_model::*;
 use lyon_path::geom::euclid::{point2, vec2};
 use lyon_path::path::Builder;
 

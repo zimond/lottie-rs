@@ -1,4 +1,4 @@
-use lottie_ast::Layer;
+use lottie_model::Layer;
 
 pub mod opacity;
 pub mod shape;

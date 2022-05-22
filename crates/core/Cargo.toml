@@ -12,5 +12,5 @@ ordered-multimap = "0.4.3"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
 
-[dependencies.lottie-ast]
-path = "../ast"
+[dependencies.lottie-model]
+path = "../model"
