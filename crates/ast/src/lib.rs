@@ -29,6 +29,8 @@ pub struct Model {
     pub layers: Vec<Layer>,
     #[serde(default)]
     pub assets: Vec<Precomposition>,
+    #[serde(default)]
+    pub fonts: FontList,
 }
 
 impl Model {
@@ -225,6 +227,31 @@ where
             keyframes: vec![KeyFrame::default()],
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct FontList {
+    pub list: Vec<Font>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Font {
+    #[serde(default)]
+    ascent: Option<f32>,
+    #[serde(rename = "fFamily")]
+    family: String,
+    #[serde(rename = "fName")]
+    name: String,
+    #[serde(rename = "fStyle")]
+    style: String,
+    #[serde(rename = "fPath", default)]
+    path: Option<String>,
+    #[serde(rename = "fWeight")]
+    weight: Option<String>,
+    #[serde(default)]
+    origin: FontPathOrigin,
+    #[serde(rename = "fClass", default)]
+    class: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -505,6 +532,21 @@ impl Default for ShapeDirection {
 pub enum MergeMode {
     #[serde(other)]
     Unsupported = 1,
+}
+
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum FontPathOrigin {
+    Local = 0,
+    CssUrl = 1,
+    ScriptUrl = 2,
+    FontUrl = 3,
+}
+
+impl Default for FontPathOrigin {
+    fn default() -> Self {
+        FontPathOrigin::Local
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
