@@ -16,10 +16,10 @@ pub struct Model {
     pub name: Option<String>,
     #[serde(rename = "v")]
     version: String,
-    #[serde(rename = "ip", deserialize_with = "u32_from_number")]
-    pub start_frame: u32,
-    #[serde(rename = "op", deserialize_with = "u32_from_number")]
-    pub end_frame: u32,
+    #[serde(rename = "ip")]
+    pub start_frame: f32,
+    #[serde(rename = "op")]
+    pub end_frame: f32,
     #[serde(rename = "fr")]
     pub frame_rate: u32,
     #[serde(rename = "w")]
@@ -67,12 +67,12 @@ pub struct Layer {
         default
     )]
     pub auto_orient: bool,
-    #[serde(rename = "ip", deserialize_with = "u32_from_number")]
-    pub start_frame: u32,
-    #[serde(rename = "op", deserialize_with = "u32_from_number")]
-    pub end_frame: u32,
-    #[serde(rename = "st", deserialize_with = "u32_from_number")]
-    pub start_time: u32,
+    #[serde(rename = "ip")]
+    pub start_frame: f32,
+    #[serde(rename = "op")]
+    pub end_frame: f32,
+    #[serde(rename = "st")]
+    pub start_time: f32,
     #[serde(rename = "nm")]
     name: Option<String>,
     #[serde(rename = "ks", default)]
@@ -173,22 +173,38 @@ pub struct RepeaterTransform {
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct KeyFrame<T> {
     #[serde(rename = "s")]
-    pub value: T,
-    #[serde(rename = "t", default, deserialize_with = "optional_u32_from_number")]
-    pub start_frame: Option<u32>,
+    pub start_value: T,
+    pub end_value: T,
+    #[serde(rename = "t", default)]
+    pub start_frame: f32,
+    #[serde(skip)]
+    pub end_frame: f32,
     #[serde(rename = "o", default)]
     pub easing_out: Option<Easing>,
     #[serde(rename = "i", default)]
     pub easing_in: Option<Easing>,
 }
 
-impl<T> KeyFrame<T> {
+impl<T: Clone> KeyFrame<T> {
     pub fn from_value(value: T) -> Self {
         KeyFrame {
-            value,
-            start_frame: None,
+            start_value: value.clone(),
+            end_value: value,
+            start_frame: 0.0,
+            end_frame: 0.0,
             easing_out: None,
             easing_in: None,
+        }
+    }
+
+    pub fn alter_value<U>(&self, start: U, end: U) -> KeyFrame<U> {
+        KeyFrame {
+            start_value: start,
+            end_value: end,
+            start_frame: self.start_frame,
+            end_frame: self.end_frame,
+            easing_out: self.easing_out.clone(),
+            easing_in: self.easing_in.clone(),
         }
     }
 }

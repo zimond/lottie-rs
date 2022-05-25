@@ -15,22 +15,22 @@ use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity;
+    fn spawn(&self, frame: f32, commands: &mut Commands) -> Entity;
     fn spawn_shape(
         &self,
-        frame: u32,
+        frame: f32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
     fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>>;
-    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32);
+    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: f32);
 }
 
 impl LayerRenderer for StagedLayer {
-    fn spawn(&self, frame: u32, commands: &mut Commands) -> Entity {
+    fn spawn(&self, frame: f32, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
-        let initial_transform = Transform::from_matrix(self.transform.value(0));
+        let initial_transform = Transform::from_matrix(self.transform.value(0.0));
 
         log::trace!(
             "spawn layer {:?}: start {}, end {}, transform: {:?}",
@@ -69,7 +69,7 @@ impl LayerRenderer for StagedLayer {
 
     fn spawn_shape(
         &self,
-        frame: u32,
+        frame: f32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity> {
@@ -93,7 +93,7 @@ impl LayerRenderer for StagedLayer {
                 }
             };
         }
-        let transform = Transform::from_matrix(shape.transform.value(0));
+        let transform = Transform::from_matrix(shape.transform.value(0.0));
 
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
@@ -204,7 +204,7 @@ impl LayerRenderer for StagedLayer {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if transform.is_animated() {
-            tweens.push(transform.tween(frame_rate, |data, _| TransformLens { data, frames: 0 }));
+            tweens.push(transform.tween(frame_rate, |data, _| TransformLens { data, frames: 0.0 }));
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
@@ -253,9 +253,8 @@ impl LayerRenderer for StagedLayer {
         }
     }
 
-    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: u32) {
-        let progress =
-            (frame - self.start_frame) as f32 / (self.end_frame - self.start_frame) as f32;
+    fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: f32) {
+        let progress = (frame - self.start_frame) / (self.end_frame - self.start_frame);
         animator.set_progress(progress);
     }
 }

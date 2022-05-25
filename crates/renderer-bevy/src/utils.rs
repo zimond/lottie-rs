@@ -1,9 +1,7 @@
-use bevy::prelude::{Color};
+use bevy::prelude::Color;
 use bevy_prototype_lyon::prelude::{DrawMode, FillMode, LineCap, LineJoin, StrokeMode};
-use lottie_core::prelude::{StyledShape};
-use lottie_core::{
-    AnimatedExt, LineCap as LottieLineCap, LineJoin as LottieLineJoin, Rgb,
-};
+use lottie_core::prelude::StyledShape;
+use lottie_core::{AnimatedExt, LineCap as LottieLineCap, LineJoin as LottieLineJoin, Rgb};
 
 pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
     let fill = shape.fill.color.initial_value();

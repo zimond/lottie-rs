@@ -144,20 +144,20 @@ impl ShapeExt for Shape {
 }
 
 pub trait PathExt {
-    fn bbox(&self, frame: u32) -> Rect<f32>;
-    fn to_path(&self, frame: u32, builder: &mut Builder);
+    fn bbox(&self, frame: f32) -> Rect<f32>;
+    fn to_path(&self, frame: f32, builder: &mut Builder);
     fn move_origin(&mut self, x: f32, y: f32);
     fn inverse_y_orientation(&mut self);
 }
 
 impl PathExt for Ellipse {
-    fn bbox(&self, frame: u32) -> Rect<f32> {
+    fn bbox(&self, frame: f32) -> Rect<f32> {
         let s = self.size.value(frame);
         let p = self.position.value(frame) - s / 2.0;
         Rect::new(p.to_point(), s.to_size())
     }
 
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         todo!()
     }
 
@@ -171,7 +171,7 @@ impl PathExt for Ellipse {
 }
 
 impl PathExt for Vec<Bezier> {
-    fn bbox(&self, frame: u32) -> Rect<f32> {
+    fn bbox(&self, frame: f32) -> Rect<f32> {
         self.iter()
             .map(|b| b.bbox(frame))
             .reduce(|acc, item| acc.union(&item))
@@ -190,7 +190,7 @@ impl PathExt for Vec<Bezier> {
         }
     }
 
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         for b in self.iter() {
             b.to_path(frame, builder);
         }
@@ -198,7 +198,7 @@ impl PathExt for Vec<Bezier> {
 }
 
 impl PathExt for Bezier {
-    fn bbox(&self, _: u32) -> Rect<f32> {
+    fn bbox(&self, _: f32) -> Rect<f32> {
         let bbox = (0..(self.verticies.len() - 1))
             .map(|i| {
                 let w1 = Coord2(self.verticies[i].x as f64, self.verticies[i].y as f64);
@@ -240,7 +240,7 @@ impl PathExt for Bezier {
         }
     }
 
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         let mut started = false;
         let mut prev_c1: Option<Vector2D> = None;
         let mut prev_c2: Option<Vector2D> = None;
@@ -269,7 +269,7 @@ impl PathExt for Bezier {
 }
 
 impl PathExt for PolyStar {
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         const PI: f32 = std::f32::consts::PI;
         const MAGIC_NUM: f32 = 0.47829 / 0.28;
         let cp = self.position.value(frame);
@@ -330,17 +330,17 @@ impl PathExt for PolyStar {
         todo!()
     }
 
-    fn bbox(&self, frame: u32) -> Rect<f32> {
+    fn bbox(&self, frame: f32) -> Rect<f32> {
         todo!()
     }
 }
 
 impl PathExt for Rectangle {
-    fn bbox(&self, frame: u32) -> Rect<f32> {
+    fn bbox(&self, frame: f32) -> Rect<f32> {
         todo!()
     }
 
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         let center = self.position.value(frame).to_point();
         let size = self.size.value(frame) / 2.0;
         let mut pts = vec![
@@ -369,7 +369,7 @@ impl PathExt for Rectangle {
 }
 
 impl PathExt for Shape {
-    fn bbox(&self, frame: u32) -> Rect<f32> {
+    fn bbox(&self, frame: f32) -> Rect<f32> {
         match &self {
             Shape::Ellipse(e) => e.bbox(frame),
             Shape::Path { d } => d.value(frame).bbox(frame),
@@ -378,7 +378,7 @@ impl PathExt for Shape {
         }
     }
 
-    fn to_path(&self, frame: u32, builder: &mut Builder) {
+    fn to_path(&self, frame: f32, builder: &mut Builder) {
         todo!()
     }
 

@@ -34,13 +34,13 @@ struct LayerId(TimelineItemId);
 
 #[derive(Component)]
 struct LayerAnimationInfo {
-    start_frame: u32,
-    end_frame: u32,
+    start_frame: f32,
+    end_frame: f32,
 }
 
 struct LottieAnimationInfo {
-    start_frame: u32,
-    end_frame: u32,
+    start_frame: f32,
+    end_frame: f32,
     frame_rate: u32,
     current_time: f32,
     entities: HashMap<TimelineItemId, Entity>,
@@ -151,45 +151,37 @@ fn animate_system(
             commands.entity(entity).despawn_descendants();
         }
     }
-    let prev_frame = (info.current_time * info.frame_rate as f32).ceil() as u32;
-    let current_frame = (current_time * info.frame_rate as f32).ceil() as u32;
+    let prev_frame = info.current_time * info.frame_rate as f32;
+    let current_frame = current_time * info.frame_rate as f32;
 
     let (root_entity, comp) = comp.get_single().unwrap();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
-    for frame in prev_frame..current_frame {
-        let items = comp
-            .lottie
-            .timeline()
-            .events_at(frame)
-            .into_iter()
-            .flatten();
-        for item in items {
-            match item {
-                TimelineAction::Spawn(id) => {
-                    if let Some(layer) = comp.lottie.timeline().item(*id) {
-                        let entity = layer.spawn(frame, &mut commands);
-                        info.entities.insert(layer.id, entity);
-                        if let Some(parent_id) = layer.parent {
-                            if let Some(parent_entity) = info.entities.get(&parent_id) {
-                                log::trace!("adding {:?} -> {:?}", entity, parent_entity);
-                                commands.entity(*parent_entity).add_child(entity);
-                            } else {
-                                unresolved.entry(parent_id).or_default().push(entity);
-                            }
+    for item in comp.lottie.timeline().events_in(prev_frame, current_frame) {
+        match item {
+            TimelineAction::Spawn(id) => {
+                if let Some(layer) = comp.lottie.timeline().item(*id) {
+                    let entity = layer.spawn(current_frame, &mut commands);
+                    info.entities.insert(layer.id, entity);
+                    if let Some(parent_id) = layer.parent {
+                        if let Some(parent_entity) = info.entities.get(&parent_id) {
+                            log::trace!("adding {:?} -> {:?}", entity, parent_entity);
+                            commands.entity(*parent_entity).add_child(entity);
                         } else {
-                            log::trace!("adding {:?} -> {:?}", entity, root_entity);
-                            commands.entity(root_entity).add_child(entity);
+                            unresolved.entry(parent_id).or_default().push(entity);
                         }
-                        if let Some(entities) = unresolved.remove(&layer.id) {
-                            let mut current = commands.entity(entity);
-                            for entity in entities {
-                                current.add_child(entity);
-                            }
+                    } else {
+                        log::trace!("adding {:?} -> {:?}", entity, root_entity);
+                        commands.entity(root_entity).add_child(entity);
+                    }
+                    if let Some(entities) = unresolved.remove(&layer.id) {
+                        let mut current = commands.entity(entity);
+                        for entity in entities {
+                            current.add_child(entity);
                         }
                     }
                 }
-                _ => {} // Skip destory event as we are destroying directly from bevy
             }
+            _ => {} // Skip destory event as we are destroying directly from bevy
         }
     }
 

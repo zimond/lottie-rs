@@ -7,10 +7,11 @@ version = "0.1.0"
 flo_curves = "0.6.1"
 glam = "0.20.5"
 lyon_path = "0.17.7"
-multimap = "0.8.3"
 ordered-multimap = "0.4.3"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
+ordered-float = "3.0.0"
+intervaltree = "0.2.7"
 
 [dependencies.lottie-model]
 path = "../model"

@@ -6,7 +6,7 @@ use lottie_model::{Animated, Bezier, KeyFrame, Rgb, Transform, Vector2D};
 pub trait AnimatedExt {
     type Target;
     fn initial_value(&self) -> Self::Target;
-    fn value(&self, frame: u32) -> Self::Target;
+    fn value(&self, frame: f32) -> Self::Target;
     fn is_animated(&self) -> bool;
 }
 
@@ -17,23 +17,23 @@ where
     type Target = T;
 
     fn initial_value(&self) -> Self::Target {
-        self.keyframes[0].value.clone()
+        self.keyframes[0].start_value.clone()
     }
 
-    fn value(&self, mut frame: u32) -> Self::Target {
+    fn value(&self, mut frame: f32) -> Self::Target {
         if !self.is_animated() {
             return self.initial_value();
         }
         let len = self.keyframes.len() - 1;
-        if let Some(window) = self.keyframes.windows(2).find(|window| {
-            frame >= window[0].start_frame.unwrap() && frame < window[1].start_frame.unwrap()
-        }) {
-            let p0 = &window[0];
-            let p1 = &window[1];
-            let ease_out = p0.easing_out.clone().unwrap();
-            let ease_in = p0.easing_in.clone().unwrap();
-            let frames = p1.start_frame.unwrap() - p0.start_frame.unwrap();
-            let x = (frame - p0.start_frame.unwrap()) as f32 / frames as f32;
+        if let Some(keyframe) = self
+            .keyframes
+            .iter()
+            .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
+        {
+            let ease_out = keyframe.easing_out.clone().unwrap();
+            let ease_in = keyframe.easing_in.clone().unwrap();
+            let frames = keyframe.end_frame - keyframe.start_frame;
+            let x = (frame - keyframe.start_frame) / frames;
             debug_assert!(x <= 1.0 && x >= 0.0);
             let curve = Curve::from_points(
                 Coord2(0.0, 0.0),
@@ -50,11 +50,11 @@ where
             } else {
                 intersection[0].2 .1 as f32
             };
-            p1.value.lerp(&p0.value, ratio)
-        } else if frame >= self.keyframes[len].start_frame.unwrap_or(0) {
-            self.keyframes[len].value.clone()
+            keyframe.end_value.lerp(&keyframe.start_value, ratio)
+        } else if frame >= self.keyframes[len].end_frame {
+            self.keyframes[len].end_value.clone()
         } else {
-            self.keyframes[0].value.clone()
+            self.keyframes[0].start_value.clone()
         }
     }
 
@@ -67,24 +67,18 @@ impl AnimatedExt for Transform {
     type Target = Mat4;
 
     fn initial_value(&self) -> Self::Target {
-        self.value(0)
+        self.value(0.0)
     }
 
-    fn value(&self, frame: u32) -> Self::Target {
+    fn value(&self, frame: f32) -> Self::Target {
         let mut angle = 0.0;
         if let Some(position) = self.position.as_ref() && self.auto_orient {
             if position.is_animated() {
                 let len = position.keyframes.len() - 1;
-                let mut frame =
-                    std::cmp::max(position.keyframes[0].start_frame.unwrap_or(0), frame);
-                frame = std::cmp::min(position.keyframes[len].start_frame.unwrap_or(0), frame);
-                if let Some(window) = position.keyframes.windows(2).find(|window| {
-                    frame >= window[0].start_frame.unwrap()
-                        && frame < window[1].start_frame.unwrap()
-                }) {
-                    let p0 = &window[0];
-                    let p1 = &window[1];
-                    angle = (p1.value - p0.value).angle_from_x_axis().to_degrees();
+                let mut frame = position.keyframes[0].start_frame.max(frame);
+                frame = position.keyframes[len].start_frame.min(frame);
+                if let Some(keyframe) = position.keyframes.iter().find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame) {
+                    angle = (keyframe.end_value - keyframe.start_value).angle_from_x_axis().to_degrees();
                 }
             }
         }
@@ -126,21 +120,6 @@ fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) ->
         * Mat4::from_rotation_z(rotation * std::f32::consts::PI / 180.0)
         * Mat4::from_scale(scale)
         * Mat4::from_translation(-anchor)
-}
-
-pub trait KeyFrameExt {
-    fn alter_value<U>(&self, value: U) -> KeyFrame<U>;
-}
-
-impl<T> KeyFrameExt for KeyFrame<T> {
-    fn alter_value<U>(&self, value: U) -> KeyFrame<U> {
-        KeyFrame {
-            value,
-            start_frame: self.start_frame.clone(),
-            easing_out: self.easing_out.clone(),
-            easing_in: self.easing_in.clone(),
-        }
-    }
 }
 
 pub trait Lerp {

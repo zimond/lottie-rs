@@ -1,8 +1,9 @@
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 
+use intervaltree::{Element, IntervalTree};
 use lottie_model::{LayerContent, Model};
-use multimap::MultiMap;
+use ordered_float::OrderedFloat;
 use slotmap::SlotMap;
 
 use crate::layer::opacity::OpacityHierarchy;
@@ -19,14 +20,14 @@ pub enum TimelineAction {
     Destroy(Id),
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Timeline {
-    start_frame: u32,
-    end_frame: u32,
+    start_frame: f32,
+    end_frame: f32,
     frame_rate: u32,
     index_id_map: HashMap<u32, Id>,
     store: SlotMap<Id, StagedLayer>,
-    events: MultiMap<u32, TimelineAction>,
+    events: IntervalTree<OrderedFloat<f32>, TimelineAction>,
 }
 
 impl Timeline {
@@ -34,23 +35,38 @@ impl Timeline {
         self.frame_rate = frame_rate;
     }
 
-    pub fn add_item(&mut self, mut layer: StagedLayer) -> Id {
+    fn add_item(&mut self, mut layer: StagedLayer) -> Id {
         let start_frame = layer.start_frame;
         let end_frame = layer.end_frame;
-        self.start_frame = min(start_frame, self.start_frame);
-        self.end_frame = max(end_frame, self.end_frame);
+        self.start_frame = start_frame.min(self.start_frame);
+        self.end_frame = end_frame.max(self.end_frame);
 
         let id = self.store.insert_with_key(|key| {
             layer.id = key;
             layer
         });
-        self.events.insert(start_frame, TimelineAction::Spawn(id));
-        self.events.insert(end_frame, TimelineAction::Destroy(id));
         id
     }
 
-    pub fn events_at(&self, frame: u32) -> Option<&Vec<TimelineAction>> {
-        self.events.get_vec(&frame)
+    fn build(&mut self) {
+        self.events = IntervalTree::from_iter(self.store.iter().flat_map(|(id, layer)| {
+            vec![
+                (
+                    layer.start_frame.into()..layer.start_frame.into(),
+                    TimelineAction::Spawn(id),
+                ),
+                (
+                    layer.end_frame.into()..layer.end_frame.into(),
+                    TimelineAction::Destroy(id),
+                ),
+            ]
+        }));
+    }
+
+    pub fn events_in(&self, start: f32, end: f32) -> impl Iterator<Item = &TimelineAction> {
+        self.events
+            .query(start.into()..end.into())
+            .map(|element| &element.value)
     }
 
     pub fn item(&self, id: Id) -> Option<&StagedLayer> {
@@ -58,7 +74,14 @@ impl Timeline {
     }
 
     pub(crate) fn new(model: &Model) -> Self {
-        let mut timeline = Timeline::default();
+        let mut timeline = Timeline {
+            start_frame: 0.0,
+            end_frame: 0.0,
+            frame_rate: 0,
+            index_id_map: HashMap::new(),
+            store: SlotMap::with_key(),
+            events: IntervalTree::from_iter(Option::<Element<_, _>>::None.into_iter()),
+        };
         let mut layers = model
             .layers
             .iter()
@@ -80,8 +103,8 @@ impl Timeline {
                 };
                 for asset_layer in &asset.layers {
                     let mut asset_layer = asset_layer.clone();
-                    asset_layer.start_frame = min(asset_layer.start_frame, layer.start_frame);
-                    asset_layer.end_frame = min(asset_layer.end_frame, layer.end_frame);
+                    asset_layer.start_frame = asset_layer.start_frame.min(layer.start_frame);
+                    asset_layer.end_frame = asset_layer.end_frame.min(layer.end_frame);
                     asset_layer.start_time += layer.start_time;
                     // TODO: adjust layer frame_rate
                     if asset_layer.spawn_frame() < model.end_frame {

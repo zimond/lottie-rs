@@ -60,12 +60,12 @@ impl Lens<DrawMode> for StrokeWidthLens {
 /// Lerp [LottieTransform] as a whole
 pub struct TransformLens {
     pub(crate) data: LottieTransform,
-    pub(crate) frames: u32,
+    pub(crate) frames: f32,
 }
 
 impl Lens<Transform> for TransformLens {
     fn lerp(&mut self, target: &mut Transform, ratio: f32) {
-        let frame = (self.frames as f32 * ratio).round() as u32;
+        let frame = self.frames * ratio;
         let value = self.data.value(frame);
         *target = Transform::from_matrix(value)
     }
@@ -73,14 +73,14 @@ impl Lens<Transform> for TransformLens {
 
 pub struct OpacityLens {
     pub(crate) opacity: OpacityHierarchy,
-    pub(crate) frames: u32,
+    pub(crate) frames: f32,
     pub(crate) fill_opacity: Animated<f32>,
     pub(crate) stroke_opacity: Option<Animated<f32>>,
 }
 
 impl Lens<DrawMode> for OpacityLens {
     fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
-        let frame = (self.frames as f32 * ratio).round() as u32;
+        let frame = self.frames as f32 * ratio;
         let value = self.opacity.value(frame);
         let fill_opacity = self.fill_opacity.value(frame) / 100.0;
         let stroke_opacity = self
