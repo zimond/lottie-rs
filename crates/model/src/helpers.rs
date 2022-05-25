@@ -1,9 +1,33 @@
+mod convert;
+mod keyframe;
+
 use std::fmt;
+
+pub(crate) use self::convert::FromTo;
+use self::keyframe::AnimatedHelper;
 
 use super::*;
 use serde::de::{Error, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    Primitive(f32),
+    List(Vec<f32>),
+    ComplexBezier(Vec<Bezier>),
+}
+
+impl Value {
+    fn as_f32_vec(&self) -> Option<Vec<f32>> {
+        Some(match self {
+            Value::Primitive(p) => vec![*p],
+            Value::List(l) => l.clone(),
+            _ => return None,
+        })
+    }
+}
 
 pub fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
@@ -134,130 +158,6 @@ impl Serialize for LayerContent {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum Value {
-    Primitive(f32),
-    List(Vec<f32>),
-    ComplexBezier(Vec<Bezier>),
-}
-
-impl Value {
-    fn as_f32_vec(&self) -> Option<Vec<f32>> {
-        Some(match self {
-            Value::Primitive(p) => vec![*p],
-            Value::List(l) => l.clone(),
-            _ => return None,
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-enum AnimatedHelper {
-    Plain(Value),
-    AnimatedHelper(Vec<FalseTolerantKeyframe>),
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-enum FalseTolerantKeyframe {
-    KeyFrame(KeyFrame<Value>),
-    Any { t: u32 },
-}
-
-impl<'a, T> From<&'a Vec<KeyFrame<T>>> for AnimatedHelper {
-    fn from(_: &'a Vec<KeyFrame<T>>) -> Self {
-        todo!()
-    }
-}
-
-impl<T> From<AnimatedHelper> for Vec<KeyFrame<T>>
-where
-    T: FromTo<Value>,
-{
-    fn from(animated: AnimatedHelper) -> Self {
-        match animated {
-            AnimatedHelper::Plain(v) => {
-                vec![KeyFrame {
-                    value: T::from(v),
-                    start_frame: None,
-                    easing_in: None,
-                    easing_out: None,
-                }]
-            }
-            AnimatedHelper::AnimatedHelper(v) => v
-                .into_iter()
-                .filter_map(|k| match k {
-                    FalseTolerantKeyframe::KeyFrame(k) => Some(k),
-                    FalseTolerantKeyframe::Any { t } => None,
-                })
-                .map(|keyframe| KeyFrame {
-                    value: T::from(keyframe.value),
-                    start_frame: keyframe.start_frame,
-                    easing_in: keyframe.easing_in,
-                    easing_out: keyframe.easing_out,
-                })
-                .collect(),
-        }
-    }
-}
-
-pub(crate) trait FromTo<T> {
-    fn from(v: T) -> Self;
-    fn to(self) -> T;
-}
-
-impl FromTo<Value> for Vector2D {
-    fn from(v: Value) -> Self {
-        let v = v.as_f32_vec().unwrap();
-        Vector2D::new(v[0], v[1])
-    }
-
-    fn to(self) -> Value {
-        todo!()
-    }
-}
-
-impl FromTo<Value> for f32 {
-    fn from(v: Value) -> Self {
-        let v = v.as_f32_vec().unwrap();
-        v[0]
-    }
-
-    fn to(self) -> Value {
-        Value::Primitive(self)
-    }
-}
-
-impl FromTo<Value> for Rgb {
-    fn from(v: Value) -> Self {
-        let v = v.as_f32_vec().unwrap();
-        Rgb::new_f32(v[0], v[1], v[2])
-    }
-
-    fn to(self) -> Value {
-        Value::List(vec![
-            self.r as f32 / 255.0,
-            self.g as f32 / 255.0,
-            self.b as f32 / 255.0,
-        ])
-    }
-}
-
-impl FromTo<Value> for Vec<Bezier> {
-    fn from(v: Value) -> Self {
-        match v {
-            Value::ComplexBezier(b) => b,
-            _ => todo!(),
-        }
-    }
-
-    fn to(self) -> Value {
-        Value::ComplexBezier(self)
-    }
-}
-
 pub(crate) fn keyframes_from_array<'de, D, T>(deserializer: D) -> Result<Vec<KeyFrame<T>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -271,17 +171,18 @@ pub fn array_from_keyframes<S, T>(b: &Vec<KeyFrame<T>>, serializer: S) -> Result
 where
     S: Serializer,
 {
-    let animated = AnimatedHelper::from(b);
-    match animated {
-        AnimatedHelper::Plain(data) => data.serialize(serializer),
-        AnimatedHelper::AnimatedHelper(data) => {
-            let mut seq = serializer.serialize_seq(Some(data.len()))?;
-            for keyframe in data {
-                seq.serialize_element(&keyframe)?;
-            }
-            seq.end()
-        }
-    }
+    todo!()
+    // let animated = AnimatedHelper::from(b);
+    // match animated {
+    //     AnimatedHelper::Plain(data) => data.serialize(serializer),
+    //     AnimatedHelper::AnimatedHelper(data) => {
+    //         let mut seq = serializer.serialize_seq(Some(data.len()))?;
+    //         for keyframe in data {
+    //             seq.serialize_element(&keyframe)?;
+    //         }
+    //         seq.end()
+    //     }
+    // }
 }
 
 impl<'de> Deserialize<'de> for AnimatedColorList {
