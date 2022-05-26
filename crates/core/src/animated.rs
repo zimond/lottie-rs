@@ -1,7 +1,7 @@
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use glam::{Mat4, Vec3};
-use lottie_model::{Animated, Bezier, KeyFrame, Rgb, Transform, Vector2D};
+use lottie_model::{Animated, Bezier, Rgb, Transform, Vector2D};
 
 pub trait AnimatedExt {
     type Target;
@@ -20,7 +20,7 @@ where
         self.keyframes[0].start_value.clone()
     }
 
-    fn value(&self, mut frame: f32) -> Self::Target {
+    fn value(&self, frame: f32) -> Self::Target {
         if !self.is_animated() {
             return self.initial_value();
         }

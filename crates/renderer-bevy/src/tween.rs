@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::sync::Arc;
 use std::time::Duration;
 

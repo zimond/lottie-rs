@@ -19,6 +19,7 @@ pub trait LayerRenderer {
     fn spawn_shape(
         &self,
         frame: f32,
+        zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity>;
@@ -30,7 +31,8 @@ pub trait LayerRenderer {
 impl LayerRenderer for StagedLayer {
     fn spawn(&self, frame: f32, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
-        let initial_transform = Transform::from_matrix(self.transform.value(0.0));
+        let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
+        initial_transform.translation.z = self.zindex as f32 * -1.0;
 
         log::trace!(
             "spawn layer {:?}: start {}, end {}, transform: {:?}",
@@ -41,8 +43,15 @@ impl LayerRenderer for StagedLayer {
         );
         match &self.content {
             RenderableContent::Shape(shapes) => {
-                for shape in shapes.shapes() {
-                    if let Some(entity) = self.spawn_shape(frame, shape, c.commands()) {
+                let shapes = shapes.shapes();
+                let count = shapes.shape_count() as f32;
+                for (zindex, shape) in shapes.enumerate() {
+                    if let Some(entity) = self.spawn_shape(
+                        frame,
+                        zindex as f32 / count + self.zindex as f32,
+                        shape,
+                        c.commands(),
+                    ) {
                         log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
                     }
@@ -70,6 +79,7 @@ impl LayerRenderer for StagedLayer {
     fn spawn_shape(
         &self,
         frame: f32,
+        zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity> {
@@ -93,7 +103,8 @@ impl LayerRenderer for StagedLayer {
                 }
             };
         }
-        let transform = Transform::from_matrix(shape.transform.value(0.0));
+        let mut transform = Transform::from_matrix(shape.transform.value(0.0));
+        transform.translation.z = -1.0 * zindex;
 
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {

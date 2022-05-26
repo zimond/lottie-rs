@@ -1,24 +1,33 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
 use lottie_model::*;
-use lyon_path::geom::euclid::{point2, vec2};
+use lyon_path::geom::euclid::vec2;
 use lyon_path::path::Builder;
 
 use crate::AnimatedExt;
 
 pub struct ShapeIter {
     shapes: Vec<ShapeLayer>,
-    shape_index: isize,
+    shape_index: usize,
     stroke_index: usize,
+}
+
+impl ShapeIter {
+    pub fn shape_count(&self) -> usize {
+        self.shapes.len()
+    }
 }
 
 impl<'a> Iterator for ShapeIter {
     type Item = StyledShape;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.shape_index >= 0 && !self.shapes[self.shape_index as usize].shape.is_shape() {
-            self.shape_index -= 1;
+        while self.shape_index < self.shapes.len()
+            && !self.shapes[self.shape_index as usize].shape.is_shape()
+        {
+            self.shape_index += 1;
+            self.stroke_index = self.shape_index;
         }
-        if self.shape_index < 0 {
+        if self.shape_index >= self.shapes.len() {
             return None;
         }
         let shape = self.shapes[self.shape_index as usize].clone();
@@ -29,14 +38,8 @@ impl<'a> Iterator for ShapeIter {
             let shape = &self.shapes[index];
             if let Shape::Transform(t) = &shape.shape {
                 transform = Some(t.clone());
-                if self.stroke_index as isize == self.shape_index {
-                    self.stroke_index = index;
-                }
                 break;
             }
-        }
-        if transform.is_none() && self.stroke_index <= self.shape_index as usize {
-            self.stroke_index = self.shapes.len();
         }
         let mut find_stroke = false;
         let mut target_stroke_index = self.stroke_index;
@@ -47,7 +50,7 @@ impl<'a> Iterator for ShapeIter {
                     fill = Some(f.clone());
                 } else if let Shape::Stroke(s) = &shape.shape {
                     find_stroke = true;
-                    if index < self.stroke_index {
+                    if index > self.stroke_index && stroke.is_none() {
                         stroke = Some(s.clone());
                         target_stroke_index = index;
                     }
@@ -56,18 +59,18 @@ impl<'a> Iterator for ShapeIter {
         }
         self.stroke_index = target_stroke_index;
         if stroke.is_none() && find_stroke {
-            self.shape_index -= 1;
+            self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
             return self.next();
         }
         if fill.is_none() && stroke.is_none() {
-            self.shape_index -= 1;
+            self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
             return self.next();
         }
         let fill = fill.unwrap_or_else(Fill::transparent);
         if !find_stroke {
-            self.shape_index -= 1;
+            self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
         }
         Some(StyledShape {
@@ -88,7 +91,7 @@ impl ShapeIterator for ShapeGroup {
     fn shapes(&self) -> ShapeIter {
         let shapes = flatten(&self.shapes);
         ShapeIter {
-            shape_index: shapes.len() as isize - 1,
+            shape_index: 0,
             stroke_index: 0,
             shapes,
         }
