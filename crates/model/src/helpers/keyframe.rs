@@ -12,29 +12,34 @@ pub(super) struct AnimatedHelper {
 #[serde(untagged)]
 enum TolerantAnimatedHelper {
     Plain(Value),
-    AnimatedHelper(Vec<LegacyTolerantKeyframe>),
+    AnimatedHelper(Vec<LegacyTolerantKeyFrame>),
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+fn default_none<T>() -> Option<T> {
+    None
+}
+
+#[derive(Deserialize, Default, Debug, Clone)]
 struct LegacyKeyFrame<T> {
     #[serde(rename = "s")]
-    pub start_value: T,
-    #[serde(rename = "e")]
-    pub end_value: T,
+    start_value: T,
+    #[serde(rename = "e", default = "default_none")]
+    end_value: Option<T>,
     #[serde(rename = "t", default)]
-    pub start_frame: f32,
+    start_frame: f32,
     #[serde(skip)]
-    pub end_frame: f32,
+    end_frame: f32,
     #[serde(rename = "o", default)]
-    pub easing_out: Option<Easing>,
+    easing_out: Option<Easing>,
     #[serde(rename = "i", default)]
-    pub easing_in: Option<Easing>,
+    easing_in: Option<Easing>,
+    #[serde(rename = "h", default, deserialize_with = "super::bool_from_int")]
+    hold: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(untagged)]
-enum LegacyTolerantKeyframe {
-    KeyFrame(KeyFrame<Value>),
+enum LegacyTolerantKeyFrame {
     LegacyKeyFrame(LegacyKeyFrame<Value>),
     TOnly { t: f32 },
 }
@@ -62,34 +67,19 @@ where
                 }]
             }
             TolerantAnimatedHelper::AnimatedHelper(v) => {
-                let mut result = vec![];
+                let mut result: Vec<LegacyKeyFrame<Value>> = vec![];
                 for k in v {
                     match k {
-                        LegacyTolerantKeyframe::KeyFrame(k) => {
-                            result.push(k);
-                        }
-                        LegacyTolerantKeyframe::LegacyKeyFrame(k) => {
-                            let LegacyKeyFrame {
-                                start_value,
-                                end_value,
-                                start_frame,
-                                end_frame,
-                                easing_out,
-                                easing_in,
-                            } = k;
+                        LegacyTolerantKeyFrame::LegacyKeyFrame(mut k) => {
                             if let Some(prev) = result.last_mut() {
-                                prev.end_frame = start_frame;
+                                prev.end_frame = k.start_frame;
                             }
-                            result.push(KeyFrame {
-                                start_value,
-                                end_value,
-                                start_frame,
-                                end_frame,
-                                easing_in,
-                                easing_out,
-                            })
+                            if k.hold {
+                                k.end_value = Some(k.start_value.clone());
+                            }
+                            result.push(k)
                         }
-                        LegacyTolerantKeyframe::TOnly { t } => {
+                        LegacyTolerantKeyFrame::TOnly { t } => {
                             if let Some(prev) = result.last_mut() {
                                 prev.end_frame = t;
                             }
@@ -97,11 +87,25 @@ where
                         }
                     }
                 }
+                if result.len() > 1 {
+                    for i in 0..(result.len() - 1) {
+                        if result[i].end_value.is_none() {
+                            result[i].end_value = Some(result[i + 1].start_value.clone());
+                        }
+                    }
+                }
+                if result
+                    .last()
+                    .map(|keyframe| keyframe.end_value.is_none())
+                    .unwrap_or(false)
+                {
+                    result.pop();
+                }
                 result
                     .into_iter()
                     .map(|keyframe| KeyFrame {
                         start_value: T::from(keyframe.start_value),
-                        end_value: T::from(keyframe.end_value),
+                        end_value: T::from(keyframe.end_value.expect("unreachable")),
                         start_frame: keyframe.start_frame,
                         end_frame: keyframe.end_frame,
                         easing_in: keyframe.easing_in,

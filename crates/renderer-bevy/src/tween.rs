@@ -95,15 +95,15 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         let anchor_frames = self
             .anchor
             .as_ref()
-            .and_then(|a| Some(a.keyframes.last()?.start_frame))
+            .and_then(|a| Some(a.keyframes.last()?.end_frame))
             .unwrap_or(0.0);
         let pos_frames = self
             .position
             .as_ref()
-            .and_then(|a| Some(a.keyframes.last()?.start_frame))
+            .and_then(|a| Some(a.keyframes.last()?.end_frame))
             .unwrap_or(0.0);
-        let scale_frames = self.scale.keyframes.last().unwrap().start_frame;
-        let rotation_frames = self.rotation.keyframes.last().unwrap().start_frame;
+        let scale_frames = self.scale.keyframes.last().unwrap().end_frame;
+        let rotation_frames = self.rotation.keyframes.last().unwrap().end_frame;
         let frames = anchor_frames
             .max(pos_frames)
             .max(scale_frames)

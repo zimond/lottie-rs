@@ -48,15 +48,15 @@ impl Timeline {
         id
     }
 
-    fn build(&mut self) {
+    fn build_interval_tree(&mut self) {
         self.events = IntervalTree::from_iter(self.store.iter().flat_map(|(id, layer)| {
             vec![
                 (
-                    layer.start_frame.into()..layer.start_frame.into(),
+                    layer.start_frame.into()..(layer.start_frame + 0.001).into(),
                     TimelineAction::Spawn(id),
                 ),
                 (
-                    layer.end_frame.into()..layer.end_frame.into(),
+                    layer.end_frame.into()..(layer.end_frame + 0.001).into(),
                     TimelineAction::Destroy(id),
                 ),
             ]
@@ -144,6 +144,7 @@ impl Timeline {
             }
         }
         timeline.build_opacity_hierarchy();
+        timeline.build_interval_tree();
         timeline
     }
 

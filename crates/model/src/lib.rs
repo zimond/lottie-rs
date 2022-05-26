@@ -174,6 +174,7 @@ pub struct RepeaterTransform {
 pub struct KeyFrame<T> {
     #[serde(rename = "s")]
     pub start_value: T,
+    #[serde(skip)]
     pub end_value: T,
     #[serde(rename = "t", default)]
     pub start_frame: f32,

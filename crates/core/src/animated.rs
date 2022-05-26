@@ -12,7 +12,7 @@ pub trait AnimatedExt {
 
 impl<T> AnimatedExt for Animated<T>
 where
-    T: Clone + Lerp<Target = T>,
+    T: Clone + Lerp<Target = T> + std::fmt::Debug,
 {
     type Target = T;
 
