@@ -212,7 +212,9 @@ impl<T: Clone> KeyFrame<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Easing {
+    #[serde(deserialize_with = "array_from_array_or_number")]
     pub x: Vec<f32>,
+    #[serde(deserialize_with = "array_from_array_or_number")]
     pub y: Vec<f32>,
 }
 

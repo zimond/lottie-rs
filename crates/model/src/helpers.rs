@@ -282,3 +282,15 @@ where
     }
     seq.end()
 }
+
+pub(crate) fn array_from_array_or_number<'de, D>(deserializer: D) -> Result<Vec<f32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(match value {
+        Value::Primitive(f) => vec![f],
+        Value::List(f) => f,
+        _ => unreachable!(),
+    })
+}
