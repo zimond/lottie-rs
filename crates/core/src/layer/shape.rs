@@ -150,7 +150,6 @@ pub trait PathExt {
     fn bbox(&self, frame: f32) -> Rect<f32>;
     fn to_path(&self, frame: f32, builder: &mut Builder);
     fn move_origin(&mut self, x: f32, y: f32);
-    fn inverse_y_orientation(&mut self);
 }
 
 impl PathExt for Ellipse {
@@ -167,10 +166,6 @@ impl PathExt for Ellipse {
     fn move_origin(&mut self, x: f32, y: f32) {
         todo!()
     }
-
-    fn inverse_y_orientation(&mut self) {
-        todo!()
-    }
 }
 
 impl PathExt for Vec<Bezier> {
@@ -184,12 +179,6 @@ impl PathExt for Vec<Bezier> {
     fn move_origin(&mut self, x: f32, y: f32) {
         for b in self.iter_mut() {
             b.move_origin(x, y)
-        }
-    }
-
-    fn inverse_y_orientation(&mut self) {
-        for i in self.iter_mut() {
-            i.inverse_y_orientation();
         }
     }
 
@@ -234,12 +223,6 @@ impl PathExt for Bezier {
         for p1 in &mut self.verticies {
             p1.x += x;
             p1.y += y;
-        }
-    }
-
-    fn inverse_y_orientation(&mut self) {
-        for p in &mut self.verticies {
-            p.y *= -1.0;
         }
     }
 
@@ -329,10 +312,6 @@ impl PathExt for PolyStar {
         todo!()
     }
 
-    fn inverse_y_orientation(&mut self) {
-        todo!()
-    }
-
     fn bbox(&self, frame: f32) -> Rect<f32> {
         todo!()
     }
@@ -365,10 +344,6 @@ impl PathExt for Rectangle {
     fn move_origin(&mut self, x: f32, y: f32) {
         todo!()
     }
-
-    fn inverse_y_orientation(&mut self) {
-        todo!()
-    }
 }
 
 impl PathExt for Shape {
@@ -386,10 +361,6 @@ impl PathExt for Shape {
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
-        todo!()
-    }
-
-    fn inverse_y_orientation(&mut self) {
         todo!()
     }
 }

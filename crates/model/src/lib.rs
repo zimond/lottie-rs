@@ -14,8 +14,8 @@ use helpers::*;
 pub struct Model {
     #[serde(rename = "nm")]
     pub name: Option<String>,
-    #[serde(rename = "v")]
-    version: String,
+    #[serde(rename = "v", default)]
+    version: Option<String>,
     #[serde(rename = "ip")]
     pub start_frame: f32,
     #[serde(rename = "op")]
@@ -476,6 +476,12 @@ pub enum FillRule {
     EvenOdd = 2,
 }
 
+impl Default for FillRule {
+    fn default() -> Self {
+        FillRule::NonZero
+    }
+}
+
 #[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum LineCap {
@@ -574,8 +580,8 @@ pub struct Fill {
     pub opacity: Animated<f32>,
     #[serde(rename = "c")]
     pub color: Animated<Rgb>,
-    #[serde(rename = "r")]
-    fill_rule: FillRule,
+    #[serde(rename = "r", default)]
+    pub fill_rule: FillRule,
 }
 
 impl Fill {

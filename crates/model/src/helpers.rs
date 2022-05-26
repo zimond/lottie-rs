@@ -217,20 +217,6 @@ pub fn default_number_100() -> Animated<f32> {
     }
 }
 
-pub fn u32_from_number<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(deserializer.deserialize_any(NumberVistor)?.unwrap())
-}
-
-pub fn optional_u32_from_number<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(NumberVistor)
-}
-
 struct NumberVistor;
 
 impl<'de> Visitor<'de> for NumberVistor {

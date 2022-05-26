@@ -166,11 +166,7 @@ impl LayerRenderer for StagedLayer {
                 c.id()
             }
             Shape::Path { d } => {
-                let mut beziers = d.initial_value();
-                // Since we already globally changed the axis system, here bevy_lyon_prototype's
-                // y-axis logic is redundant. So we inverse it again to make the
-                // result correct
-                beziers.inverse_y_orientation();
+                let beziers = d.initial_value();
 
                 let mut builder = Builder::new();
                 beziers.to_path(frame, &mut builder);

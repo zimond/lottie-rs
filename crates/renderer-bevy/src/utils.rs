@@ -1,7 +1,10 @@
 use bevy::prelude::Color;
-use bevy_prototype_lyon::prelude::{DrawMode, FillMode, LineCap, LineJoin, StrokeMode};
+use bevy_prototype_lyon::prelude::{DrawMode, FillMode, FillRule, LineCap, LineJoin, StrokeMode};
 use lottie_core::prelude::StyledShape;
-use lottie_core::{AnimatedExt, LineCap as LottieLineCap, LineJoin as LottieLineJoin, Rgb};
+use lottie_core::{
+    AnimatedExt, FillRule as LottieFillRule, LineCap as LottieLineCap, LineJoin as LottieLineJoin,
+    Rgb,
+};
 
 pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
     let fill = shape.fill.color.initial_value();
@@ -21,7 +24,11 @@ pub fn shape_draw_mode(shape: &StyledShape) -> DrawMode {
         .as_ref()
         .map(|stroke| stroke.opacity.initial_value() * 255.0)
         .unwrap_or(0.0) as u8;
-    let fill_mode = FillMode::color(Color::rgba_u8(fill.r, fill.g, fill.b, fill_opacity));
+    let mut fill_mode = FillMode::color(Color::rgba_u8(fill.r, fill.g, fill.b, fill_opacity));
+    fill_mode.options.fill_rule = match shape.fill.fill_rule {
+        LottieFillRule::NonZero => FillRule::NonZero,
+        LottieFillRule::EvenOdd => FillRule::EvenOdd,
+    };
     let mut stroke_mode = StrokeMode::new(
         Color::rgba_u8(stroke.r, stroke.g, stroke.b, stroke_opacity),
         stroke_width,
