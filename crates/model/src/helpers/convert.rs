@@ -30,7 +30,11 @@ impl FromTo<Value> for f32 {
 impl FromTo<Value> for Rgb {
     fn from(v: Value) -> Self {
         let v = v.as_f32_vec().unwrap();
-        Rgb::new_f32(v[0], v[1], v[2])
+        if v[0] > 1.0 && v[0] <= 255.0 {
+            Rgb::new_u8(v[0] as u8, v[1] as u8, v[2] as u8)
+        } else {
+            Rgb::new_f32(v[0], v[1], v[2])
+        }
     }
 
     fn to(self) -> Value {

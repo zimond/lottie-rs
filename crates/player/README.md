@@ -8,5 +8,5 @@
 # lottie-player
 
 ```bash
-cargo r -- -i ../../fixtures/bouncy_ball.json
+cargo r -- -i ../../fixtures/ui/bouncy_ball.json
 ```
