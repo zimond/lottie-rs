@@ -229,26 +229,27 @@ impl PathExt for Bezier {
     fn to_path(&self, frame: f32, builder: &mut Builder) {
         let mut started = false;
         let mut prev_c1: Option<Vector2D> = None;
-        let mut prev_c2: Option<Vector2D> = None;
         for ((p1, c1), c2) in self
             .verticies
             .iter()
-            .zip(self.in_tangent.iter())
             .zip(self.out_tangent.iter())
+            .zip(self.in_tangent.iter())
         {
             if !started {
                 builder.begin(p1.to_point());
-                prev_c2 = Some(*p1 + *c2);
                 started = true;
             } else if let Some(pc1) = prev_c1 {
-                builder.cubic_bezier_to(
-                    prev_c2.unwrap().to_point(),
-                    (*p1 + pc1).to_point(),
-                    p1.to_point(),
-                );
-                prev_c2 = Some(*p1 + *c2);
+                builder.cubic_bezier_to(pc1.to_point(), (*p1 + *c2).to_point(), p1.to_point());
             }
-            prev_c1 = Some(*c1);
+            prev_c1 = Some(*p1 + *c1);
+        }
+        if self.closed {
+            let index = self.verticies.len() - 1;
+            builder.cubic_bezier_to(
+                (self.verticies[index] + self.out_tangent[index]).to_point(),
+                (self.verticies[0] + self.in_tangent[0]).to_point(),
+                self.verticies[0].to_point(),
+            );
         }
         builder.end(self.closed);
     }
