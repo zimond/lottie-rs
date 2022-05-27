@@ -59,7 +59,7 @@ where
     }
 
     fn is_animated(&self) -> bool {
-        self.animated
+        self.keyframes.len() > 1 || self.keyframes[0].easing_in.is_some()
     }
 }
 

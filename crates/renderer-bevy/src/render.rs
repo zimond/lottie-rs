@@ -184,7 +184,7 @@ impl LayerRenderer for StagedLayer {
                 }
 
                 // Add bezier tween
-                if d.animated {
+                if d.is_animated() {
                     let tween = d
                         .keyframes
                         .tween(self.frame_rate, |start, end| PathLens { start, end });

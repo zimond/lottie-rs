@@ -42,6 +42,7 @@ where
             let ease_in = k.easing_in.clone().unwrap();
             let frames = k.end_frame - k.start_frame;
             let secs = frames as f32 / frame_rate as f32;
+            debug_assert!(secs > 0.0);
             let curve = Curve::from_points(
                 Coord2(0.0, 0.0),
                 (
