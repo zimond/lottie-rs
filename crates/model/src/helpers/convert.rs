@@ -8,7 +8,7 @@ pub trait FromTo<T> {
 impl FromTo<Value> for Vector2D {
     fn from(v: Value) -> Self {
         let v = v.as_f32_vec().unwrap();
-        Vector2D::new(v[0], v[1])
+        Vector2D::new(v[0], v.get(1).cloned().unwrap_or(0.0))
     }
 
     fn to(self) -> Value {

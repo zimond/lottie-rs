@@ -23,14 +23,14 @@ pub enum TimelineAction {
 pub struct Timeline {
     start_frame: f32,
     end_frame: f32,
-    frame_rate: u32,
+    frame_rate: f32,
     index_id_map: HashMap<u32, Id>,
     store: SlotMap<Id, StagedLayer>,
     events: IntervalTree<OrderedFloat<f32>, TimelineAction>,
 }
 
 impl Timeline {
-    pub fn set_frame_rate(&mut self, frame_rate: u32) {
+    pub fn set_frame_rate(&mut self, frame_rate: f32) {
         self.frame_rate = frame_rate;
     }
 
@@ -76,7 +76,7 @@ impl Timeline {
         let mut timeline = Timeline {
             start_frame: 0.0,
             end_frame: 0.0,
-            frame_rate: 0,
+            frame_rate: 0.0,
             index_id_map: HashMap::new(),
             store: SlotMap::with_key(),
             events: IntervalTree::from_iter(Option::<Element<_, _>>::None.into_iter()),

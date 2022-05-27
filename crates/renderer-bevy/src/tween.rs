@@ -17,7 +17,7 @@ where
     type Key;
     fn tween(
         &self,
-        frame_rate: u32,
+        frame_rate: f32,
         producer: fn(start: Self::Key, end: Self::Key) -> L,
     ) -> Sequence<T>;
 }
@@ -31,7 +31,7 @@ where
     type Key = V;
     fn tween(
         &self,
-        frame_rate: u32,
+        frame_rate: f32,
         producer: fn(start: Self::Key, end: Self::Key) -> L,
     ) -> Sequence<T> {
         let mut tween: Option<Sequence<T>> = None;
@@ -89,7 +89,7 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
 
     fn tween(
         &self,
-        frame_rate: u32,
+        frame_rate: f32,
         producer: fn(start: Self::Key, end: Self::Key) -> TransformLens,
     ) -> Sequence<Transform> {
         let anchor_frames = self

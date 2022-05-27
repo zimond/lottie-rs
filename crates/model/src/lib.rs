@@ -21,7 +21,7 @@ pub struct Model {
     #[serde(rename = "op")]
     pub end_frame: f32,
     #[serde(rename = "fr")]
-    pub frame_rate: u32,
+    pub frame_rate: f32,
     #[serde(rename = "w")]
     pub width: u32,
     #[serde(rename = "h")]
@@ -675,7 +675,7 @@ pub struct Precomposition {
     #[serde(rename = "nm")]
     name: Option<String>,
     #[serde(rename = "fr")]
-    pub frame_rate: Option<u32>,
+    pub frame_rate: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -41,7 +41,7 @@ struct LayerAnimationInfo {
 struct LottieAnimationInfo {
     start_frame: f32,
     end_frame: f32,
-    frame_rate: u32,
+    frame_rate: f32,
     current_time: f32,
     entities: HashMap<TimelineItemId, Entity>,
 }
