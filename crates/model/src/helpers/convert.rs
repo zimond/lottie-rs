@@ -50,6 +50,7 @@ impl FromTo<Value> for Vec<Bezier> {
     fn from(v: Value) -> Self {
         match v {
             Value::ComplexBezier(b) => b,
+            Value::Bezier(b) => vec![b],
             _ => todo!(),
         }
     }

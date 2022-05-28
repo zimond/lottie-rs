@@ -32,12 +32,14 @@ impl<'a> Iterator for ShapeIter {
         }
         let shape = self.shapes[self.shape_index as usize].clone();
         let mut fill = None;
-        let mut transform = None;
+        let mut transform = Transform::default();
         let mut stroke = None;
         for index in (self.shape_index as usize + 1)..self.shapes.len() {
             let shape = &self.shapes[index];
             if let Shape::Transform(t) = &shape.shape {
-                transform = Some(t.clone());
+                transform = t.clone();
+                break;
+            } else if shape.shape.is_shape() {
                 break;
             }
         }
@@ -55,6 +57,8 @@ impl<'a> Iterator for ShapeIter {
                         target_stroke_index = index;
                     }
                 }
+            } else if let Shape::Transform(_) = &shape.shape {
+                break;
             }
         }
         self.stroke_index = target_stroke_index;
@@ -78,7 +82,7 @@ impl<'a> Iterator for ShapeIter {
             styles: vec![],
             stroke,
             fill,
-            transform: transform.unwrap_or_default(),
+            transform,
         })
     }
 }

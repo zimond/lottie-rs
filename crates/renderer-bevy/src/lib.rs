@@ -7,13 +7,12 @@ mod utils;
 use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::schedule::IntoSystemDescriptor;
-use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
-// use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{component_animator_system, TweeningPlugin};
+use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
 use lottie_core::*;
 use render::*;
@@ -38,12 +37,27 @@ struct LayerAnimationInfo {
     end_frame: f32,
 }
 
-struct LottieAnimationInfo {
+pub struct LottieAnimationInfo {
     start_frame: f32,
     end_frame: f32,
     frame_rate: f32,
     current_time: f32,
+    paused: bool,
     entities: HashMap<TimelineItemId, Entity>,
+}
+
+impl LottieAnimationInfo {
+    pub fn progress(&self) -> f32 {
+        self.current_time / (self.end_frame - self.start_frame) * self.frame_rate
+    }
+
+    pub fn paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn pause(&mut self, pause: bool) {
+        self.paused = pause;
+    }
 }
 
 pub struct BevyRenderer {
@@ -59,7 +73,6 @@ impl BevyRenderer {
         plugin_group_builder.disable::<WinitPlugin>();
         // Disable gamepad support
         plugin_group_builder.disable::<GilrsPlugin>();
-        plugin_group_builder.disable::<LogPlugin>();
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
             .add_plugin(TweeningPlugin)
@@ -118,6 +131,7 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
         end_frame: lottie.model.end_frame,
         frame_rate: lottie.model.frame_rate,
         current_time: 0.0,
+        paused: false,
         entities: HashMap::new(),
     });
     commands.spawn_bundle(camera);
@@ -137,10 +151,21 @@ fn animate_system(
     mut commands: Commands,
     query: Query<(Entity, &LayerAnimationInfo)>,
     comp: Query<(Entity, &LottieComp)>,
+    mut animation: Query<&mut Animator<Transform>>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
-    let current_time = time.time_since_startup().as_secs_f32();
+    if info.paused {
+        for mut a in animation.iter_mut() {
+            a.state = AnimatorState::Paused;
+        }
+        return;
+    } else {
+        for mut a in animation.iter_mut() {
+            a.state = AnimatorState::Playing;
+        }
+    }
+    let current_time = info.current_time + time.delta_seconds();
     let total_time = (info.end_frame - info.start_frame) as f32 / info.frame_rate as f32;
     let current_time = current_time - (current_time / total_time).floor() * total_time;
     if current_time < info.current_time {

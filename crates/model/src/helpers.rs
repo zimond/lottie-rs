@@ -16,6 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub enum Value {
     Primitive(f32),
     List(Vec<f32>),
+    Bezier(Bezier),
     ComplexBezier(Vec<Bezier>),
 }
 
@@ -108,7 +109,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                 // 5 => LayerContent::SolidColor(Type1::deserialize(value).unwrap()),
                 // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
                 // 7 => LayerContent::Null(Type3::deserialize(value).unwrap()),
-                type_ => panic!("unsupported type {:?}", type_),
+                _type => LayerContent::Empty, //panic!("unsupported type {:?}", type_),
             },
         )
     }
