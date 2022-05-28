@@ -24,8 +24,10 @@ fn controls_system(mut egui_ctx: ResMut<EguiContext>, mut info: ResMut<LottieAni
     let progress = egui::ProgressBar::new(value);
     let button_text = if info.paused() { "▶" } else { "⏸" };
     let button = egui::Button::new(button_text);
+    let secs = egui::Label::new(format!("{:.2}", info.current_time()));
     egui::TopBottomPanel::bottom("slider_panel").show(egui_ctx.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
+            ui.add(secs);
             if ui.add(button).clicked() {
                 let paused = !info.paused();
                 info.pause(paused);

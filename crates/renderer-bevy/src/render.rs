@@ -44,11 +44,11 @@ impl LayerRenderer for StagedLayer {
         match &self.content {
             RenderableContent::Shape(shapes) => {
                 let shapes = shapes.shapes();
-                let count = shapes.shape_count() as f32;
+                let count = shapes.shape_count() as f32 + 1.0;
                 for (zindex, shape) in shapes.enumerate() {
                     if let Some(entity) = self.spawn_shape(
                         frame,
-                        zindex as f32 / count + self.zindex as f32,
+                        (zindex as f32 + 1.0) / count + self.zindex as f32,
                         shape,
                         c.commands(),
                     ) {
@@ -64,7 +64,8 @@ impl LayerRenderer for StagedLayer {
             local: initial_transform,
             global: Default::default(),
         });
-        if let Some(animator) = self.transform_animator(&self.transform) {
+        if let Some(mut animator) = self.transform_animator(&self.transform) {
+            self.sync_animator(&mut animator, frame);
             c.insert(animator);
         }
         let id = c.id();
@@ -189,9 +190,7 @@ impl LayerRenderer for StagedLayer {
                         .keyframes
                         .tween(self.frame_rate, |start, end| PathLens { start, end });
                     let mut animator = Animator::new(tween);
-                    let progress = (frame - self.start_frame) as f32
-                        / (self.end_frame - self.start_frame) as f32;
-                    animator.set_progress(progress);
+                    self.sync_animator(&mut animator, frame);
                     c.insert(animator);
                 }
                 c.id()
@@ -261,7 +260,8 @@ impl LayerRenderer for StagedLayer {
     }
 
     fn sync_animator<T: Component>(&self, animator: &mut Animator<T>, frame: f32) {
-        let progress = (frame - self.start_frame) / (self.end_frame - self.start_frame);
+        let progress = frame / self.end_frame;
         animator.set_progress(progress);
+        animator.state = AnimatorState::Paused;
     }
 }

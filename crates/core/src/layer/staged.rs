@@ -28,7 +28,7 @@ pub struct StagedLayer {
     pub frame_rate: f32,
     pub parent: Option<Id>,
     pub transform: Transform,
-    pub zindex: usize,
+    pub zindex: f32,
     pub opacity: OpacityHierarchy,
 }
 
@@ -46,7 +46,7 @@ impl StagedLayer {
         StagedLayer {
             id: Id::default(),
             content,
-            zindex: 0,
+            zindex: 0.0,
             target: TargetRef::Layer(0),
             parent: None,
             start_frame,

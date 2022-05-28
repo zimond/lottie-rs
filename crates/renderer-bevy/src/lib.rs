@@ -58,6 +58,10 @@ impl LottieAnimationInfo {
     pub fn pause(&mut self, pause: bool) {
         self.paused = pause;
     }
+
+    pub fn current_time(&self) -> f32 {
+        self.current_time
+    }
 }
 
 pub struct BevyRenderer {
@@ -151,22 +155,24 @@ fn animate_system(
     mut commands: Commands,
     query: Query<(Entity, &LayerAnimationInfo)>,
     comp: Query<(Entity, &LottieComp)>,
-    mut animation: Query<&mut Animator<Transform>>,
+    mut transform_animation: Query<&mut Animator<Transform>>,
+    mut path_animation: Query<&mut Animator<Path>>,
+    mut draw_mode_animation: Query<&mut Animator<DrawMode>>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
     if info.paused {
-        for mut a in animation.iter_mut() {
+        for mut a in transform_animation.iter_mut() {
             a.state = AnimatorState::Paused;
         }
         return;
     } else {
-        for mut a in animation.iter_mut() {
+        for mut a in transform_animation.iter_mut() {
             a.state = AnimatorState::Playing;
         }
     }
     let current_time = info.current_time + time.delta_seconds();
-    let total_time = (info.end_frame - info.start_frame) as f32 / info.frame_rate as f32;
+    let total_time = info.end_frame / info.frame_rate;
     let current_time = current_time - (current_time / total_time).floor() * total_time;
     if current_time < info.current_time {
         info.current_time = 0.0;
@@ -176,8 +182,8 @@ fn animate_system(
             commands.entity(entity).despawn_descendants();
         }
     }
-    let prev_frame = info.current_time * info.frame_rate as f32;
-    let current_frame = current_time * info.frame_rate as f32;
+    let prev_frame = info.current_time * info.frame_rate;
+    let current_frame = current_time * info.frame_rate;
 
     let (root_entity, comp) = comp.get_single().unwrap();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();

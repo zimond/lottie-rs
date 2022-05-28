@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use intervaltree::{Element, IntervalTree};
-use lottie_model::{LayerContent, Model};
+use lottie_model::{Layer, LayerContent, Model};
 use ordered_float::OrderedFloat;
 use slotmap::SlotMap;
 
@@ -85,21 +85,35 @@ impl Timeline {
             .layers
             .iter()
             .enumerate()
-            .map(|(index, layer)| (layer.clone(), index, TargetRef::Layer(layer.id), None))
+            .map(|(index, layer)| LayerInfo {
+                layer: layer.clone(),
+                zindex: index as f32,
+                child_index_window: 1.0,
+                target_ref: TargetRef::Layer(layer.id),
+                parent: None,
+            })
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
         let mut standby_map: HashMap<u32, Vec<Id>> = HashMap::new();
         let mut parents_map = HashMap::new();
         while !layers.is_empty() {
-            let (layer, zindex, target, parent) = layers.pop_front().unwrap();
+            let LayerInfo {
+                layer,
+                zindex,
+                child_index_window,
+                target_ref,
+                parent,
+            } = layers.pop_front().unwrap();
             let index = layer.index;
             let parent_index = layer.parent_index;
             let mut assets = vec![];
+            let mut step = 0.0;
             if let LayerContent::Precomposition(r) = &layer.content {
                 let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
                     Some(a) => a,
                     None => continue,
                 };
+                step = child_index_window / (asset.layers.len() as f32 + 1.0);
                 for (index, asset_layer) in asset.layers.iter().enumerate() {
                     let mut asset_layer = asset_layer.clone();
                     asset_layer.start_frame = asset_layer.start_frame.min(layer.start_frame);
@@ -109,20 +123,26 @@ impl Timeline {
                     if asset_layer.spawn_frame() < model.end_frame {
                         assets.push((
                             asset_layer,
-                            index + zindex,
+                            (index as f32 + 1.0) * step + zindex,
                             TargetRef::Asset(r.ref_id.clone()),
                         ));
                     }
                 }
             }
             let mut staged = StagedLayer::new(layer);
-            staged.target = target;
+            staged.target = target_ref;
             staged.parent = parent;
             staged.zindex = zindex;
             staged.frame_rate = default_frame_rate;
             let id = timeline.add_item(staged);
-            for (asset, zindex, target) in assets {
-                layers.push_back((asset, zindex, target, Some(id)))
+            for (asset, zindex, target_ref) in assets {
+                layers.push_back(LayerInfo {
+                    layer: asset,
+                    zindex,
+                    child_index_window: step,
+                    target_ref,
+                    parent: Some(id),
+                })
             }
 
             if let Some(ind) = index {
@@ -179,4 +199,12 @@ impl Timeline {
             }
         }
     }
+}
+
+struct LayerInfo {
+    layer: Layer,
+    zindex: f32,
+    child_index_window: f32,
+    target_ref: TargetRef,
+    parent: Option<Id>,
 }
