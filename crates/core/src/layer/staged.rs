@@ -1,4 +1,4 @@
-use lottie_model::{Layer, LayerContent, ShapeGroup, Transform};
+use lottie_model::{Animated, Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
 
@@ -30,6 +30,7 @@ pub struct StagedLayer {
     pub transform: Transform,
     pub zindex: f32,
     pub opacity: OpacityHierarchy,
+    pub time_remapping: Option<Animated<f32>>,
 }
 
 impl StagedLayer {
@@ -54,6 +55,7 @@ impl StagedLayer {
             transform,
             frame_rate: 0.0,
             opacity: OpacityHierarchy::default(),
+            time_remapping: None,
         }
     }
 }

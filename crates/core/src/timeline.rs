@@ -1,13 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 
 use intervaltree::{Element, IntervalTree};
-use lottie_model::{Layer, LayerContent, Model};
+use lottie_model::{Animated, Layer, LayerContent, Model};
 use ordered_float::OrderedFloat;
 use slotmap::SlotMap;
 
 use crate::layer::opacity::OpacityHierarchy;
 use crate::layer::staged::{StagedLayer, TargetRef};
-use crate::layer::LayerExt;
 
 slotmap::new_key_type! {
     pub struct Id;
@@ -91,6 +90,7 @@ impl Timeline {
                 child_index_window: 1.0,
                 target_ref: TargetRef::Layer(layer.id),
                 parent: None,
+                time_remapping: layer.time_remapping(),
             })
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
@@ -103,6 +103,7 @@ impl Timeline {
                 child_index_window,
                 target_ref,
                 parent,
+                time_remapping,
             } = layers.pop_front().unwrap();
             let index = layer.index;
             let parent_index = layer.parent_index;
@@ -120,13 +121,12 @@ impl Timeline {
                     asset_layer.end_frame = asset_layer.end_frame.min(layer.end_frame);
                     asset_layer.start_time += layer.start_time;
                     // TODO: adjust layer frame_rate
-                    if asset_layer.spawn_frame() < model.end_frame {
-                        assets.push((
-                            asset_layer,
-                            (index as f32 + 1.0) * step + zindex,
-                            TargetRef::Asset(r.ref_id.clone()),
-                        ));
-                    }
+                    assets.push((
+                        asset_layer,
+                        (index as f32 + 1.0) * step + zindex,
+                        TargetRef::Asset(r.ref_id.clone()),
+                        time_remapping.clone(),
+                    ));
                 }
             }
             let mut staged = StagedLayer::new(layer);
@@ -134,14 +134,16 @@ impl Timeline {
             staged.parent = parent;
             staged.zindex = zindex;
             staged.frame_rate = default_frame_rate;
+            staged.time_remapping = time_remapping;
             let id = timeline.add_item(staged);
-            for (asset, zindex, target_ref) in assets {
+            for (asset, zindex, target_ref, time_remapping) in assets {
                 layers.push_back(LayerInfo {
                     layer: asset,
                     zindex,
                     child_index_window: step,
                     target_ref,
                     parent: Some(id),
+                    time_remapping,
                 })
             }
 
@@ -207,4 +209,5 @@ struct LayerInfo {
     child_index_window: f32,
     target_ref: TargetRef,
     parent: Option<Id>,
+    time_remapping: Option<Animated<f32>>,
 }

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::prelude::Transform;
-use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
+use bevy::prelude::{Bundle, Component, Transform};
+use bevy_tweening::{Animator, Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::{KeyFrame, Transform as LottieTransform};
+use lottie_core::{Animated, AnimatedExt, KeyFrame, Transform as LottieTransform};
 
 use crate::lens::TransformLens;
 
@@ -92,22 +92,7 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         frame_rate: f32,
         producer: fn(start: Self::Key, end: Self::Key) -> TransformLens,
     ) -> Sequence<Transform> {
-        let anchor_frames = self
-            .anchor
-            .as_ref()
-            .and_then(|a| Some(a.keyframes.last()?.end_frame))
-            .unwrap_or(0.0);
-        let pos_frames = self
-            .position
-            .as_ref()
-            .and_then(|a| Some(a.keyframes.last()?.end_frame))
-            .unwrap_or(0.0);
-        let scale_frames = self.scale.keyframes.last().unwrap().end_frame;
-        let rotation_frames = self.rotation.keyframes.last().unwrap().end_frame;
-        let frames = anchor_frames
-            .max(pos_frames)
-            .max(scale_frames)
-            .max(rotation_frames);
+        let frames = self.frames();
         let secs = frames as f32 / frame_rate as f32;
         let mut transform = producer(self.clone(), self.clone());
         transform.frames = frames;
@@ -119,5 +104,27 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         );
         Sequence::from_single(tween)
     }
-    //
+}
+
+#[derive(Component)]
+pub struct TweenTracker {
+    pub time_remapping: Option<Animated<f32>>,
+    pub frames: f32,
+}
+
+impl TweenTracker {
+    pub fn remap_to_secs(&self, frame: f32) -> f32 {
+        if let Some(animated) = self.time_remapping.as_ref() {
+            let f = animated.value(frame);
+            f
+        } else {
+            frame / self.frames
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct AnimatorBundle<T: Component> {
+    pub animator: Animator<T>,
+    pub tracker: TweenTracker,
 }

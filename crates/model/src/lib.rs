@@ -81,6 +81,16 @@ pub struct Layer {
     pub content: LayerContent,
 }
 
+impl Layer {
+    pub fn time_remapping(&self) -> Option<Animated<f32>> {
+        if let LayerContent::Precomposition(pre) = &self.content {
+            pre.time_remapping.clone()
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum LayerContent {
     Precomposition(PreCompositionRef),
@@ -105,7 +115,7 @@ pub struct PreCompositionRef {
     #[serde(rename = "h")]
     height: u32,
     #[serde(rename = "tm")]
-    time_remapping: Option<Animated<f32>>,
+    pub time_remapping: Option<Animated<f32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -147,6 +157,25 @@ impl Transform {
     pub fn is_identity(&self) -> bool {
         false
         // TODO:
+    }
+
+    pub fn frames(&self) -> f32 {
+        let anchor_frames = self
+            .anchor
+            .as_ref()
+            .and_then(|a| Some(a.keyframes.last()?.end_frame))
+            .unwrap_or(0.0);
+        let pos_frames = self
+            .position
+            .as_ref()
+            .and_then(|a| Some(a.keyframes.last()?.end_frame))
+            .unwrap_or(0.0);
+        let scale_frames = self.scale.keyframes.last().unwrap().end_frame;
+        let rotation_frames = self.rotation.keyframes.last().unwrap().end_frame;
+        anchor_frames
+            .max(pos_frames)
+            .max(scale_frames)
+            .max(rotation_frames)
     }
 }
 

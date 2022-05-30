@@ -18,6 +18,7 @@ use lottie_core::*;
 use render::*;
 
 use bevy::prelude::Transform;
+use tween::TweenTracker;
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -155,21 +156,17 @@ fn animate_system(
     mut commands: Commands,
     query: Query<(Entity, &LayerAnimationInfo)>,
     comp: Query<(Entity, &LottieComp)>,
-    mut transform_animation: Query<&mut Animator<Transform>>,
+    mut transform_animation: Query<(&mut Animator<Transform>, &TweenTracker)>,
     mut path_animation: Query<&mut Animator<Path>>,
     mut draw_mode_animation: Query<&mut Animator<DrawMode>>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
     if info.paused {
-        for mut a in transform_animation.iter_mut() {
+        for (mut a, _) in transform_animation.iter_mut() {
             a.state = AnimatorState::Paused;
         }
         return;
-    } else {
-        for mut a in transform_animation.iter_mut() {
-            a.state = AnimatorState::Playing;
-        }
     }
     let current_time = info.current_time + time.delta_seconds();
     let total_time = info.end_frame / info.frame_rate;
@@ -184,6 +181,13 @@ fn animate_system(
     }
     let prev_frame = info.current_time * info.frame_rate;
     let current_frame = current_time * info.frame_rate;
+
+    for (mut a, tracker) in transform_animation.iter_mut() {
+        a.state = AnimatorState::Playing;
+        let secs = tracker.remap_to_secs(current_frame);
+        let total = a.tweenable().unwrap().duration().as_secs_f32();
+        a.set_progress(secs / total);
+    }
 
     let (root_entity, comp) = comp.get_single().unwrap();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
