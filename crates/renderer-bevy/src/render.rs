@@ -16,21 +16,20 @@ use crate::tween::{AnimatorBundle, TweenProducer, TweenTracker};
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, frame: f32, commands: &mut Commands) -> Entity;
+    fn spawn(&self, commands: &mut Commands) -> Entity;
     fn spawn_shape(
         &self,
-        frame: f32,
         zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<AnimatorBundle<Transform>>;
     fn draw_mode_animator(&self, shape: &StyledShape) -> Option<AnimatorBundle<DrawMode>>;
-    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>, frame: f32);
+    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>);
 }
 
 impl LayerRenderer for StagedLayer {
-    fn spawn(&self, frame: f32, commands: &mut Commands) -> Entity {
+    fn spawn(&self, commands: &mut Commands) -> Entity {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
         initial_transform.translation.z = self.zindex as f32 * -1.0;
@@ -48,7 +47,6 @@ impl LayerRenderer for StagedLayer {
                 let count = shapes.shape_count() as f32 + 1.0;
                 for (zindex, shape) in shapes.enumerate() {
                     if let Some(entity) = self.spawn_shape(
-                        frame,
                         (zindex as f32 + 1.0) / count + self.zindex as f32,
                         shape,
                         c.commands(),
@@ -66,21 +64,22 @@ impl LayerRenderer for StagedLayer {
             global: Default::default(),
         });
         if let Some(mut animator) = self.transform_animator(&self.transform) {
-            self.sync_animator(&mut animator, frame);
+            self.sync_animator(&mut animator);
             c.insert_bundle(animator);
         }
         let id = c.id();
 
-        c.insert(LayerAnimationInfo {
+        c.insert(VisibilityInfo {
             start_frame: self.start_frame,
             end_frame: self.end_frame,
+            time_remapping: self.time_remapping.clone(),
         });
+        c.insert(Visibility { is_visible: false });
         id
     }
 
     fn spawn_shape(
         &self,
-        frame: f32,
         zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
@@ -125,11 +124,11 @@ impl LayerRenderer for StagedLayer {
                     transform,
                 ));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 c.insert(LottieShapeComp(shape));
@@ -137,32 +136,32 @@ impl LayerRenderer for StagedLayer {
             }
             Shape::PolyStar(star) => {
                 let mut builder = Builder::new();
-                star.to_path(frame, &mut builder);
+                star.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 c.id()
             }
             Shape::Rectangle(rect) => {
                 let mut builder = Builder::new();
-                rect.to_path(frame, &mut builder);
+                rect.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 c.id()
@@ -171,17 +170,17 @@ impl LayerRenderer for StagedLayer {
                 let beziers = d.initial_value();
 
                 let mut builder = Builder::new();
-                beziers.to_path(frame, &mut builder);
+                beziers.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
                 let mut c = commands.spawn();
                 c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
 
@@ -194,16 +193,10 @@ impl LayerRenderer for StagedLayer {
                         animator: Animator::new(tween),
                         tracker: TweenTracker {
                             time_remapping: self.time_remapping.clone(),
-                            frames: d
-                                .keyframes
-                                .iter()
-                                .map(|k| OrderedFloat(k.end_frame))
-                                .max()
-                                .map(|k| k.0)
-                                .unwrap_or(1.0),
+                            frame_rate: self.frame_rate,
                         },
                     };
-                    self.sync_animator(&mut animator, frame);
+                    self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
                 c.id()
@@ -231,7 +224,7 @@ impl LayerRenderer for StagedLayer {
                 animator: Animator::new(tracks),
                 tracker: TweenTracker {
                     time_remapping: self.time_remapping.clone(),
-                    frames: transform.frames(),
+                    frame_rate: self.frame_rate,
                 },
             })
         } else {
@@ -276,7 +269,7 @@ impl LayerRenderer for StagedLayer {
                 animator: Animator::new(tracks),
                 tracker: TweenTracker {
                     time_remapping: self.time_remapping.clone(),
-                    frames: self.end_frame,
+                    frame_rate: self.frame_rate,
                 },
             })
         } else {
@@ -284,9 +277,26 @@ impl LayerRenderer for StagedLayer {
         }
     }
 
-    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>, frame: f32) {
-        let progress = frame / self.end_frame;
-        animator.animator.set_progress(progress);
+    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>) {
+        // let progress = frame / self.end_frame;
+        // animator.animator.set_progress(progress);
         animator.animator.state = AnimatorState::Paused;
+    }
+}
+
+#[derive(Component)]
+pub struct VisibilityInfo {
+    start_frame: f32,
+    end_frame: f32,
+    time_remapping: Option<Animated<f32>>,
+}
+
+impl VisibilityInfo {
+    pub fn is_visible(&self, frame: f32) -> bool {
+        let frame = match self.time_remapping.as_ref() {
+            Some(remap) => remap.value(frame),
+            None => frame,
+        };
+        frame <= self.end_frame && frame >= self.start_frame
     }
 }

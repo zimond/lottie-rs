@@ -109,7 +109,7 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
 #[derive(Component)]
 pub struct TweenTracker {
     pub time_remapping: Option<Animated<f32>>,
-    pub frames: f32,
+    pub frame_rate: f32,
 }
 
 impl TweenTracker {
@@ -118,7 +118,7 @@ impl TweenTracker {
             let f = animated.value(frame);
             f
         } else {
-            frame / self.frames
+            frame / self.frame_rate
         }
     }
 }

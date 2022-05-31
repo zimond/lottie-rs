@@ -1,8 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use intervaltree::{Element, IntervalTree};
 use lottie_model::{Animated, Layer, LayerContent, Model};
-use ordered_float::OrderedFloat;
 use slotmap::SlotMap;
 
 use crate::layer::opacity::OpacityHierarchy;
@@ -25,12 +23,15 @@ pub struct Timeline {
     frame_rate: f32,
     index_id_map: HashMap<u32, Id>,
     store: SlotMap<Id, StagedLayer>,
-    events: IntervalTree<OrderedFloat<f32>, TimelineAction>,
 }
 
 impl Timeline {
     pub fn set_frame_rate(&mut self, frame_rate: f32) {
         self.frame_rate = frame_rate;
+    }
+
+    pub fn items(&self) -> impl Iterator<Item = &StagedLayer> {
+        self.store.values()
     }
 
     fn add_item(&mut self, mut layer: StagedLayer) -> Id {
@@ -46,27 +47,6 @@ impl Timeline {
         id
     }
 
-    fn build_interval_tree(&mut self) {
-        self.events = IntervalTree::from_iter(self.store.iter().flat_map(|(id, layer)| {
-            vec![
-                (
-                    layer.start_frame.into()..(layer.start_frame + 0.001).into(),
-                    TimelineAction::Spawn(id),
-                ),
-                (
-                    layer.end_frame.into()..(layer.end_frame + 0.001).into(),
-                    TimelineAction::Destroy(id),
-                ),
-            ]
-        }));
-    }
-
-    pub fn events_in(&self, start: f32, end: f32) -> impl Iterator<Item = &TimelineAction> {
-        self.events
-            .query(start.into()..end.into())
-            .map(|element| &element.value)
-    }
-
     pub fn item(&self, id: Id) -> Option<&StagedLayer> {
         self.store.get(id)
     }
@@ -78,7 +58,6 @@ impl Timeline {
             frame_rate: 0.0,
             index_id_map: HashMap::new(),
             store: SlotMap::with_key(),
-            events: IntervalTree::from_iter(Option::<Element<_, _>>::None.into_iter()),
         };
         let mut layers = model
             .layers
@@ -108,25 +87,22 @@ impl Timeline {
             let index = layer.index;
             let parent_index = layer.parent_index;
             let mut assets = vec![];
-            let mut step = 0.0;
             if let LayerContent::Precomposition(r) = &layer.content {
                 let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
                     Some(a) => a,
                     None => continue,
                 };
-                step = child_index_window / (asset.layers.len() as f32 + 1.0);
+                let step = child_index_window / (asset.layers.len() as f32 + 1.0);
                 for (index, asset_layer) in asset.layers.iter().enumerate() {
-                    let mut asset_layer = asset_layer.clone();
-                    asset_layer.start_frame = asset_layer.start_frame.min(layer.start_frame);
-                    asset_layer.end_frame = asset_layer.end_frame.min(layer.end_frame);
-                    asset_layer.start_time += layer.start_time;
-                    // TODO: adjust layer frame_rate
-                    assets.push((
-                        asset_layer,
-                        (index as f32 + 1.0) * step + zindex,
-                        TargetRef::Asset(r.ref_id.clone()),
-                        time_remapping.clone(),
-                    ));
+                    let asset_layer = asset_layer.clone();
+                    assets.push(LayerInfo {
+                        layer: asset_layer,
+                        zindex: (index as f32 + 1.0) * step + zindex,
+                        child_index_window: step,
+                        target_ref: TargetRef::Asset(r.ref_id.clone()),
+                        parent: None,
+                        time_remapping: time_remapping.clone(),
+                    });
                 }
             }
             let mut staged = StagedLayer::new(layer);
@@ -136,15 +112,9 @@ impl Timeline {
             staged.frame_rate = default_frame_rate;
             staged.time_remapping = time_remapping;
             let id = timeline.add_item(staged);
-            for (asset, zindex, target_ref, time_remapping) in assets {
-                layers.push_back(LayerInfo {
-                    layer: asset,
-                    zindex,
-                    child_index_window: step,
-                    target_ref,
-                    parent: Some(id),
-                    time_remapping,
-                })
+            for mut info in assets {
+                info.parent = Some(id);
+                layers.push_back(info);
             }
 
             if let Some(ind) = index {
@@ -170,7 +140,6 @@ impl Timeline {
             }
         }
         timeline.build_opacity_hierarchy();
-        timeline.build_interval_tree();
         timeline
     }
 

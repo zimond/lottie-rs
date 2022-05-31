@@ -32,12 +32,6 @@ struct LottieShapeComp(StyledShape);
 #[derive(Component)]
 struct LayerId(TimelineItemId);
 
-#[derive(Component)]
-struct LayerAnimationInfo {
-    start_frame: f32,
-    end_frame: f32,
-}
-
 pub struct LottieAnimationInfo {
     start_frame: f32,
     end_frame: f32,
@@ -131,30 +125,57 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
             lottie.model.height as f32 / 2.0,
             0.0,
         ));
-    commands.insert_resource(LottieAnimationInfo {
+    commands.spawn_bundle(camera);
+
+    lottie.scale = scale;
+    let mut info = LottieAnimationInfo {
         start_frame: lottie.model.start_frame,
         end_frame: lottie.model.end_frame,
         frame_rate: lottie.model.frame_rate,
         current_time: 0.0,
         paused: false,
         entities: HashMap::new(),
-    });
-    commands.spawn_bundle(camera);
+    };
 
-    lottie.scale = scale;
+    let root_entity = commands
+        .spawn()
+        .insert_bundle(TransformBundle::default())
+        .id();
+    let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
+    for layer in lottie.timeline().items() {
+        let entity = layer.spawn(&mut commands);
+        info.entities.insert(layer.id, entity);
+        if let Some(parent_id) = layer.parent {
+            if let Some(parent_entity) = info.entities.get(&parent_id) {
+                log::trace!("adding {:?} -> {:?}", entity, parent_entity);
+                commands.entity(*parent_entity).add_child(entity);
+            } else {
+                unresolved.entry(parent_id).or_default().push(entity);
+            }
+        } else {
+            log::trace!("adding {:?} -> {:?}", entity, root_entity);
+            commands.entity(root_entity).add_child(entity);
+        }
+        if let Some(entities) = unresolved.remove(&layer.id) {
+            let mut current = commands.entity(entity);
+            for entity in entities {
+                current.add_child(entity);
+            }
+        }
+    }
+
+    commands.insert_resource(info);
+
     let comp = LottieComp {
         lottie,
         asset_handles: HashMap::new(),
     };
-    commands
-        .spawn()
-        .insert(comp)
-        .insert_bundle(TransformBundle::default());
+    commands.entity(root_entity).insert(comp);
 }
 
 fn animate_system(
-    mut commands: Commands,
-    query: Query<(Entity, &LayerAnimationInfo)>,
+    mut visibility_query: Query<(Entity, &mut Visibility, &VisibilityInfo)>,
+    query: Query<(Entity, &VisibilityInfo)>,
     comp: Query<(Entity, &LottieComp)>,
     mut transform_animation: Query<(&mut Animator<Transform>, &TweenTracker)>,
     mut path_animation: Query<&mut Animator<Path>>,
@@ -173,11 +194,6 @@ fn animate_system(
     let current_time = current_time - (current_time / total_time).floor() * total_time;
     if current_time < info.current_time {
         info.current_time = 0.0;
-        info.entities.clear();
-        log::trace!("destroy all entities");
-        for (entity, _) in comp.iter() {
-            commands.entity(entity).despawn_descendants();
-        }
     }
     let prev_frame = info.current_time * info.frame_rate;
     let current_frame = current_time * info.frame_rate;
@@ -189,43 +205,31 @@ fn animate_system(
         a.set_progress(secs / total);
     }
 
-    let (root_entity, comp) = comp.get_single().unwrap();
-    let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
-    for item in comp.lottie.timeline().events_in(prev_frame, current_frame) {
-        match item {
-            TimelineAction::Spawn(id) => {
-                if let Some(layer) = comp.lottie.timeline().item(*id) {
-                    let entity = layer.spawn(current_frame, &mut commands);
-                    info.entities.insert(layer.id, entity);
-                    if let Some(parent_id) = layer.parent {
-                        if let Some(parent_entity) = info.entities.get(&parent_id) {
-                            log::trace!("adding {:?} -> {:?}", entity, parent_entity);
-                            commands.entity(*parent_entity).add_child(entity);
-                        } else {
-                            unresolved.entry(parent_id).or_default().push(entity);
-                        }
-                    } else {
-                        log::trace!("adding {:?} -> {:?}", entity, root_entity);
-                        commands.entity(root_entity).add_child(entity);
-                    }
-                    if let Some(entities) = unresolved.remove(&layer.id) {
-                        let mut current = commands.entity(entity);
-                        for entity in entities {
-                            current.add_child(entity);
-                        }
-                    }
-                }
-            }
-            _ => {} // Skip destory event as we are destroying directly from bevy
-        }
+    for (_, mut visibility, info) in visibility_query.iter_mut() {
+        let visible = info.is_visible(current_frame);
+        visibility.is_visible = visible;
     }
 
-    // Destory ended layers
-    for (entity, layer_info) in query.iter() {
-        if layer_info.end_frame < current_frame {
-            commands.entity(entity).despawn_recursive();
-        }
-    }
+    // let (root_entity, comp) = comp.get_single().unwrap();
+    // for item in comp.lottie.timeline().events_in(prev_frame, current_frame) {
+    //     match item {
+    //         TimelineAction::Spawn(id) => if let Some(layer) =
+    // comp.lottie.timeline().item(*id) {},         _ => {} // Skip destory
+    // event as we are destroying directly from bevy     }
+    // }
+
+    // // Destory ended layers
+    // for (entity, layer_info) in query.iter() {
+    //     let current_frame = if let Some(remapping) =
+    // layer_info.time_remapping.as_ref() {         let current_time =
+    // remapping.value(current_frame);         current_time * info.frame_rate
+    //     } else {
+    //         current_frame
+    //     };
+    //     if layer_info.end_frame < current_frame {
+    //         commands.entity(entity).despawn_recursive();
+    //     }
+    // }
 
     info.current_time = current_time;
 }
