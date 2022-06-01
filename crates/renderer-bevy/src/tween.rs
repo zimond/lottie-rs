@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::prelude::{Bundle, Component, Transform};
+use bevy::prelude::{Bundle, Component, Deref, Transform};
 use bevy_tweening::{Animator, Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
+use lottie_core::prelude::FrameTransform;
 use lottie_core::{Animated, AnimatedExt, KeyFrame, Transform as LottieTransform};
 
 use crate::lens::TransformLens;
@@ -104,27 +105,4 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         );
         Sequence::from_single(tween)
     }
-}
-
-#[derive(Component)]
-pub struct TweenTracker {
-    pub time_remapping: Option<Animated<f32>>,
-    pub frame_rate: f32,
-}
-
-impl TweenTracker {
-    pub fn remap_to_secs(&self, frame: f32) -> f32 {
-        if let Some(animated) = self.time_remapping.as_ref() {
-            let f = animated.value(frame);
-            f
-        } else {
-            frame / self.frame_rate
-        }
-    }
-}
-
-#[derive(Bundle)]
-pub struct AnimatorBundle<T: Component> {
-    pub animator: Animator<T>,
-    pub tracker: TweenTracker,
 }

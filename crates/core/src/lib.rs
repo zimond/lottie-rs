@@ -13,6 +13,7 @@ mod renderer;
 mod timeline;
 
 pub mod prelude {
+    pub use crate::layer::frame::*;
     pub use crate::layer::opacity::OpacityHierarchy;
     pub use crate::layer::shape::{PathExt, ShapeIterator, StyledShape};
     pub use crate::layer::staged::{RenderableContent, StagedLayer};

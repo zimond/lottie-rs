@@ -3,6 +3,7 @@ use std::collections::{HashMap, VecDeque};
 use lottie_model::{Animated, Layer, LayerContent, Model};
 use slotmap::SlotMap;
 
+use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::opacity::OpacityHierarchy;
 use crate::layer::staged::{StagedLayer, TargetRef};
 
@@ -95,6 +96,7 @@ impl Timeline {
                 let step = child_index_window / (asset.layers.len() as f32 + 1.0);
                 for (index, asset_layer) in asset.layers.iter().enumerate() {
                     let asset_layer = asset_layer.clone();
+
                     assets.push(LayerInfo {
                         layer: asset_layer,
                         zindex: (index as f32 + 1.0) * step + zindex,
@@ -105,12 +107,15 @@ impl Timeline {
                     });
                 }
             }
+
             let mut staged = StagedLayer::new(layer);
             staged.target = target_ref;
             staged.parent = parent;
             staged.zindex = zindex;
             staged.frame_rate = default_frame_rate;
-            staged.time_remapping = time_remapping;
+            staged.frame_transform.time_remapping = time_remapping;
+            staged.frame_transform.frame_rate = default_frame_rate;
+
             let id = timeline.add_item(staged);
             for mut info in assets {
                 info.parent = Some(id);
@@ -140,6 +145,7 @@ impl Timeline {
             }
         }
         timeline.build_opacity_hierarchy();
+        timeline.build_frame_hierarchy();
         timeline
     }
 
@@ -168,6 +174,30 @@ impl Timeline {
             if let Some(layer) = self.store.get_mut(id) {
                 layer.opacity = opacity;
             }
+        }
+    }
+
+    /// This could possibly be omitted when https://github.com/bevyengine/bevy/issues/3874 is fixed
+    fn build_frame_hierarchy(&mut self) {
+        let ids = self.store.keys().collect::<Vec<_>>();
+        for id in ids {
+            let mut layer = self.store.get(id).unwrap();
+            let mut stack = vec![FrameInfo {
+                start_frame: layer.start_frame,
+                end_frame: layer.end_frame,
+                frame_transform: layer.frame_transform.clone(),
+            }];
+            while let Some(parent) = layer.parent.and_then(|id| self.store.get(id)) {
+                stack.push(FrameInfo {
+                    start_frame: parent.start_frame,
+                    end_frame: parent.end_frame,
+                    frame_transform: parent.frame_transform.clone(),
+                });
+                layer = parent;
+            }
+            stack.reverse();
+            self.store.get_mut(id).unwrap().frame_transform_hierarchy =
+                FrameTransformHierarchy { stack };
         }
     }
 }

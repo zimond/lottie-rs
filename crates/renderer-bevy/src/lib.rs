@@ -4,21 +4,23 @@ mod render;
 mod tween;
 mod utils;
 
+use std::collections::VecDeque;
+
 use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::prelude::*;
+use bevy::render::view::VisibilityPlugin;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
-use lottie_core::prelude::{Id as TimelineItemId, StyledShape, TimelineAction};
+use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use render::*;
 
 use bevy::prelude::Transform;
-use tween::TweenTracker;
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -75,6 +77,7 @@ impl BevyRenderer {
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
             .add_plugin(TweeningPlugin)
+            .add_plugin(VisibilityPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
@@ -174,11 +177,10 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
 }
 
 fn animate_system(
-    mut visibility_query: Query<(Entity, &mut Visibility, &VisibilityInfo)>,
-    query: Query<(Entity, &VisibilityInfo)>,
-    comp: Query<(Entity, &LottieComp)>,
-    mut transform_animation: Query<(&mut Animator<Transform>, &TweenTracker)>,
-    mut path_animation: Query<&mut Animator<Path>>,
+    hierarchy: Query<&Children>,
+    mut visibility_query: Query<(Entity, &mut Visibility, &FrameTracker)>,
+    mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
+    mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<&mut Animator<DrawMode>>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
@@ -195,20 +197,52 @@ fn animate_system(
     if current_time < info.current_time {
         info.current_time = 0.0;
     }
-    let prev_frame = info.current_time * info.frame_rate;
     let current_frame = current_time * info.frame_rate;
 
     for (mut a, tracker) in transform_animation.iter_mut() {
-        a.state = AnimatorState::Playing;
-        let secs = tracker.remap_to_secs(current_frame);
-        let total = a.tweenable().unwrap().duration().as_secs_f32();
-        a.set_progress(secs / total);
+        if let Some(frame) = tracker.value(current_frame) {
+            a.state = AnimatorState::Playing;
+            let secs = frame / tracker.frame_rate();
+            let total = a.tweenable().unwrap().duration().as_secs_f32();
+            a.set_progress(secs / total);
+        } else {
+            a.state = AnimatorState::Paused
+        }
     }
 
-    for (_, mut visibility, info) in visibility_query.iter_mut() {
-        let visible = info.is_visible(current_frame);
-        visibility.is_visible = visible;
+    for (mut a, tracker) in path_animation.iter_mut() {
+        if let Some(frame) = tracker.value(current_frame) {
+            a.state = AnimatorState::Playing;
+            let secs = frame / tracker.frame_rate();
+            let total = a.tweenable().unwrap().duration().as_secs_f32();
+            a.set_progress(secs / total);
+        } else {
+            a.state = AnimatorState::Paused
+        }
     }
+
+    // let mut hidden = VecDeque::new();
+    for (entity, mut visibility, tracker) in visibility_query.iter_mut() {
+        let visible = tracker.value(current_frame).is_some();
+        visibility.is_visible = visible;
+        // if !visible {
+        //     hidden.push_back(entity);
+        // }
+    }
+
+    // while let Some(entity) = hidden.pop_front() {
+    //     for child in hierarchy
+    //         .get(entity)
+    //         .into_iter()
+    //         .map(|children| children.iter())
+    //         .flatten()
+    //     {
+    //         if let Ok((_, mut visibility, _)) = visibility_query.get_mut(*child)
+    // {             visibility.is_visible = false;
+    //         }
+    //         hidden.push_back(*child);
+    //     }
+    // }
 
     // let (root_entity, comp) = comp.get_single().unwrap();
     // for item in comp.lottie.timeline().events_in(prev_frame, current_frame) {

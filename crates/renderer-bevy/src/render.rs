@@ -9,10 +9,9 @@ use lottie_core::*;
 
 use lottie_core::prelude::*;
 use lottie_core::Transform as LottieTransform;
-use ordered_float::OrderedFloat;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
-use crate::tween::{AnimatorBundle, TweenProducer, TweenTracker};
+use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
@@ -69,11 +68,7 @@ impl LayerRenderer for StagedLayer {
         }
         let id = c.id();
 
-        c.insert(VisibilityInfo {
-            start_frame: self.start_frame,
-            end_frame: self.end_frame,
-            time_remapping: self.time_remapping.clone(),
-        });
+        c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
         c.insert(Visibility { is_visible: false });
         id
     }
@@ -107,6 +102,7 @@ impl LayerRenderer for StagedLayer {
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;
 
+        let mut c = commands.spawn();
         let entity = match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
@@ -117,7 +113,6 @@ impl LayerRenderer for StagedLayer {
                     center: Vec2::new(initial_pos.x, initial_pos.y),
                 };
 
-                let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(
                     &ellipse_shape,
                     draw_mode,
@@ -132,13 +127,11 @@ impl LayerRenderer for StagedLayer {
                     c.insert_bundle(animator);
                 }
                 c.insert(LottieShapeComp(shape));
-                c.id()
             }
             Shape::PolyStar(star) => {
                 let mut builder = Builder::new();
                 star.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
-                let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
                     self.sync_animator(&mut animator);
@@ -148,13 +141,11 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
-                c.id()
             }
             Shape::Rectangle(rect) => {
                 let mut builder = Builder::new();
                 rect.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
-                let mut c = commands.spawn();
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
                     self.sync_animator(&mut animator);
@@ -164,7 +155,6 @@ impl LayerRenderer for StagedLayer {
                     self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
-                c.id()
             }
             Shape::Path { d } => {
                 let beziers = d.initial_value();
@@ -172,7 +162,6 @@ impl LayerRenderer for StagedLayer {
                 let mut builder = Builder::new();
                 beziers.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
-                let mut c = commands.spawn();
                 c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
                 if let Some(mut animator) = self.transform_animator(&shape.transform) {
@@ -191,15 +180,11 @@ impl LayerRenderer for StagedLayer {
                         .tween(self.frame_rate, |start, end| PathLens { start, end });
                     let mut animator = AnimatorBundle {
                         animator: Animator::new(tween),
-                        tracker: TweenTracker {
-                            time_remapping: self.time_remapping.clone(),
-                            frame_rate: self.frame_rate,
-                        },
+                        tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
                     };
                     self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
                 }
-                c.id()
             }
             Shape::Group { .. } => {
                 unreachable!()
@@ -209,7 +194,9 @@ impl LayerRenderer for StagedLayer {
                 todo!()
             }
         };
-        Some(entity)
+
+        c.insert(Visibility { is_visible: false });
+        Some(c.id())
     }
 
     fn transform_animator(&self, transform: &LottieTransform) -> Option<AnimatorBundle<Transform>> {
@@ -222,10 +209,7 @@ impl LayerRenderer for StagedLayer {
             let tracks = Tracks::new(tweens);
             Some(AnimatorBundle {
                 animator: Animator::new(tracks),
-                tracker: TweenTracker {
-                    time_remapping: self.time_remapping.clone(),
-                    frame_rate: self.frame_rate,
-                },
+                tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
             })
         } else {
             None
@@ -267,10 +251,7 @@ impl LayerRenderer for StagedLayer {
             let tracks = Tracks::new(tweens);
             Some(AnimatorBundle {
                 animator: Animator::new(tracks),
-                tracker: TweenTracker {
-                    time_remapping: self.time_remapping.clone(),
-                    frame_rate: self.frame_rate,
-                },
+                tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
             })
         } else {
             None
@@ -284,19 +265,11 @@ impl LayerRenderer for StagedLayer {
     }
 }
 
-#[derive(Component)]
-pub struct VisibilityInfo {
-    start_frame: f32,
-    end_frame: f32,
-    time_remapping: Option<Animated<f32>>,
-}
+#[derive(Component, Deref)]
+pub struct FrameTracker(FrameTransformHierarchy);
 
-impl VisibilityInfo {
-    pub fn is_visible(&self, frame: f32) -> bool {
-        let frame = match self.time_remapping.as_ref() {
-            Some(remap) => remap.value(frame),
-            None => frame,
-        };
-        frame <= self.end_frame && frame >= self.start_frame
-    }
+#[derive(Bundle)]
+pub struct AnimatorBundle<T: Component> {
+    pub animator: Animator<T>,
+    pub tracker: FrameTracker,
 }

@@ -1,7 +1,9 @@
 use lottie_model::{Animated, Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
+use crate::AnimatedExt;
 
+use super::frame::{FrameTransform, FrameTransformHierarchy};
 use super::opacity::OpacityHierarchy;
 use super::LayerExt;
 
@@ -30,13 +32,12 @@ pub struct StagedLayer {
     pub transform: Transform,
     pub zindex: f32,
     pub opacity: OpacityHierarchy,
-    pub time_remapping: Option<Animated<f32>>,
+    pub frame_transform: FrameTransform,
+    pub frame_transform_hierarchy: FrameTransformHierarchy,
 }
 
 impl StagedLayer {
     pub fn new(layer: Layer) -> Self {
-        let start_frame = layer.spawn_frame();
-        let end_frame = layer.despawn_frame();
         let content = match layer.content {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::Precomposition(_) | LayerContent::Empty => RenderableContent::Group,
@@ -50,12 +51,13 @@ impl StagedLayer {
             zindex: 0.0,
             target: TargetRef::Layer(0),
             parent: None,
-            start_frame,
-            end_frame,
+            start_frame: layer.start_frame,
+            end_frame: layer.end_frame,
             transform,
             frame_rate: 0.0,
             opacity: OpacityHierarchy::default(),
-            time_remapping: None,
+            frame_transform: FrameTransform::new(0.0, layer.start_time),
+            frame_transform_hierarchy: FrameTransformHierarchy::default(),
         }
     }
 }
