@@ -184,6 +184,8 @@ impl LayerRenderer for StagedLayer {
                     };
                     self.sync_animator(&mut animator);
                     c.insert_bundle(animator);
+                } else {
+                    c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
                 }
             }
             Shape::Group { .. } => {

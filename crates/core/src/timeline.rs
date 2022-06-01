@@ -103,7 +103,7 @@ impl Timeline {
                         child_index_window: step,
                         target_ref: TargetRef::Asset(r.ref_id.clone()),
                         parent: None,
-                        time_remapping: time_remapping.clone(),
+                        time_remapping: None,
                     });
                 }
             }

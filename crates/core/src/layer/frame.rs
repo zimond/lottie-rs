@@ -46,10 +46,10 @@ pub struct FrameTransformHierarchy {
 impl FrameTransformHierarchy {
     pub fn value(&self, mut frame: f32) -> Option<f32> {
         for item in &self.stack {
-            frame = item.frame_transform.transform(frame);
             if frame < item.start_frame || frame > item.end_frame {
                 return None;
             }
+            frame = item.frame_transform.transform(frame);
         }
         Some(frame)
     }

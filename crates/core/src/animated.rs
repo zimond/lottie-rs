@@ -1,7 +1,7 @@
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use glam::{Mat4, Vec3};
-use lottie_model::{Animated, Bezier, Rgb, Transform, Vector2D};
+use lottie_model::{Animated, Bezier, Easing, Rgb, Transform, Vector2D};
 
 pub trait AnimatedExt {
     type Target;
@@ -30,8 +30,14 @@ where
             .iter()
             .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
         {
-            let ease_out = keyframe.easing_out.clone().unwrap();
-            let ease_in = keyframe.easing_in.clone().unwrap();
+            let ease_out = keyframe.easing_out.clone().unwrap_or_else(|| Easing {
+                x: vec![0.0],
+                y: vec![0.0],
+            });
+            let ease_in = keyframe.easing_in.clone().unwrap_or_else(|| Easing {
+                x: vec![1.0],
+                y: vec![1.0],
+            });
             let frames = keyframe.end_frame - keyframe.start_frame;
             let x = (frame - keyframe.start_frame) / frames;
             debug_assert!(x <= 1.0 && x >= 0.0);

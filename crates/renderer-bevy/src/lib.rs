@@ -181,7 +181,7 @@ fn animate_system(
     mut visibility_query: Query<(Entity, &mut Visibility, &FrameTracker)>,
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
-    mut draw_mode_animation: Query<&mut Animator<DrawMode>>,
+    mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
     mut info: ResMut<LottieAnimationInfo>,
     time: Res<Time>,
 ) {
@@ -211,6 +211,17 @@ fn animate_system(
     }
 
     for (mut a, tracker) in path_animation.iter_mut() {
+        if let Some(frame) = tracker.value(current_frame) {
+            a.state = AnimatorState::Playing;
+            let secs = frame / tracker.frame_rate();
+            let total = a.tweenable().unwrap().duration().as_secs_f32();
+            a.set_progress(secs / total);
+        } else {
+            a.state = AnimatorState::Paused
+        }
+    }
+
+    for (mut a, tracker) in draw_mode_animation.iter_mut() {
         if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();

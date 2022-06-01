@@ -74,7 +74,7 @@ pub struct Layer {
     #[serde(rename = "st")]
     pub start_time: f32,
     #[serde(rename = "nm")]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(rename = "ks", default)]
     pub transform: Option<Transform>,
     #[serde(flatten)]
