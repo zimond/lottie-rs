@@ -4,8 +4,6 @@ mod render;
 mod tween;
 mod utils;
 
-use std::collections::VecDeque;
-
 use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::schedule::IntoSystemDescriptor;
@@ -76,6 +74,7 @@ impl BevyRenderer {
         plugin_group_builder.disable::<GilrsPlugin>();
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
+            .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -177,7 +176,6 @@ fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Re
 }
 
 fn animate_system(
-    hierarchy: Query<&Children>,
     mut visibility_query: Query<(Entity, &mut Visibility, &FrameTracker)>,
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,

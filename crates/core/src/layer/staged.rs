@@ -1,11 +1,9 @@
-use lottie_model::{Animated, Layer, LayerContent, ShapeGroup, Transform};
+use lottie_model::{Layer, LayerContent, ShapeGroup, Transform};
 
 use crate::prelude::Id;
-use crate::AnimatedExt;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
 use super::opacity::OpacityHierarchy;
-use super::LayerExt;
 
 #[derive(Debug, Clone)]
 pub enum RenderableContent {

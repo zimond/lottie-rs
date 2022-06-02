@@ -22,9 +22,8 @@ pub trait LayerRenderer {
         shape: StyledShape,
         commands: &mut Commands,
     ) -> Option<Entity>;
-    fn transform_animator(&self, transform: &LottieTransform) -> Option<AnimatorBundle<Transform>>;
-    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<AnimatorBundle<DrawMode>>;
-    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>);
+    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
+    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>>;
 }
 
 impl LayerRenderer for StagedLayer {
@@ -56,15 +55,13 @@ impl LayerRenderer for StagedLayer {
                 }
             }
             RenderableContent::Group => {}
-            _ => todo!(),
         }
         c.insert_bundle(TransformBundle {
             local: initial_transform,
             global: Default::default(),
         });
-        if let Some(mut animator) = self.transform_animator(&self.transform) {
-            self.sync_animator(&mut animator);
-            c.insert_bundle(animator);
+        if let Some(animator) = self.transform_animator(&self.transform) {
+            c.insert(animator);
         }
         let id = c.id();
 
@@ -103,7 +100,7 @@ impl LayerRenderer for StagedLayer {
         transform.translation.z = -1.0 * zindex;
 
         let mut c = commands.spawn();
-        let entity = match &shape.shape.shape {
+        match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
@@ -118,13 +115,11 @@ impl LayerRenderer for StagedLayer {
                     draw_mode,
                     transform,
                 ));
-                if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.transform_animator(&shape.transform) {
+                    c.insert(animator);
                 }
-                if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.draw_mode_animator(&shape) {
+                    c.insert(animator);
                 }
                 c.insert(LottieShapeComp(shape));
             }
@@ -133,13 +128,11 @@ impl LayerRenderer for StagedLayer {
                 star.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
-                if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.transform_animator(&shape.transform) {
+                    c.insert(animator);
                 }
-                if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.draw_mode_animator(&shape) {
+                    c.insert(animator);
                 }
             }
             Shape::Rectangle(rect) => {
@@ -147,13 +140,11 @@ impl LayerRenderer for StagedLayer {
                 rect.to_path(0.0, &mut builder);
                 let path_shape = Path(builder.build());
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
-                if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.transform_animator(&shape.transform) {
+                    c.insert(animator);
                 }
-                if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.draw_mode_animator(&shape) {
+                    c.insert(animator);
                 }
             }
             Shape::Path { d } => {
@@ -164,13 +155,11 @@ impl LayerRenderer for StagedLayer {
                 let path_shape = Path(builder.build());
                 c.insert_bundle(TransformBundle::default());
                 c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
-                if let Some(mut animator) = self.transform_animator(&shape.transform) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.transform_animator(&shape.transform) {
+                    c.insert(animator);
                 }
-                if let Some(mut animator) = self.draw_mode_animator(&shape) {
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
+                if let Some(animator) = self.draw_mode_animator(&shape) {
+                    c.insert(animator);
                 }
 
                 // Add bezier tween
@@ -178,14 +167,8 @@ impl LayerRenderer for StagedLayer {
                     let tween = d
                         .keyframes
                         .tween(self.frame_rate, |start, end| PathLens { start, end });
-                    let mut animator = AnimatorBundle {
-                        animator: Animator::new(tween),
-                        tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
-                    };
-                    self.sync_animator(&mut animator);
-                    c.insert_bundle(animator);
-                } else {
-                    c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
+                    let animator = Animator::new(tween).with_state(AnimatorState::Paused);
+                    c.insert(animator);
                 }
             }
             Shape::Group { .. } => {
@@ -197,11 +180,12 @@ impl LayerRenderer for StagedLayer {
             }
         };
 
+        c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
         c.insert(Visibility { is_visible: false });
         Some(c.id())
     }
 
-    fn transform_animator(&self, transform: &LottieTransform) -> Option<AnimatorBundle<Transform>> {
+    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if transform.is_animated() {
@@ -209,16 +193,13 @@ impl LayerRenderer for StagedLayer {
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
-            Some(AnimatorBundle {
-                animator: Animator::new(tracks),
-                tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
-            })
+            Some(Animator::new(tracks).with_state(AnimatorState::Paused))
         } else {
             None
         }
     }
 
-    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<AnimatorBundle<DrawMode>> {
+    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
         let frame_rate = self.frame_rate;
         if let Some(stroke) = shape.stroke.as_ref() {
@@ -251,27 +232,12 @@ impl LayerRenderer for StagedLayer {
 
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
-            Some(AnimatorBundle {
-                animator: Animator::new(tracks),
-                tracker: FrameTracker(self.frame_transform_hierarchy.clone()),
-            })
+            Some(Animator::new(tracks).with_state(AnimatorState::Paused))
         } else {
             None
         }
-    }
-
-    fn sync_animator<T: Component>(&self, animator: &mut AnimatorBundle<T>) {
-        // let progress = frame / self.end_frame;
-        // animator.animator.set_progress(progress);
-        animator.animator.state = AnimatorState::Paused;
     }
 }
 
 #[derive(Component, Deref)]
 pub struct FrameTracker(FrameTransformHierarchy);
-
-#[derive(Bundle)]
-pub struct AnimatorBundle<T: Component> {
-    pub animator: Animator<T>,
-    pub tracker: FrameTracker,
-}
