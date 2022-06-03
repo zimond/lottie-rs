@@ -39,6 +39,12 @@ impl StagedLayer {
         let content = match layer.content {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::Precomposition(_) | LayerContent::Empty => RenderableContent::Group,
+            LayerContent::Text(text) => RenderableContent::Shape(ShapeGroup { shapes: vec![] }),
+            LayerContent::SolidColor {
+                color,
+                height,
+                width,
+            } => RenderableContent::Shape(ShapeGroup { shapes: vec![] }),
             _ => todo!(),
         };
         let mut transform = layer.transform.unwrap_or_default();

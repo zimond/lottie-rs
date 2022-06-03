@@ -6,8 +6,10 @@ use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 pub type Vector2D = euclid::default::Vector2D<f32>;
 
+mod color;
 mod helpers;
 
+pub use color::*;
 use helpers::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -303,64 +305,6 @@ pub struct Font {
 }
 
 #[derive(Debug, Clone)]
-pub struct Rgba {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-}
-
-impl Rgba {
-    pub fn new_f32(r: f32, g: f32, b: f32, a: f32) -> Rgba {
-        Rgba {
-            r: (r * 255.0) as u8,
-            g: (g * 255.0) as u8,
-            b: (b * 255.0) as u8,
-            a: (a * 255.0) as u8,
-        }
-    }
-
-    pub fn new_u8(r: u8, g: u8, b: u8, a: u8) -> Rgba {
-        Rgba { r, g, b, a }
-    }
-}
-
-impl FromStr for Rgba {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
-    }
-}
-
-impl ToString for Rgba {
-    fn to_string(&self) -> String {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Rgb {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Rgb {
-    pub fn new_f32(r: f32, g: f32, b: f32) -> Rgb {
-        Rgb {
-            r: (r * 255.0) as u8,
-            g: (g * 255.0) as u8,
-            b: (b * 255.0) as u8,
-        }
-    }
-
-    pub fn new_u8(r: u8, g: u8, b: u8) -> Rgb {
-        Rgb { r, g, b }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct AnimatedColorList {
     animated: bool,
     colors: Vec<Rgba>,
@@ -636,6 +580,20 @@ impl Default for TextJustify {
     }
 }
 
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum TextCaps {
+    Regular = 0,
+    AllCaps = 1,
+    SmallCaps = 2,
+}
+
+impl Default for TextCaps {
+    fn default() -> Self {
+        TextCaps::Regular
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fill {
     #[serde(rename = "o")]
@@ -799,9 +757,9 @@ pub struct MaskedPath {}
 pub struct TextDocument {
     #[serde(rename = "f")]
     font_family: String,
-    #[serde(rename = "fc", deserialize_with = "array_to_rgba")]
+    #[serde(rename = "fc", deserialize_with = "array_to_rgba", default)]
     fill_color: Rgba,
-    #[serde(rename = "sc", deserialize_with = "array_to_rgba")]
+    #[serde(rename = "sc", deserialize_with = "array_to_rgba", default)]
     stroke_color: Rgba,
     #[serde(rename = "sw", default)]
     stroke_width: f32,
@@ -814,8 +772,12 @@ pub struct TextDocument {
     #[serde(rename = "j", default)]
     justify: TextJustify,
     // TODO:
+    #[serde(default)]
     sz: Vec<f32>,
+    #[serde(default)]
     ps: Vec<f32>,
+    #[serde(default)]
+    ca: TextCaps,
 }
 
 impl Default for TextDocument {
@@ -831,6 +793,7 @@ impl Default for TextDocument {
             justify: TextJustify::Left,
             sz: vec![],
             ps: vec![],
+            ca: TextCaps::Regular,
         }
     }
 }

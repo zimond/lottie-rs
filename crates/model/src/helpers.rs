@@ -21,7 +21,7 @@ pub enum Value {
 }
 
 impl Value {
-    fn as_f32_vec(&self) -> Option<Vec<f32>> {
+    pub(crate) fn as_f32_vec(&self) -> Option<Vec<f32>> {
         Some(match self {
             Value::Primitive(p) => vec![*p],
             Value::List(l) => l.clone(),
@@ -63,7 +63,7 @@ pub fn str_to_rgba<'de, D>(deserializer: D) -> Result<Rgba, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s = <&str>::deserialize(deserializer)?;
+    let s = String::deserialize(deserializer)?;
     Ok(s.parse().unwrap())
 }
 
