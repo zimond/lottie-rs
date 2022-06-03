@@ -51,6 +51,14 @@ where
     serializer.serialize_u8(if *b { 1 } else { 0 })
 }
 
+pub fn array_to_rgba<'de, D>(deserializer: D) -> Result<Rgba, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = Value::deserialize(deserializer)?;
+    Ok(<Rgba as FromTo<Value>>::from(s))
+}
+
 pub fn str_to_rgba<'de, D>(deserializer: D) -> Result<Rgba, D::Error>
 where
     D: Deserializer<'de>,
@@ -86,7 +94,9 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
 
         Ok(
             match value.get("ty").and_then(serde_json::Value::as_u64).unwrap() {
-                0 => LayerContent::Precomposition(PreCompositionRef::deserialize(value).unwrap()),
+                0 => LayerContent::Precomposition(
+                    PreCompositionRef::deserialize(value).map_err(D::Error::custom)?,
+                ),
                 1 => {
                     let color = SolidColor::deserialize(value).unwrap();
                     LayerContent::SolidColor {
@@ -106,7 +116,11 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                         .unwrap_or_default();
                     LayerContent::Shape(ShapeGroup { shapes })
                 }
-                // 5 => LayerContent::SolidColor(Type1::deserialize(value).unwrap()),
+                5 => {
+                    let v = value.get("t").ok_or_else(|| D::Error::missing_field("t"))?;
+                    let v = TextAnimationData::deserialize(v).map_err(D::Error::custom)?;
+                    LayerContent::Text(v)
+                }
                 // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
                 // 7 => LayerContent::Null(Type3::deserialize(value).unwrap()),
                 _type => LayerContent::Empty, //panic!("unsupported type {:?}", type_),

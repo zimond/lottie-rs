@@ -1,4 +1,4 @@
-use crate::{Bezier, Rgb, Value, Vector2D};
+use crate::{Bezier, Rgb, Rgba, Value, Vector2D};
 
 pub trait FromTo<T> {
     fn from(v: T) -> Self;
@@ -42,6 +42,26 @@ impl FromTo<Value> for Rgb {
             self.r as f32 / 255.0,
             self.g as f32 / 255.0,
             self.b as f32 / 255.0,
+        ])
+    }
+}
+
+impl FromTo<Value> for Rgba {
+    fn from(v: Value) -> Self {
+        let v = v.as_f32_vec().unwrap();
+        if v[0] > 1.0 && v[0] <= 255.0 {
+            Rgba::new_u8(v[0] as u8, v[1] as u8, v[2] as u8, v[3] as u8)
+        } else {
+            Rgba::new_f32(v[0], v[1], v[2], v[3])
+        }
+    }
+
+    fn to(self) -> Value {
+        Value::List(vec![
+            self.r as f32 / 255.0,
+            self.g as f32 / 255.0,
+            self.b as f32 / 255.0,
+            self.a as f32 / 255.0,
         ])
     }
 }

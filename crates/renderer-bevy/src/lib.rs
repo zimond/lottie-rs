@@ -74,7 +74,7 @@ impl BevyRenderer {
         plugin_group_builder.disable::<GilrsPlugin>();
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
-            .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+            // .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)

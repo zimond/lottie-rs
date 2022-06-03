@@ -102,7 +102,7 @@ pub enum LayerContent {
     Image,
     Empty,
     Shape(ShapeGroup),
-    Text,
+    Text(TextAnimationData),
     Audio,
 }
 
@@ -308,6 +308,21 @@ pub struct Rgba {
     g: u8,
     b: u8,
     a: u8,
+}
+
+impl Rgba {
+    pub fn new_f32(r: f32, g: f32, b: f32, a: f32) -> Rgba {
+        Rgba {
+            r: (r * 255.0) as u8,
+            g: (g * 255.0) as u8,
+            b: (b * 255.0) as u8,
+            a: (a * 255.0) as u8,
+        }
+    }
+
+    pub fn new_u8(r: u8, g: u8, b: u8, a: u8) -> Rgba {
+        Rgba { r, g, b, a }
+    }
 }
 
 impl FromStr for Rgba {
@@ -603,6 +618,24 @@ impl Default for FontPathOrigin {
     }
 }
 
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum TextJustify {
+    Left = 0,
+    Right = 1,
+    Center = 2,
+    LastLineLeft = 3,
+    LastLineRight = 4,
+    LastLineCenter = 5,
+    LastLineFull = 6,
+}
+
+impl Default for TextJustify {
+    fn default() -> Self {
+        TextJustify::Left
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fill {
     #[serde(rename = "o")]
@@ -734,4 +767,70 @@ pub struct Bezier {
         serialize_with = "array_from_vec"
     )]
     pub out_tangent: Vec<Vector2D>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextAnimationData {
+    #[serde(rename = "a")]
+    properties: Vec<()>,
+    #[serde(rename = "d")]
+    data: TextData,
+    #[serde(rename = "m")]
+    options: TextMoreOptions,
+    #[serde(rename = "p")]
+    masked_path: MaskedPath,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextData {
+    #[serde(rename = "x", default)]
+    expression: Option<String>,
+    #[serde(rename = "k")]
+    keyframes: Vec<KeyFrame<TextDocument>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TextMoreOptions {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MaskedPath {}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextDocument {
+    #[serde(rename = "f")]
+    font_family: String,
+    #[serde(rename = "fc", deserialize_with = "array_to_rgba")]
+    fill_color: Rgba,
+    #[serde(rename = "sc", deserialize_with = "array_to_rgba")]
+    stroke_color: Rgba,
+    #[serde(rename = "sw", default)]
+    stroke_width: f32,
+    #[serde(rename = "of", default)]
+    stroke_above_fill: bool,
+    #[serde(rename = "lh", default)]
+    line_height: Option<f32>,
+    #[serde(rename = "t")]
+    value: String,
+    #[serde(rename = "j", default)]
+    justify: TextJustify,
+    // TODO:
+    sz: Vec<f32>,
+    ps: Vec<f32>,
+}
+
+impl Default for TextDocument {
+    fn default() -> Self {
+        TextDocument {
+            font_family: String::new(),
+            fill_color: Rgba::new_u8(0, 0, 0, 255),
+            stroke_color: Rgba::new_u8(0, 0, 0, 255),
+            stroke_width: 0.0,
+            stroke_above_fill: false,
+            line_height: None,
+            value: String::new(),
+            justify: TextJustify::Left,
+            sz: vec![],
+            ps: vec![],
+        }
+    }
 }
