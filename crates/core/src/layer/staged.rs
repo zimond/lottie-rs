@@ -1,4 +1,4 @@
-use lottie_model::{Layer, LayerContent, ShapeGroup, Transform};
+use lottie_model::*;
 
 use crate::prelude::Id;
 
@@ -44,7 +44,25 @@ impl StagedLayer {
                 color,
                 height,
                 width,
-            } => RenderableContent::Shape(ShapeGroup { shapes: vec![] }),
+            } => RenderableContent::Shape(ShapeGroup {
+                shapes: vec![
+                    ShapeLayer {
+                        name: None,
+                        hidden: false,
+                        shape: Shape::Rectangle(Rectangle {
+                            direction: ShapeDirection::Clockwise,
+                            position: Animated::from_value(Vector2D::new(0.0, 0.0)),
+                            size: Animated::from_value(Vector2D::new(width, height)),
+                            radius: Animated::from_value(0.0),
+                        }),
+                    },
+                    ShapeLayer {
+                        name: None,
+                        hidden: false,
+                        shape: Shape::Fill(color.into()),
+                    },
+                ],
+            }),
             _ => todo!(),
         };
         let mut transform = layer.transform.unwrap_or_default();

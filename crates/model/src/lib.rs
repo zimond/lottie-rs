@@ -267,6 +267,22 @@ pub struct Animated<T> {
     pub keyframes: Vec<KeyFrame<T>>,
 }
 
+impl<T: Clone> Animated<T> {
+    pub fn from_value(value: T) -> Self {
+        Animated {
+            animated: false,
+            keyframes: vec![KeyFrame {
+                start_value: value.clone(),
+                end_value: value,
+                start_frame: 0.0,
+                end_frame: 0.0,
+                easing_out: None,
+                easing_in: None,
+            }],
+        }
+    }
+}
+
 impl<T> Default for Animated<T>
 where
     T: Default,
@@ -313,11 +329,9 @@ pub struct AnimatedColorList {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShapeLayer {
     #[serde(rename = "nm", default)]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(rename = "hd", default)]
     pub hidden: bool,
-    #[serde(skip)]
-    pub id: u32,
     #[serde(flatten)]
     pub shape: Shape,
 }
@@ -614,6 +628,22 @@ impl Fill {
             color: Animated {
                 animated: false,
                 keyframes: vec![KeyFrame::from_value(Rgb::new_u8(0, 0, 0))],
+            },
+            fill_rule: FillRule::NonZero,
+        }
+    }
+}
+
+impl From<Rgba> for Fill {
+    fn from(color: Rgba) -> Self {
+        Fill {
+            opacity: Animated {
+                animated: false,
+                keyframes: vec![KeyFrame::from_value(color.a as f32 / 255.0)],
+            },
+            color: Animated {
+                animated: false,
+                keyframes: vec![KeyFrame::from_value(Rgb::new_u8(color.r, color.g, color.b))],
             },
             fill_rule: FillRule::NonZero,
         }
