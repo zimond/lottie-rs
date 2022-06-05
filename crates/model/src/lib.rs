@@ -43,6 +43,10 @@ impl Model {
     pub fn duration(&self) -> f32 {
         (self.end_frame - self.start_frame) as f32 / self.frame_rate as f32
     }
+
+    pub fn font(&self, name: &str) -> Option<&Font> {
+        self.fonts.list.iter().find(|f| f.name == name)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -762,7 +766,7 @@ pub struct TextAnimationData {
     #[serde(rename = "a")]
     properties: Vec<()>,
     #[serde(rename = "d")]
-    data: TextData,
+    pub data: TextData,
     #[serde(rename = "m")]
     options: TextMoreOptions,
     #[serde(rename = "p")]
@@ -774,7 +778,7 @@ pub struct TextData {
     #[serde(rename = "x", default)]
     expression: Option<String>,
     #[serde(rename = "k")]
-    keyframes: Vec<KeyFrame<TextDocument>>,
+    pub keyframes: Vec<KeyFrame<TextDocument>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -786,7 +790,7 @@ pub struct MaskedPath {}
 #[derive(Deserialize, Debug, Clone)]
 pub struct TextDocument {
     #[serde(rename = "f")]
-    font_family: String,
+    pub font_family: String,
     #[serde(rename = "fc", deserialize_with = "array_to_rgba", default)]
     fill_color: Rgba,
     #[serde(rename = "sc", deserialize_with = "array_to_rgba", default)]
@@ -798,7 +802,7 @@ pub struct TextDocument {
     #[serde(rename = "lh", default)]
     line_height: Option<f32>,
     #[serde(rename = "t")]
-    value: String,
+    pub value: String,
     #[serde(rename = "j", default)]
     justify: TextJustify,
     // TODO:

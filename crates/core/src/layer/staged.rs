@@ -1,6 +1,8 @@
+use fontkit::FontKit;
 use lottie_model::*;
 
 use crate::prelude::Id;
+use crate::Error;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
 use super::opacity::OpacityHierarchy;
@@ -35,11 +37,11 @@ pub struct StagedLayer {
 }
 
 impl StagedLayer {
-    pub fn new(layer: Layer) -> Self {
+    pub fn new(layer: Layer, model: &Model, fontkit: &FontKit) -> Result<Self, Error> {
         let content = match layer.content {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::Precomposition(_) | LayerContent::Empty => RenderableContent::Group,
-            LayerContent::Text(text) => RenderableContent::Shape(ShapeGroup { shapes: vec![] }),
+            LayerContent::Text(text) => RenderableContent::from_text(&text, model, fontkit)?,
             LayerContent::SolidColor {
                 color,
                 height,
@@ -67,7 +69,7 @@ impl StagedLayer {
         };
         let mut transform = layer.transform.unwrap_or_default();
         transform.auto_orient = layer.auto_orient;
-        StagedLayer {
+        Ok(StagedLayer {
             id: Id::default(),
             content,
             zindex: 0.0,
@@ -80,6 +82,6 @@ impl StagedLayer {
             opacity: OpacityHierarchy::default(),
             frame_transform: FrameTransform::new(0.0, layer.start_time),
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
-        }
+        })
     }
 }

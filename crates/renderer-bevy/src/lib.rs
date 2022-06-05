@@ -98,7 +98,7 @@ impl BevyRenderer {
 impl Renderer for BevyRenderer {
     fn load_lottie(&mut self, lottie: Lottie) {
         self.app
-            .insert_resource(lottie)
+            .insert_resource(Some(lottie))
             .add_startup_system(setup_system);
     }
 
@@ -107,10 +107,14 @@ impl Renderer for BevyRenderer {
     }
 }
 
-fn setup_system(mut commands: Commands, mut windows: ResMut<Windows>, lottie: Res<Lottie>) {
+fn setup_system(
+    mut commands: Commands,
+    mut windows: ResMut<Windows>,
+    mut lottie: ResMut<Option<Lottie>>,
+) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
-    let mut lottie = lottie.clone();
+    let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
     window.set_title(
         lottie
