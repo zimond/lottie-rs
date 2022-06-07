@@ -309,17 +309,17 @@ pub struct Font {
     #[serde(default)]
     ascent: Option<f32>,
     #[serde(rename = "fFamily")]
-    family: String,
+    pub family: String,
     #[serde(rename = "fName")]
     name: String,
     #[serde(rename = "fStyle")]
     style: String,
     #[serde(rename = "fPath", default)]
-    path: Option<String>,
+    pub path: Option<String>,
     #[serde(rename = "fWeight")]
     weight: Option<String>,
     #[serde(default)]
-    origin: FontPathOrigin,
+    pub origin: FontPathOrigin,
     #[serde(rename = "fClass", default)]
     class: Option<String>,
 }
@@ -737,7 +737,7 @@ pub struct ShapeGroup {
     pub shapes: Vec<ShapeLayer>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bezier {
     #[serde(rename = "c", default)]
     pub closed: bool,
@@ -789,8 +789,12 @@ pub struct MaskedPath {}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TextDocument {
+    #[serde(rename = "t")]
+    pub value: String,
     #[serde(rename = "f")]
     pub font_family: String,
+    #[serde(rename = "s")]
+    pub size: f32,
     #[serde(rename = "fc", deserialize_with = "array_to_rgba", default)]
     fill_color: Rgba,
     #[serde(rename = "sc", deserialize_with = "array_to_rgba", default)]
@@ -801,8 +805,6 @@ pub struct TextDocument {
     stroke_above_fill: bool,
     #[serde(rename = "lh", default)]
     line_height: Option<f32>,
-    #[serde(rename = "t")]
-    pub value: String,
     #[serde(rename = "j", default)]
     justify: TextJustify,
     // TODO:
@@ -818,6 +820,7 @@ impl Default for TextDocument {
     fn default() -> Self {
         TextDocument {
             font_family: String::new(),
+            size: 14.0,
             fill_color: Rgba::new_u8(0, 0, 0, 255),
             stroke_color: Rgba::new_u8(0, 0, 0, 255),
             stroke_width: 0.0,

@@ -11,6 +11,7 @@ use timeline::Timeline;
 
 mod animated;
 mod error;
+mod font;
 mod layer;
 mod renderer;
 mod timeline;

@@ -23,3 +23,8 @@ cargo r --release -- ../../fixtures/ui/confetti.json
 ```
 
 There are some lottie files for demonstration purpose under `fixtures/ui`
+
+# Font Loading
+
+This library uses [font-toolkit](https://github.com/alibaba/font-toolkit) to manage/load/use fonts, which
+is also MIT-licensed.

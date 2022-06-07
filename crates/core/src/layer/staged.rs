@@ -53,7 +53,7 @@ impl StagedLayer {
                         hidden: false,
                         shape: Shape::Rectangle(Rectangle {
                             direction: ShapeDirection::Clockwise,
-                            position: Animated::from_value(Vector2D::new(0.0, 0.0)),
+                            position: Animated::from_value(Vector2D::new(width, height) / 2.0),
                             size: Animated::from_value(Vector2D::new(width, height)),
                             radius: Animated::from_value(0.0),
                         }),
