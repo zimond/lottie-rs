@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::helpers::{FromTo, Value};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rgba {
     pub r: u8,
     pub g: u8,
@@ -55,7 +55,7 @@ impl ToString for Rgba {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rgb {
     pub r: u8,
     pub g: u8,

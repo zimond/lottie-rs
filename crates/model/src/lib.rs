@@ -796,7 +796,7 @@ pub struct TextDocument {
     #[serde(rename = "s")]
     pub size: f32,
     #[serde(rename = "fc", deserialize_with = "array_to_rgba", default)]
-    fill_color: Rgba,
+    pub fill_color: Rgba,
     #[serde(rename = "sc", deserialize_with = "array_to_rgba", default)]
     stroke_color: Rgba,
     #[serde(rename = "sw", default)]

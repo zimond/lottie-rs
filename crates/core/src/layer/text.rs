@@ -11,7 +11,9 @@ impl RenderableContent {
         model: &Model,
         fontkit: &FontKit,
     ) -> Result<Self, Error> {
-        let mut frames = vec![];
+        let mut path_frames = vec![];
+        let mut fill_frames = vec![];
+        let mut fill_opacity_frames = vec![];
         for keyframe in &text.data.keyframes {
             let doc = &keyframe.start_value;
             let font = model
@@ -78,7 +80,8 @@ impl RenderableContent {
                     beziers.push(bezier);
                 }
             }
-            frames.push(KeyFrame {
+
+            path_frames.push(KeyFrame {
                 start_value: beziers.clone(),
                 end_value: beziers.clone(),
                 start_frame: keyframe.start_frame,
@@ -86,6 +89,25 @@ impl RenderableContent {
                 easing_out: None,
                 easing_in: None,
             });
+
+            let rgb = Rgb::new_u8(doc.fill_color.r, doc.fill_color.g, doc.fill_color.b);
+            fill_frames.push(KeyFrame {
+                start_value: rgb,
+                end_value: rgb,
+                start_frame: keyframe.start_frame,
+                end_frame: keyframe.end_frame,
+                easing_out: None,
+                easing_in: None,
+            });
+            let opacity = doc.fill_color.a as f32 / 255.0 * 100.0;
+            fill_opacity_frames.push(KeyFrame {
+                start_value: opacity,
+                end_value: opacity,
+                start_frame: keyframe.start_frame,
+                end_frame: keyframe.end_frame,
+                easing_out: None,
+                easing_in: None,
+            })
         }
         Ok(RenderableContent::Shape(ShapeGroup {
             shapes: vec![
@@ -95,14 +117,24 @@ impl RenderableContent {
                     shape: Shape::Path {
                         d: Animated {
                             animated: true,
-                            keyframes: frames,
+                            keyframes: path_frames,
                         },
                     },
                 },
                 ShapeLayer {
                     name: None,
                     hidden: false,
-                    shape: Shape::Fill(Fill::from(Rgba::new_u8(0, 0, 0, 255))),
+                    shape: Shape::Fill(Fill {
+                        opacity: Animated {
+                            animated: true,
+                            keyframes: fill_opacity_frames,
+                        },
+                        color: Animated {
+                            animated: true,
+                            keyframes: fill_frames,
+                        },
+                        fill_rule: FillRule::NonZero,
+                    }),
                 },
                 ShapeLayer {
                     name: None,
