@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{Easing, FromTo, KeyFrame, Value};
 

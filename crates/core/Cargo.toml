@@ -9,7 +9,8 @@ glam = "0.20.5"
 lyon_path = "0.17.7"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
-fontkit = "0.1.0"
+fontkit = "0.1.0" #{ path = "../../../font-toolkit" }
+ureq = "2.4.0"
 
 [dependencies.lottie-model]
 path = "../model"

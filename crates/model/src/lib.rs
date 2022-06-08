@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 pub use euclid::default::Rect;
 pub use euclid::rect;
 use serde::{Deserialize, Serialize};
@@ -311,7 +309,7 @@ pub struct Font {
     #[serde(rename = "fFamily")]
     pub family: String,
     #[serde(rename = "fName")]
-    name: String,
+    pub name: String,
     #[serde(rename = "fStyle")]
     style: String,
     #[serde(rename = "fPath", default)]
@@ -565,7 +563,9 @@ pub enum MergeMode {
     Unsupported = 1,
 }
 
-#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[derive(
+    serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy, PartialEq,
+)]
 #[repr(u8)]
 pub enum FontPathOrigin {
     Local = 0,

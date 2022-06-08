@@ -4,6 +4,7 @@ use std::io::Read;
 
 pub use animated::*;
 pub use error::Error;
+use font::FontDB;
 use fontkit::FontKit;
 pub use lottie_model::*;
 pub use renderer::*;
@@ -27,19 +28,21 @@ pub mod prelude {
 pub struct Lottie {
     pub model: Model,
     pub scale: f32,
-    fontkit: FontKit,
+    fontdb: FontDB,
     timeline: Timeline,
 }
 
 impl Lottie {
-    pub fn from_reader_with_fontkit<R: Read>(r: R, fontkit: FontKit) -> Result<Self, Error> {
-        let mut model = Model::from_reader(r)?;
-        let timeline = Timeline::new(&model, &fontkit)?;
+    pub fn new(model: Model, fontkit: FontKit) -> Result<Self, Error> {
+        let mut fontdb = FontDB::new(fontkit);
+        fontdb.load_fonts_from_model(&model)?;
+
+        let timeline = Timeline::new(&model, &fontdb)?;
         Ok(Lottie {
             model,
             timeline,
+            fontdb,
             scale: 1.0,
-            fontkit,
         })
     }
 
@@ -48,7 +51,8 @@ impl Lottie {
         let mut fontkit = FontKit::new();
         let path = dirs::font_dir().unwrap();
         fontkit.search_fonts_from_path(path)?;
-        Ok(Lottie::from_reader_with_fontkit(r, fontkit)?)
+        let model = Model::from_reader(r)?;
+        Ok(Lottie::new(model, fontkit)?)
     }
 
     pub fn timeline(&self) -> &Timeline {

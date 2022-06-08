@@ -1,7 +1,7 @@
-use fontkit::{FontKit, PathSegment};
+use fontkit::PathSegment;
 use lottie_model::*;
 
-use crate::font::FontLoader;
+use crate::font::FontDB;
 use crate::prelude::RenderableContent;
 use crate::Error;
 
@@ -9,7 +9,7 @@ impl RenderableContent {
     pub fn from_text(
         text: &TextAnimationData,
         model: &Model,
-        fontkit: &FontKit,
+        fontkit: &FontDB,
     ) -> Result<Self, Error> {
         let mut path_frames = vec![];
         let mut fill_frames = vec![];
@@ -20,7 +20,7 @@ impl RenderableContent {
                 .font(&doc.font_family)
                 .ok_or_else(|| Error::FontFamilyNotFound(doc.font_family.clone()))?;
             let font = fontkit
-                .fetch_font(font)
+                .font(font)
                 .ok_or_else(|| Error::FontNotLoaded(doc.font_family.clone()))?;
             font.load()?;
             let metrics = font.measure(&doc.value, None)?;

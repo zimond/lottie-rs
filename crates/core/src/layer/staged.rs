@@ -1,6 +1,6 @@
-use fontkit::FontKit;
 use lottie_model::*;
 
+use crate::font::FontDB;
 use crate::prelude::Id;
 use crate::Error;
 
@@ -37,11 +37,11 @@ pub struct StagedLayer {
 }
 
 impl StagedLayer {
-    pub fn new(layer: Layer, model: &Model, fontkit: &FontKit) -> Result<Self, Error> {
+    pub fn new(layer: Layer, model: &Model, fontdb: &FontDB) -> Result<Self, Error> {
         let content = match layer.content {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::Precomposition(_) | LayerContent::Empty => RenderableContent::Group,
-            LayerContent::Text(text) => RenderableContent::from_text(&text, model, fontkit)?,
+            LayerContent::Text(text) => RenderableContent::from_text(&text, model, fontdb)?,
             LayerContent::SolidColor {
                 color,
                 height,

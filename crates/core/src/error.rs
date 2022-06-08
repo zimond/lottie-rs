@@ -14,4 +14,12 @@ pub enum Error {
     FontNotLoaded(String),
     #[error("Font family {0} doesn't contain the glyph for {1}")]
     FontGlyphNotFound(String, char),
+    #[error(transparent)]
+    Network(#[from] ureq::Error),
+    #[error("Url {0} response contains no Content-Length header")]
+    NetworkMissingContentLength(String),
+    #[error("Url {0} response contains invalid Content-Length header")]
+    NetworkMalformedContentLength(String),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }

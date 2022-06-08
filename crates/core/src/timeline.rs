@@ -1,9 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
-use fontkit::FontKit;
 use lottie_model::{Animated, Layer, LayerContent, Model};
 use slotmap::SlotMap;
 
+use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::opacity::OpacityHierarchy;
 use crate::layer::staged::{StagedLayer, TargetRef};
@@ -54,7 +54,7 @@ impl Timeline {
         self.store.get(id)
     }
 
-    pub(crate) fn new(model: &Model, fontkit: &FontKit) -> Result<Self, Error> {
+    pub(crate) fn new(model: &Model, fontdb: &FontDB) -> Result<Self, Error> {
         let mut timeline = Timeline {
             start_frame: 0.0,
             end_frame: 0.0,
@@ -110,7 +110,7 @@ impl Timeline {
                 }
             }
 
-            let mut staged = StagedLayer::new(layer, model, fontkit)?;
+            let mut staged = StagedLayer::new(layer, model, fontdb)?;
             staged.target = target_ref;
             staged.parent = parent;
             staged.zindex = zindex;
