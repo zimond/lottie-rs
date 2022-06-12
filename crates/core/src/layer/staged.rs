@@ -5,12 +5,12 @@ use crate::prelude::Id;
 use crate::Error;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
-use super::image::Image;
+use super::media::Media;
 use super::opacity::OpacityHierarchy;
 
 #[derive(Debug, Clone)]
 pub enum RenderableContent {
-    Image(Image),
+    Media(Media),
     Shape(ShapeGroup),
     Group,
 }
@@ -44,7 +44,7 @@ impl StagedLayer {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::PreCompositionRef(_)
             | LayerContent::Empty
-            | LayerContent::ImageRef(_) => RenderableContent::Group,
+            | LayerContent::MediaRef(_) => RenderableContent::Group,
             LayerContent::Text(text) => RenderableContent::from_text(&text, model, fontdb)?,
             LayerContent::SolidColor {
                 color,
@@ -69,7 +69,7 @@ impl StagedLayer {
                     },
                 ],
             }),
-            LayerContent::Image(image) => RenderableContent::Image(Image::new(image, None)?),
+            LayerContent::Media(media) => RenderableContent::Media(Media::new(media, None)?),
             _ => todo!(),
         };
         let mut transform = layer.transform.unwrap_or_default();

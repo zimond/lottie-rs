@@ -106,7 +106,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                     }
                 }
                 2 => {
-                    LayerContent::ImageRef(ImageRef::deserialize(value).map_err(D::Error::custom)?)
+                    LayerContent::MediaRef(MediaRef::deserialize(value).map_err(D::Error::custom)?)
                 }
                 3 => LayerContent::Empty,
                 4 => {

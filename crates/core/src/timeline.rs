@@ -111,10 +111,10 @@ impl Timeline {
                         _ => continue,
                     }
                 }
-                LayerContent::ImageRef(i) => {
+                LayerContent::MediaRef(i) => {
                     match model.assets.iter().find(|asset| asset.id() == i.ref_id) {
-                        Some(Asset::Image(image)) => {
-                            let content = LayerContent::Image(image.clone());
+                        Some(Asset::Media(media)) => {
+                            let content = LayerContent::Media(media.clone());
                             let layer = Layer::new(
                                 content,
                                 layer.start_frame,

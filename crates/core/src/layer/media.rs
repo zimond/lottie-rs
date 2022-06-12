@@ -1,26 +1,26 @@
-use lottie_model::Image as LottieImage;
+use lottie_model::Media as LottieMedia;
 use std::io::Read;
 use url::{ParseError, Url};
 
 use crate::Error;
 
 #[derive(Debug, Clone)]
-pub struct Image {
+pub struct Media {
     pub content: Vec<u8>,
     pub width: u32,
     pub height: u32,
 }
 
-impl Image {
-    pub fn new(image: LottieImage, host: Option<String>) -> Result<Self, Error> {
+impl Media {
+    pub fn new(media: LottieMedia, host: Option<String>) -> Result<Self, Error> {
         // NOTE: by design `embedded` should have control over whether the image file is
         // base64 or not. But many lottie files simply do not take care so we
         // ignore it here.
-        let content = if image.filename.starts_with("data:") {
-            let content = image.filename.splitn(2, ",").nth(1).unwrap_or("");
+        let content = if media.filename.starts_with("data:") {
+            let content = media.filename.splitn(2, ",").nth(1).unwrap_or("");
             base64::decode(content)?
         } else {
-            let path = image.path();
+            let path = media.path();
             // For non-wasm32 target, try to load the file locally
             if path.exists() {
                 let mut file = std::fs::File::open(path)?;
@@ -56,10 +56,10 @@ impl Image {
                 bytes
             }
         };
-        Ok(Image {
+        Ok(Media {
             content,
-            width: image.width,
-            height: image.height,
+            width: media.width.unwrap_or_default(),
+            height: media.height.unwrap_or_default(),
         })
     }
 }

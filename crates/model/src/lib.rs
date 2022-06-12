@@ -122,16 +122,15 @@ pub enum LayerContent {
         height: f32,
         width: f32,
     },
-    ImageRef(ImageRef),
+    MediaRef(MediaRef),
     Empty,
     Shape(ShapeGroup),
     Text(TextAnimationData),
-    Audio,
-    Image(Image),
+    Media(Media),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ImageRef {
+pub struct MediaRef {
     #[serde(rename = "refId")]
     pub ref_id: String,
 }
@@ -745,7 +744,7 @@ pub struct PolyStar {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Asset {
-    Image(Image),
+    Media(Media),
     Sound,
     Precomposition(Precomposition),
 }
@@ -753,7 +752,7 @@ pub enum Asset {
 impl Asset {
     pub fn id(&self) -> &str {
         match self {
-            Asset::Image(i) => i.id.as_str(),
+            Asset::Media(i) => i.id.as_str(),
             Asset::Precomposition(p) => p.id.as_str(),
             _ => todo!(),
         }
@@ -761,7 +760,7 @@ impl Asset {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Image {
+pub struct Media {
     #[serde(rename = "u", default)]
     pwd: String,
     #[serde(rename = "p")]
@@ -776,13 +775,13 @@ pub struct Image {
     id: String,
     #[serde(rename = "nm", default)]
     name: Option<String>,
-    #[serde(rename = "w")]
-    pub width: u32,
-    #[serde(rename = "h")]
-    pub height: u32,
+    #[serde(rename = "w", default)]
+    pub width: Option<u32>,
+    #[serde(rename = "h", default)]
+    pub height: Option<u32>,
 }
 
-impl Image {
+impl Media {
     pub fn path(&self) -> PathBuf {
         PathBuf::from(&self.pwd).join(&self.filename)
     }
