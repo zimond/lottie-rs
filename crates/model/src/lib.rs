@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 pub use euclid::default::Rect;
 pub use euclid::rect;
 use serde::{Deserialize, Serialize};
@@ -28,7 +30,7 @@ pub struct Model {
     pub height: u32,
     pub layers: Vec<Layer>,
     #[serde(default)]
-    pub assets: Vec<Precomposition>,
+    pub assets: Vec<Asset>,
     #[serde(default)]
     pub fonts: FontList,
 }
@@ -87,27 +89,51 @@ pub struct Layer {
 
 impl Layer {
     pub fn time_remapping(&self) -> Option<Animated<f32>> {
-        if let LayerContent::Precomposition(pre) = &self.content {
+        if let LayerContent::PreCompositionRef(pre) = &self.content {
             pre.time_remapping.clone()
         } else {
             None
+        }
+    }
+
+    pub fn new(content: LayerContent, start_frame: f32, end_frame: f32, start_time: f32) -> Self {
+        Layer {
+            is_3d: false,
+            hidden: false,
+            index: None,
+            parent_index: None,
+            id: 0,
+            auto_orient: false,
+            start_frame,
+            end_frame,
+            start_time,
+            name: None,
+            transform: None,
+            content,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum LayerContent {
-    Precomposition(PreCompositionRef),
+    PreCompositionRef(PreCompositionRef),
     SolidColor {
         color: Rgba,
         height: f32,
         width: f32,
     },
-    Image,
+    ImageRef(ImageRef),
     Empty,
     Shape(ShapeGroup),
     Text(TextAnimationData),
     Audio,
+    Image(Image),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ImageRef {
+    #[serde(rename = "refId")]
+    pub ref_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -716,10 +742,50 @@ pub struct PolyStar {
     pub star_type: PolyStarType,
 }
 
-pub enum Assets {
-    Image,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Asset {
+    Image(Image),
     Sound,
     Precomposition(Precomposition),
+}
+
+impl Asset {
+    pub fn id(&self) -> &str {
+        match self {
+            Asset::Image(i) => i.id.as_str(),
+            Asset::Precomposition(p) => p.id.as_str(),
+            _ => todo!(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Image {
+    #[serde(rename = "u", default)]
+    pwd: String,
+    #[serde(rename = "p")]
+    pub filename: String,
+    #[serde(
+        rename = "e",
+        deserialize_with = "bool_from_int",
+        serialize_with = "int_from_bool",
+        default
+    )]
+    pub embedded: bool,
+    id: String,
+    #[serde(rename = "nm", default)]
+    name: Option<String>,
+    #[serde(rename = "w")]
+    pub width: u32,
+    #[serde(rename = "h")]
+    pub height: u32,
+}
+
+impl Image {
+    pub fn path(&self) -> PathBuf {
+        PathBuf::from(&self.pwd).join(&self.filename)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

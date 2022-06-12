@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use lottie_model::{Animated, Layer, LayerContent, Model};
+use lottie_model::{Animated, Asset, Layer, LayerContent, Model};
 use slotmap::SlotMap;
 
 use crate::font::FontDB;
@@ -90,24 +90,50 @@ impl Timeline {
             let index = layer.index;
             let parent_index = layer.parent_index;
             let mut assets = vec![];
-            if let LayerContent::Precomposition(r) = &layer.content {
-                let asset = match model.assets.iter().find(|asset| asset.id == r.ref_id) {
-                    Some(a) => a,
-                    None => continue,
-                };
-                let step = child_index_window / (asset.layers.len() as f32 + 1.0);
-                for (index, asset_layer) in asset.layers.iter().enumerate() {
-                    let asset_layer = asset_layer.clone();
+            match &layer.content {
+                LayerContent::PreCompositionRef(r) => {
+                    match model.assets.iter().find(|asset| asset.id() == r.ref_id) {
+                        Some(Asset::Precomposition(asset)) => {
+                            let step = child_index_window / (asset.layers.len() as f32 + 1.0);
+                            for (index, asset_layer) in asset.layers.iter().enumerate() {
+                                let asset_layer = asset_layer.clone();
 
-                    assets.push(LayerInfo {
-                        layer: asset_layer,
-                        zindex: (index as f32 + 1.0) * step + zindex,
-                        child_index_window: step,
-                        target_ref: TargetRef::Asset(r.ref_id.clone()),
-                        parent: None,
-                        time_remapping: None,
-                    });
+                                assets.push(LayerInfo {
+                                    layer: asset_layer,
+                                    zindex: (index as f32 + 1.0) * step + zindex,
+                                    child_index_window: step,
+                                    target_ref: TargetRef::Asset(r.ref_id.clone()),
+                                    parent: None,
+                                    time_remapping: None,
+                                });
+                            }
+                        }
+                        _ => continue,
+                    }
                 }
+                LayerContent::ImageRef(i) => {
+                    match model.assets.iter().find(|asset| asset.id() == i.ref_id) {
+                        Some(Asset::Image(image)) => {
+                            let content = LayerContent::Image(image.clone());
+                            let layer = Layer::new(
+                                content,
+                                layer.start_frame,
+                                layer.end_frame,
+                                layer.start_time,
+                            );
+                            assets.push(LayerInfo {
+                                layer,
+                                zindex: zindex + 0.5,
+                                child_index_window: 0.5,
+                                target_ref: TargetRef::Asset(i.ref_id.clone()),
+                                parent: None,
+                                time_remapping: None,
+                            });
+                        }
+                        _ => continue,
+                    }
+                }
+                _ => {}
             }
 
             let mut staged = StagedLayer::new(layer, model, fontdb)?;

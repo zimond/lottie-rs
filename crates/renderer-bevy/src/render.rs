@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use bevy::math::Vec2;
-use bevy::prelude::{Entity, Transform};
+use bevy::prelude::{Entity, Image, Transform};
+use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
 use bevy_prototype_lyon::prelude::tess::path::path::Builder;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween, TweeningType};
@@ -15,7 +16,11 @@ use crate::tween::TweenProducer;
 use crate::*;
 
 pub trait LayerRenderer {
-    fn spawn(&self, commands: &mut Commands) -> Entity;
+    fn spawn(
+        &self,
+        commands: &mut Commands,
+        assets: &mut Assets<Image>,
+    ) -> Result<Entity, TextureError>;
     fn spawn_shape(
         &self,
         zindex: f32,
@@ -27,7 +32,11 @@ pub trait LayerRenderer {
 }
 
 impl LayerRenderer for StagedLayer {
-    fn spawn(&self, commands: &mut Commands) -> Entity {
+    fn spawn(
+        &self,
+        commands: &mut Commands,
+        assets: &mut Assets<Image>,
+    ) -> Result<Entity, TextureError> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
         initial_transform.translation.z = self.zindex as f32 * -1.0;
@@ -54,6 +63,19 @@ impl LayerRenderer for StagedLayer {
                     }
                 }
             }
+            RenderableContent::Image(image) => {
+                let image = Image::from_buffer(
+                    &image.content,
+                    ImageType::MimeType(""),
+                    CompressedImageFormats::NONE,
+                    false,
+                )?;
+                let handle = assets.add(image);
+                c.insert_bundle(SpriteBundle {
+                    texture: handle,
+                    ..Default::default()
+                });
+            }
             RenderableContent::Group => {}
         }
         c.insert_bundle(TransformBundle {
@@ -67,7 +89,7 @@ impl LayerRenderer for StagedLayer {
 
         c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
         c.insert(Visibility { is_visible: false });
-        id
+        Ok(id)
     }
 
     fn spawn_shape(

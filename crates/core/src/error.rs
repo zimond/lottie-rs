@@ -22,4 +22,8 @@ pub enum Error {
     NetworkMalformedContentLength(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+    #[error(transparent)]
+    Base64Decode(#[from] base64::DecodeError),
 }

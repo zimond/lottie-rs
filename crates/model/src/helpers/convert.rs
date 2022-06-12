@@ -1,4 +1,4 @@
-use crate::{Bezier, Rgb, Rgba, Value, Vector2D};
+use crate::{Bezier, Rgb, Value, Vector2D};
 
 pub trait FromTo<T> {
     fn from(v: T) -> Self;

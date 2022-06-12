@@ -94,7 +94,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
 
         Ok(
             match value.get("ty").and_then(serde_json::Value::as_u64).unwrap() {
-                0 => LayerContent::Precomposition(
+                0 => LayerContent::PreCompositionRef(
                     PreCompositionRef::deserialize(value).map_err(D::Error::custom)?,
                 ),
                 1 => {
@@ -105,7 +105,9 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                         width: color.width,
                     }
                 }
-                // 2 => LayerContent::Image(Type2::deserialize(value).unwrap()),
+                2 => {
+                    LayerContent::ImageRef(ImageRef::deserialize(value).map_err(D::Error::custom)?)
+                }
                 3 => LayerContent::Empty,
                 4 => {
                     let shapes = value

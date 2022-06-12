@@ -19,6 +19,7 @@ use lottie_core::*;
 use render::*;
 
 use bevy::prelude::Transform;
+use bevy::render::texture::Image;
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -111,6 +112,7 @@ fn setup_system(
     mut commands: Commands,
     mut windows: ResMut<Windows>,
     mut lottie: ResMut<Option<Lottie>>,
+    mut assets: ResMut<Assets<Image>>,
 ) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
@@ -149,7 +151,7 @@ fn setup_system(
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     for layer in lottie.timeline().items() {
-        let entity = layer.spawn(&mut commands);
+        let entity = layer.spawn(&mut commands, &mut assets).unwrap();
         info.entities.insert(layer.id, entity);
         if let Some(parent_id) = layer.parent {
             if let Some(parent_entity) = info.entities.get(&parent_id) {

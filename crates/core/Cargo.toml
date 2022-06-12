@@ -11,6 +11,8 @@ slotmap = "1.0.6"
 thiserror = "1.0.30"
 fontkit = "0.1.0" #{ path = "../../../font-toolkit" }
 ureq = "2.4.0"
+base64 = "0.13.0"
+url = "2.2.2"
 
 [dependencies.lottie-model]
 path = "../model"
