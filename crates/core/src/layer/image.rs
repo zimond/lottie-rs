@@ -7,14 +7,17 @@ use crate::Error;
 #[derive(Debug, Clone)]
 pub struct Image {
     pub content: Vec<u8>,
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Image {
     pub fn new(image: LottieImage, host: Option<String>) -> Result<Self, Error> {
-        let content = if image.embedded {
-            let content = image.filename.splitn(2, ";").nth(1).unwrap_or("");
+        // NOTE: by design `embedded` should have control over whether the image file is
+        // base64 or not. But many lottie files simply do not take care so we
+        // ignore it here.
+        let content = if image.filename.starts_with("data:") {
+            let content = image.filename.splitn(2, ",").nth(1).unwrap_or("");
             base64::decode(content)?
         } else {
             let path = image.path();

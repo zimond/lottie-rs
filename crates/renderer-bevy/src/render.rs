@@ -64,9 +64,20 @@ impl LayerRenderer for StagedLayer {
                 }
             }
             RenderableContent::Image(image) => {
+                let mime = infer::get(&image.content).unwrap();
+                initial_transform = Transform::from_matrix(
+                    Transform::from_scale(Vec3::new(1.0, -1.0, 1.0))
+                        .with_translation(Vec3::new(
+                            image.width as f32 / 2.0,
+                            image.height as f32 / 2.0,
+                            0.0,
+                        ))
+                        .compute_matrix()
+                        .mul_mat4(&initial_transform.compute_matrix()),
+                );
                 let image = Image::from_buffer(
                     &image.content,
-                    ImageType::MimeType(""),
+                    ImageType::MimeType(mime.mime_type()),
                     CompressedImageFormats::NONE,
                     false,
                 )?;
