@@ -105,7 +105,7 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                         width: color.width,
                     }
                 }
-                2 => {
+                2 | 6 => {
                     LayerContent::MediaRef(MediaRef::deserialize(value).map_err(D::Error::custom)?)
                 }
                 3 => LayerContent::Empty,
@@ -123,7 +123,6 @@ impl<'de> serde::Deserialize<'de> for LayerContent {
                     let v = TextAnimationData::deserialize(v).map_err(D::Error::custom)?;
                     LayerContent::Text(v)
                 }
-                // 6 => LayerContent::Image(Type2::deserialize(value).unwrap()),
                 // 7 => LayerContent::Null(Type3::deserialize(value).unwrap()),
                 _type => LayerContent::Empty, //panic!("unsupported type {:?}", type_),
             },

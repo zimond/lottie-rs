@@ -11,8 +11,7 @@ log = "0.4.17"
 ordered-float = "3.0.0"
 infer = "0.8.1"
 
-[dependencies.bevy]
-version = "0.7.0"
+bevy = { version = "0.7.0", features = ["bevy_audio", "mp3", "flac", "wav"] }
 
 [dependencies.bevy_tweening]
 git = "https://github.com/zimond/bevy_tweening"

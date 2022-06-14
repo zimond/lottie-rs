@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::math::Vec2;
@@ -19,7 +20,8 @@ pub trait LayerRenderer {
     fn spawn(
         &self,
         commands: &mut Commands,
-        assets: &mut Assets<Image>,
+        image_assets: &mut Assets<Image>,
+        audio_assets: &mut Assets<AudioSource>,
     ) -> Result<Entity, TextureError>;
     fn spawn_shape(
         &self,
@@ -35,7 +37,8 @@ impl LayerRenderer for StagedLayer {
     fn spawn(
         &self,
         commands: &mut Commands,
-        assets: &mut Assets<Image>,
+        image_assets: &mut Assets<Image>,
+        audio_assets: &mut Assets<AudioSource>,
     ) -> Result<Entity, TextureError> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
@@ -65,27 +68,35 @@ impl LayerRenderer for StagedLayer {
             }
             RenderableContent::Media(media) => {
                 let mime = infer::get(&media.content).unwrap();
-                initial_transform = Transform::from_matrix(
-                    Transform::from_scale(Vec3::new(1.0, -1.0, 1.0))
-                        .with_translation(Vec3::new(
-                            media.width as f32 / 2.0,
-                            media.height as f32 / 2.0,
-                            0.0,
-                        ))
-                        .compute_matrix()
-                        .mul_mat4(&initial_transform.compute_matrix()),
-                );
-                let image = Image::from_buffer(
-                    &media.content,
-                    ImageType::MimeType(mime.mime_type()),
-                    CompressedImageFormats::NONE,
-                    false,
-                )?;
-                let handle = assets.add(image);
-                c.insert_bundle(SpriteBundle {
-                    texture: handle,
-                    ..Default::default()
-                });
+                if mime.mime_type().starts_with("image") {
+                    initial_transform = Transform::from_matrix(
+                        Transform::from_scale(Vec3::new(1.0, -1.0, 1.0))
+                            .with_translation(Vec3::new(
+                                media.width as f32 / 2.0,
+                                media.height as f32 / 2.0,
+                                0.0,
+                            ))
+                            .compute_matrix()
+                            .mul_mat4(&initial_transform.compute_matrix()),
+                    );
+                    let image = Image::from_buffer(
+                        &media.content,
+                        ImageType::MimeType(mime.mime_type()),
+                        CompressedImageFormats::NONE,
+                        false,
+                    )?;
+                    let handle = image_assets.add(image);
+                    c.insert_bundle(SpriteBundle {
+                        texture: handle,
+                        ..Default::default()
+                    });
+                } else if mime.mime_type().starts_with("audio") {
+                    let source = AudioSource {
+                        bytes: media.content.as_slice().into(),
+                    };
+                    let handle = audio_assets.add(source);
+                    c.insert(handle);
+                }
             }
             RenderableContent::Group => {}
         }

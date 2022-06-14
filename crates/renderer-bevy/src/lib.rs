@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 mod asset;
 mod lens;
 mod render;
@@ -112,7 +114,8 @@ fn setup_system(
     mut commands: Commands,
     mut windows: ResMut<Windows>,
     mut lottie: ResMut<Option<Lottie>>,
-    mut assets: ResMut<Assets<Image>>,
+    mut image_assets: ResMut<Assets<Image>>,
+    mut audio_assets: ResMut<Assets<AudioSource>>,
 ) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
@@ -151,7 +154,9 @@ fn setup_system(
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     for layer in lottie.timeline().items() {
-        let entity = layer.spawn(&mut commands, &mut assets).unwrap();
+        let entity = layer
+            .spawn(&mut commands, &mut image_assets, &mut audio_assets)
+            .unwrap();
         info.entities.insert(layer.id, entity);
         if let Some(parent_id) = layer.parent {
             if let Some(parent_entity) = info.entities.get(&parent_id) {
@@ -182,11 +187,17 @@ fn setup_system(
 }
 
 fn animate_system(
-    mut visibility_query: Query<(Entity, &mut Visibility, &FrameTracker)>,
+    mut visibility_query: Query<(
+        Entity,
+        &mut Visibility,
+        Option<&Handle<AudioSource>>,
+        &FrameTracker,
+    )>,
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
     mut info: ResMut<LottieAnimationInfo>,
+    audio: Res<Audio>,
     time: Res<Time>,
 ) {
     if info.paused {
@@ -237,9 +248,13 @@ fn animate_system(
     }
 
     // let mut hidden = VecDeque::new();
-    for (entity, mut visibility, tracker) in visibility_query.iter_mut() {
+    for (_, mut visibility, audio_handle, tracker) in visibility_query.iter_mut() {
         let visible = tracker.value(current_frame).is_some();
+        if let Some(handle) = audio_handle && !visibility.is_visible && visible {
+            audio.play(handle.clone());
+        }
         visibility.is_visible = visible;
+
         // if !visible {
         //     hidden.push_back(entity);
         // }
