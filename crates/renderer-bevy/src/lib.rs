@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 
 mod asset;
+mod frame_capture;
 mod lens;
 mod render;
 mod tween;
@@ -10,12 +11,16 @@ use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::prelude::*;
+use bevy::render::camera::{CameraTypePlugin, RenderTarget};
+use bevy::render::render_resource::TextureFormat;
+use bevy::render::renderer::RenderDevice;
 use bevy::render::view::VisibilityPlugin;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
+use frame_capture::{FrameCapture, FrameCapturePlugin, TargetBuffer};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use render::*;
@@ -62,6 +67,9 @@ impl LottieAnimationInfo {
     }
 }
 
+#[derive(Component, Default)]
+pub struct CaptureCamera;
+
 pub struct BevyRenderer {
     app: App,
 }
@@ -80,12 +88,15 @@ impl BevyRenderer {
             // .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
+            .add_plugin(CameraTypePlugin::<CaptureCamera>::default())
+            .add_plugin(FrameCapturePlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
             .add_system(component_animator_system::<Path>)
             .add_system(component_animator_system::<DrawMode>)
-            .add_system(animate_system);
+            .add_system(animate_system)
+            .add_system(save_img);
         BevyRenderer { app }
     }
 
@@ -116,6 +127,7 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
+    render_device: Res<RenderDevice>,
 ) {
     let window = windows.get_primary_mut().unwrap();
     let scale = window.scale_factor() as f32;
@@ -130,13 +142,37 @@ fn setup_system(
     );
     window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);
     let mut camera = OrthographicCameraBundle::new_2d();
-    camera.transform =
-        Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
-            lottie.model.width as f32 / 2.0,
-            lottie.model.height as f32 / 2.0,
-            0.0,
-        ));
-    commands.spawn_bundle(camera);
+    let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
+        lottie.model.width as f32 / 2.0,
+        lottie.model.height as f32 / 2.0,
+        0.0,
+    ));
+    camera.transform = transform;
+    commands.spawn_bundle(camera).with_children(|c| {
+        let capture = FrameCapture::new_cpu_buffer(
+            lottie.model.width,
+            lottie.model.height,
+            true,
+            TextureFormat::Rgba8UnormSrgb,
+            &mut image_assets,
+            &render_device,
+        );
+        let t_camera = OrthographicCameraBundle::new_2d();
+        let render_target = RenderTarget::Image(capture.gpu_image.clone());
+        let bundle = OrthographicCameraBundle::<CaptureCamera> {
+            camera: Camera {
+                target: render_target,
+                ..default()
+            },
+            orthographic_projection: t_camera.orthographic_projection,
+            visible_entities: t_camera.visible_entities,
+            frustum: t_camera.frustum,
+            transform: Transform::identity(),
+            global_transform: t_camera.global_transform,
+            marker: CaptureCamera,
+        };
+        c.spawn_bundle(bundle).insert(capture);
+    });
 
     lottie.scale = scale;
     let mut info = LottieAnimationInfo {
@@ -247,53 +283,40 @@ fn animate_system(
         }
     }
 
-    // let mut hidden = VecDeque::new();
     for (_, mut visibility, audio_handle, tracker) in visibility_query.iter_mut() {
         let visible = tracker.value(current_frame).is_some();
         if let Some(handle) = audio_handle && !visibility.is_visible && visible {
             audio.play(handle.clone());
         }
         visibility.is_visible = visible;
-
-        // if !visible {
-        //     hidden.push_back(entity);
-        // }
     }
 
-    // while let Some(entity) = hidden.pop_front() {
-    //     for child in hierarchy
-    //         .get(entity)
-    //         .into_iter()
-    //         .map(|children| children.iter())
-    //         .flatten()
-    //     {
-    //         if let Ok((_, mut visibility, _)) = visibility_query.get_mut(*child)
-    // {             visibility.is_visible = false;
-    //         }
-    //         hidden.push_back(*child);
-    //     }
-    // }
-
-    // let (root_entity, comp) = comp.get_single().unwrap();
-    // for item in comp.lottie.timeline().events_in(prev_frame, current_frame) {
-    //     match item {
-    //         TimelineAction::Spawn(id) => if let Some(layer) =
-    // comp.lottie.timeline().item(*id) {},         _ => {} // Skip destory
-    // event as we are destroying directly from bevy     }
-    // }
-
-    // // Destory ended layers
-    // for (entity, layer_info) in query.iter() {
-    //     let current_frame = if let Some(remapping) =
-    // layer_info.time_remapping.as_ref() {         let current_time =
-    // remapping.value(current_frame);         current_time * info.frame_rate
-    //     } else {
-    //         current_frame
-    //     };
-    //     if layer_info.end_frame < current_frame {
-    //         commands.entity(entity).despawn_recursive();
-    //     }
-    // }
-
     info.current_time = current_time;
+}
+
+fn save_img(
+    info: Res<LottieAnimationInfo>,
+    captures: Query<&FrameCapture>,
+    render_device: Res<RenderDevice>,
+) {
+    let current_frame = info.current_time * info.frame_rate;
+    for (i, capture) in captures.iter().enumerate() {
+        if let Some(target_buffer) = &capture.target_buffer {
+            match target_buffer {
+                TargetBuffer::CPUBuffer(target_buffer) => {
+                    target_buffer.get(&render_device, |buf| {
+                        image::save_buffer(
+                            format!("../test{i}_{current_frame}.png"),
+                            &buf,
+                            capture.width,
+                            capture.height,
+                            image::ColorType::Rgba8,
+                        )
+                        .unwrap();
+                    });
+                }
+                _ => continue,
+            }
+        }
+    }
 }
