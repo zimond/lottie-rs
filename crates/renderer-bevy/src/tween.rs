@@ -1,12 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::prelude::{Bundle, Component, Deref, Transform};
-use bevy_tweening::{Animator, Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
+use bevy::prelude::Transform;
+use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::prelude::FrameTransform;
-use lottie_core::{Animated, AnimatedExt, KeyFrame, Transform as LottieTransform};
+use lottie_core::{KeyFrame, Transform as LottieTransform};
 
 use crate::lens::TransformLens;
 

@@ -1,13 +1,11 @@
 #![feature(let_chains)]
 
-mod asset;
 mod frame_capture;
 mod lens;
 mod render;
 mod tween;
 mod utils;
 
-use asset::PrecompositionAsset;
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::prelude::*;
@@ -31,7 +29,6 @@ use bevy::render::texture::Image;
 #[derive(Component)]
 pub struct LottieComp {
     lottie: Lottie,
-    asset_handles: HashMap<String, Handle<PrecompositionAsset>>,
 }
 
 #[derive(Component)]
@@ -75,8 +72,14 @@ pub struct BevyRenderer {
 }
 
 impl BevyRenderer {
-    pub fn new() -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         let mut app = App::new();
+        app.insert_resource(WindowDescriptor {
+            width: width as f32,
+            height: height as f32,
+            resizable: false,
+            ..default()
+        });
         let mut plugin_group_builder = PluginGroupBuilder::default();
         DefaultPlugins.build(&mut plugin_group_builder);
         // Defaulty disable GUI window
@@ -123,24 +126,14 @@ impl Renderer for BevyRenderer {
 
 fn setup_system(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
     render_device: Res<RenderDevice>,
 ) {
-    let window = windows.get_primary_mut().unwrap();
-    let scale = window.scale_factor() as f32;
+    // let scale = window.scale_factor() as f32;
     let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
-    window.set_title(
-        lottie
-            .model
-            .name
-            .clone()
-            .unwrap_or_else(|| String::from("Lottie Animation")),
-    );
-    window.set_resolution(lottie.model.width as f32, lottie.model.height as f32);
     let mut camera = OrthographicCameraBundle::new_2d();
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
         lottie.model.width as f32 / 2.0,
@@ -174,7 +167,7 @@ fn setup_system(
         c.spawn_bundle(bundle).insert(capture);
     });
 
-    lottie.scale = scale;
+    lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
         start_frame: lottie.model.start_frame,
         end_frame: lottie.model.end_frame,
@@ -212,13 +205,9 @@ fn setup_system(
             }
         }
     }
-
     commands.insert_resource(info);
 
-    let comp = LottieComp {
-        lottie,
-        asset_handles: HashMap::new(),
-    };
+    let comp = LottieComp { lottie };
     commands.entity(root_entity).insert(comp);
 }
 
