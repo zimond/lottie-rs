@@ -12,6 +12,8 @@ use std::fs;
 struct Args {
     #[clap(short, long)]
     input: String,
+    #[clap(long, action)]
+    headless: bool,
 }
 
 // fn axis_system(mut lines: ResMut<DebugLines>) {
@@ -42,11 +44,14 @@ fn main() {
     let args = Args::parse();
     let f = fs::File::open(&args.input).unwrap();
     let lottie = Lottie::from_reader(f).unwrap();
-    let mut renderer = BevyRenderer::new(lottie.model.width, lottie.model.height);
-    renderer.add_plugin(WinitPlugin);
-    renderer.add_plugin(EguiPlugin);
-    renderer.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
-    renderer.add_system(controls_system);
+    let mut renderer = BevyRenderer::new(lottie.model.width, lottie.model.height, args.headless);
+    if !args.headless {
+        renderer.add_plugin(WinitPlugin);
+        renderer.add_plugin(EguiPlugin);
+        renderer.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
+        renderer.add_system(controls_system);
+    } else {
+    }
     // renderer.add_plugin(DebugLinesPlugin::default());
     // renderer.add_system(axis_system);
     renderer.load_lottie(lottie);

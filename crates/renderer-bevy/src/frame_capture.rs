@@ -359,3 +359,12 @@ impl Plugin for FrameCapturePlugin {
             .unwrap();
     }
 }
+
+#[derive(Component, Default)]
+pub struct CaptureCamera;
+
+pub struct FrameCaptureEvent {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}

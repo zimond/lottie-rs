@@ -6,8 +6,11 @@ mod render;
 mod tween;
 mod utils;
 
-use bevy::app::PluginGroupBuilder;
+use std::io::Write;
+
+use bevy::app::{AppExit, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::ecs::schedule::IntoSystemDescriptor;
+use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::{CameraTypePlugin, RenderTarget};
 use bevy::render::render_resource::TextureFormat;
@@ -18,13 +21,16 @@ use bevy::winit::WinitPlugin;
 use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
-use frame_capture::{FrameCapture, FrameCapturePlugin, TargetBuffer};
+use frame_capture::{
+    CaptureCamera, FrameCapture, FrameCaptureEvent, FrameCapturePlugin, TargetBuffer,
+};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use render::*;
 
 use bevy::prelude::Transform;
 use bevy::render::texture::Image;
+use webp_animation::Encoder;
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -43,6 +49,9 @@ pub struct LottieAnimationInfo {
     frame_rate: f32,
     current_time: f32,
     paused: bool,
+    width: f32,
+    height: f32,
+    finished_once: bool,
     entities: HashMap<TimelineItemId, Entity>,
 }
 
@@ -64,15 +73,12 @@ impl LottieAnimationInfo {
     }
 }
 
-#[derive(Component, Default)]
-pub struct CaptureCamera;
-
 pub struct BevyRenderer {
     app: App,
 }
 
 impl BevyRenderer {
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32, capture: bool) -> Self {
         let mut app = App::new();
         app.insert_resource(WindowDescriptor {
             width: width as f32,
@@ -91,15 +97,25 @@ impl BevyRenderer {
             // .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
-            .add_plugin(CameraTypePlugin::<CaptureCamera>::default())
-            .add_plugin(FrameCapturePlugin)
+            .add_event::<FrameCaptureEvent>()
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
             .add_system(component_animator_system::<Path>)
             .add_system(component_animator_system::<DrawMode>)
-            .add_system(animate_system)
-            .add_system(save_img);
+            .add_system(animate_system);
+
+        if capture {
+            let encoder = Encoder::new((width, height)).unwrap();
+            app.add_plugin(CameraTypePlugin::<CaptureCamera>::default())
+                .add_plugin(FrameCapturePlugin)
+                .insert_non_send_resource(encoder)
+                .insert_resource(ScheduleRunnerSettings {
+                    run_mode: bevy::app::RunMode::Loop { wait: None },
+                })
+                .add_plugin(ScheduleRunnerPlugin)
+                .add_system(save_img);
+        }
         BevyRenderer { app }
     }
 
@@ -109,6 +125,10 @@ impl BevyRenderer {
 
     pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) {
         self.app.add_system(system);
+    }
+
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) {
+        self.app.insert_resource(resource);
     }
 }
 
@@ -174,6 +194,9 @@ fn setup_system(
         frame_rate: lottie.model.frame_rate,
         current_time: 0.0,
         paused: false,
+        width: lottie.model.width as f32,
+        height: lottie.model.height as f32,
+        finished_once: false,
         entities: HashMap::new(),
     };
 
@@ -236,6 +259,7 @@ fn animate_system(
     let current_time = current_time - (current_time / total_time).floor() * total_time;
     if current_time < info.current_time {
         info.current_time = 0.0;
+        info.finished_once = true;
     }
     let current_frame = current_time * info.frame_rate;
 
@@ -287,21 +311,31 @@ fn save_img(
     info: Res<LottieAnimationInfo>,
     captures: Query<&FrameCapture>,
     render_device: Res<RenderDevice>,
+    mut encoder: NonSendMut<Encoder>,
+    mut exit: EventWriter<AppExit>,
+    // mut event_writer: EventWriter<FrameCaptureEvent>,
 ) {
-    let current_frame = info.current_time * info.frame_rate;
-    for (i, capture) in captures.iter().enumerate() {
+    if info.finished_once {
+        let encoder = std::mem::replace(
+            encoder.as_mut(),
+            Encoder::new((info.width as u32, info.height as u32)).unwrap(),
+        );
+        let data = encoder
+            .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
+            .unwrap();
+        let mut f = std::fs::File::create("result.webp").unwrap();
+        f.write_all(&data).unwrap();
+        drop(f);
+        exit.send(AppExit);
+    }
+    for capture in captures.iter() {
         if let Some(target_buffer) = &capture.target_buffer {
             match target_buffer {
                 TargetBuffer::CPUBuffer(target_buffer) => {
                     target_buffer.get(&render_device, |buf| {
-                        image::save_buffer(
-                            format!("../test{i}_{current_frame}.png"),
-                            &buf,
-                            capture.width,
-                            capture.height,
-                            image::ColorType::Rgba8,
-                        )
-                        .unwrap();
+                        encoder
+                            .add_frame(&buf, (info.current_time * 1000.0) as i32)
+                            .unwrap();
                     });
                 }
                 _ => continue,
