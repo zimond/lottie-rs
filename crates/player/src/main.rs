@@ -50,7 +50,6 @@ fn main() {
         renderer.add_plugin(EguiPlugin);
         renderer.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
         renderer.add_system(controls_system);
-    } else {
     }
     // renderer.add_plugin(DebugLinesPlugin::default());
     // renderer.add_system(axis_system);

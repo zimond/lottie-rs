@@ -22,7 +22,7 @@ use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
 use frame_capture::{
-    CaptureCamera, FrameCapture, FrameCaptureEvent, FrameCapturePlugin, TargetBuffer,
+    CaptureCamera, Frame, FrameCapture, FrameCaptureEvent, FrameCapturePlugin, TargetBuffer,
 };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
@@ -36,6 +36,8 @@ use webp_animation::Encoder;
 pub struct LottieComp {
     lottie: Lottie,
 }
+
+pub struct Capturing(bool);
 
 #[derive(Component)]
 struct LottieShapeComp(StyledShape);
@@ -94,7 +96,7 @@ impl BevyRenderer {
         plugin_group_builder.disable::<GilrsPlugin>();
         plugin_group_builder.finish(&mut app);
         app.insert_resource(Msaa { samples: 4 })
-            // .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+            .insert_resource(Capturing(false))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
             .add_event::<FrameCaptureEvent>()
@@ -109,12 +111,19 @@ impl BevyRenderer {
             let encoder = Encoder::new((width, height)).unwrap();
             app.add_plugin(CameraTypePlugin::<CaptureCamera>::default())
                 .add_plugin(FrameCapturePlugin)
+                .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
                 .insert_resource(ScheduleRunnerSettings {
                     run_mode: bevy::app::RunMode::Loop { wait: None },
                 })
+                .insert_resource(Capturing(true))
+                .insert_resource(Frame {
+                    width,
+                    height,
+                    data: vec![0; (width * height * 4) as usize],
+                })
                 .add_plugin(ScheduleRunnerPlugin)
-                .add_system(save_img);
+                .add_system(save_img.after(animate_system));
         }
         BevyRenderer { app }
     }
@@ -149,6 +158,7 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
+    capturing: Res<Capturing>,
     render_device: Res<RenderDevice>,
 ) {
     // let scale = window.scale_factor() as f32;
@@ -161,31 +171,34 @@ fn setup_system(
         0.0,
     ));
     camera.transform = transform;
-    commands.spawn_bundle(camera).with_children(|c| {
-        let capture = FrameCapture::new_cpu_buffer(
-            lottie.model.width,
-            lottie.model.height,
-            true,
-            TextureFormat::Rgba8UnormSrgb,
-            &mut image_assets,
-            &render_device,
-        );
-        let t_camera = OrthographicCameraBundle::new_2d();
-        let render_target = RenderTarget::Image(capture.gpu_image.clone());
-        let bundle = OrthographicCameraBundle::<CaptureCamera> {
-            camera: Camera {
-                target: render_target,
-                ..default()
-            },
-            orthographic_projection: t_camera.orthographic_projection,
-            visible_entities: t_camera.visible_entities,
-            frustum: t_camera.frustum,
-            transform: Transform::identity(),
-            global_transform: t_camera.global_transform,
-            marker: CaptureCamera,
-        };
-        c.spawn_bundle(bundle).insert(capture);
-    });
+    let mut cmd = commands.spawn_bundle(camera);
+    if capturing.0 {
+        cmd.with_children(|c| {
+            let capture = FrameCapture::new_cpu_buffer(
+                lottie.model.width,
+                lottie.model.height,
+                true,
+                TextureFormat::Rgba8UnormSrgb,
+                &mut image_assets,
+                &render_device,
+            );
+            let t_camera = OrthographicCameraBundle::new_2d();
+            let render_target = RenderTarget::Image(capture.gpu_image.clone());
+            let bundle = OrthographicCameraBundle::<CaptureCamera> {
+                camera: Camera {
+                    target: render_target,
+                    ..default()
+                },
+                orthographic_projection: t_camera.orthographic_projection,
+                visible_entities: t_camera.visible_entities,
+                frustum: t_camera.frustum,
+                transform: Transform::identity(),
+                global_transform: t_camera.global_transform,
+                marker: CaptureCamera,
+            };
+            c.spawn_bundle(bundle).insert(capture);
+        });
+    }
 
     lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
@@ -245,23 +258,24 @@ fn animate_system(
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
     mut info: ResMut<LottieAnimationInfo>,
+    capturing: Res<Capturing>,
     audio: Res<Audio>,
     time: Res<Time>,
 ) {
+    let capturing = capturing.0;
     if info.paused {
         for (mut a, _) in transform_animation.iter_mut() {
             a.state = AnimatorState::Paused;
         }
         return;
     }
-    let current_time = info.current_time + time.delta_seconds();
-    let total_time = info.end_frame / info.frame_rate;
-    let current_time = current_time - (current_time / total_time).floor() * total_time;
-    if current_time < info.current_time {
-        info.current_time = 0.0;
-        info.finished_once = true;
-    }
-    let current_frame = current_time * info.frame_rate;
+    let delta = if capturing {
+        1.0 / info.frame_rate
+    } else {
+        time.delta_seconds()
+    };
+    let current_frame = info.current_time * info.frame_rate;
+    println!("frame {}", current_frame);
 
     for (mut a, tracker) in transform_animation.iter_mut() {
         if let Some(frame) = tracker.value(current_frame) {
@@ -304,6 +318,14 @@ fn animate_system(
         visibility.is_visible = visible;
     }
 
+    let current_time = info.current_time + delta;
+    let total_time = info.end_frame / info.frame_rate;
+    let current_time = current_time - (current_time / total_time).floor() * total_time;
+    if current_time < info.current_time {
+        info.current_time = 0.0;
+        info.finished_once = true;
+    }
+
     info.current_time = current_time;
 }
 
@@ -311,6 +333,7 @@ fn save_img(
     info: Res<LottieAnimationInfo>,
     captures: Query<&FrameCapture>,
     render_device: Res<RenderDevice>,
+    mut frame: ResMut<Frame>,
     mut encoder: NonSendMut<Encoder>,
     mut exit: EventWriter<AppExit>,
     // mut event_writer: EventWriter<FrameCaptureEvent>,
@@ -333,8 +356,9 @@ fn save_img(
             match target_buffer {
                 TargetBuffer::CPUBuffer(target_buffer) => {
                     target_buffer.get(&render_device, |buf| {
+                        frame.load_buffer(&buf);
                         encoder
-                            .add_frame(&buf, (info.current_time * 1000.0) as i32)
+                            .add_frame(&frame.data, (info.current_time * 1000.0) as i32)
                             .unwrap();
                     });
                 }

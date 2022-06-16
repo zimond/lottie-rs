@@ -368,3 +368,20 @@ pub struct FrameCaptureEvent {
     pub width: u32,
     pub height: u32,
 }
+
+pub struct Frame {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Frame {
+    pub fn load_buffer(&mut self, buffer: &[u8]) {
+        self.data.clear();
+        let padding = buffer.len() / self.height as usize;
+        for window in buffer.chunks_exact(padding) {
+            self.data
+                .extend_from_slice(&window[0..(self.width as usize * 4)]);
+        }
+    }
+}

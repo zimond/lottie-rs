@@ -9,9 +9,9 @@ goes to original owners/creators of the files.
 
 | **Name** | **Preview** |
 |----------|-------------|
-| Confetti | <details><summary>Preview</summary><video  src="https://user-images.githubusercontent.com/4921289/171586211-ba4ea8fe-fe91-4f91-a6ef-36e86ed3f12e.mp4"/></details> |
-| Techno Penguin | <details><summary>Preview</summary><video  src="https://user-images.githubusercontent.com/4921289/171589321-8e9a812e-2b74-4395-963b-af868371b1da.mp4"/></details> |
-| Drink | <details><summary>Preview</summary><video  src="https://user-images.githubusercontent.com/4921289/171589992-0dbb0280-b5cf-42fc-bace-2439c7e2ace6.mp4"/></details> |
+| Confetti | <img src="fixtures/results/confetti.webp" width="200"> |
+| Techno Penguin | <img src="fixtures/results/techno_penguin.webp" width="200"> |
+| Drink | <img src="fixtures/results/drink.webp" width="200"> |
 
 # Try it out
 
@@ -23,6 +23,16 @@ cargo r --release -- ../../fixtures/ui/confetti.json
 ```
 
 There are some lottie files for demonstration purpose under `fixtures/ui`
+
+# Headless runner
+
+Exporting animation headlessly is also supported, aiming to render animations on a server. Currently we support
+`webp` exporting for test purpose.
+
+```bash
+cd crates/player
+cargo r --release -- ../../fixtures/ui/confetti.json --headless
+```
 
 # Font Loading
 
