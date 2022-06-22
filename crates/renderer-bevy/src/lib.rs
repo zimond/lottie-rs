@@ -275,7 +275,6 @@ fn animate_system(
         time.delta_seconds()
     };
     let current_frame = info.current_time * info.frame_rate;
-    println!("frame {}", current_frame);
 
     for (mut a, tracker) in transform_animation.iter_mut() {
         if let Some(frame) = tracker.value(current_frame) {

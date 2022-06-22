@@ -685,7 +685,7 @@ pub struct Stroke {
     pub line_cap: LineCap,
     #[serde(rename = "lj")]
     pub line_join: LineJoin,
-    #[serde(rename = "ml")]
+    #[serde(rename = "ml", default)]
     miter_limit: f32,
     #[serde(rename = "o")]
     pub opacity: Animated<f32>,
