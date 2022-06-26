@@ -36,6 +36,8 @@ pub struct StagedLayer {
     pub opacity: OpacityHierarchy,
     pub frame_transform: FrameTransform,
     pub frame_transform_hierarchy: FrameTransformHierarchy,
+    pub is_mask: bool,
+    pub matte_mode: Option<MatteMode>,
 }
 
 impl StagedLayer {
@@ -87,6 +89,8 @@ impl StagedLayer {
             opacity: OpacityHierarchy::default(),
             frame_transform: FrameTransform::new(0.0, layer.start_time),
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
+            is_mask: false,
+            matte_mode: layer.matte_mode.clone(),
         })
     }
 }

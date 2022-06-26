@@ -85,6 +85,8 @@ pub struct Layer {
     pub transform: Option<Transform>,
     #[serde(flatten)]
     pub content: LayerContent,
+    #[serde(rename = "tt", default)]
+    pub matte_mode: Option<MatteMode>,
 }
 
 impl Layer {
@@ -110,6 +112,7 @@ impl Layer {
             name: None,
             transform: None,
             content,
+            matte_mode: None,
         }
     }
 }
@@ -635,6 +638,16 @@ impl Default for TextCaps {
     fn default() -> Self {
         TextCaps::Regular
     }
+}
+
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum MatteMode {
+    Normal = 0,
+    Alpha = 1,
+    InvertedAlpha = 2,
+    Luma = 3,
+    InvertedLuma = 4,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
