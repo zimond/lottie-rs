@@ -4,21 +4,19 @@ name = "lottie-renderer-bevy"
 version = "0.1.0"
 
 [dependencies]
-bevy_diagnostic = "0.7.0"
-bevy_prototype_lyon = "0.5.0"
+# bevy_diagnostic = "0.7.0"
+bevy_prototype_lyon = { git = "https://github.com/Nilirad/bevy_prototype_lyon" }
 flo_curves = "0.6.1"
 log = "0.4.17"
 ordered-float = "3.0.0"
 infer = "0.8.1"
-
-bevy = { version = "0.7.0", features = ["bevy_audio", "mp3", "flac", "wav"] }
+bevy_egui = { version = "0.14.0", optional = true }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main", features = ["bevy_audio", "mp3", "flac", "wav"] }
 wgpu = "0.12.0"
 image = { version = "0.24.2", default-features = false, features = [ "png" ] }
 webp-animation = "0.6.0"
+bevy_tweening = { git = "https://github.com/zimond/bevy_tweening", rev = "387b22b"}
+lottie-core = { path = "../core" }
 
-[dependencies.bevy_tweening]
-git = "https://github.com/zimond/bevy_tweening"
-rev = "c605878"
-
-[dependencies.lottie-core]
-path = "../core"
+[features]
+default = ["bevy_egui"]

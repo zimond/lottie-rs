@@ -1,8 +1,10 @@
 #![feature(let_chains)]
 
-mod frame_capture;
+// mod frame_capture;
 mod lens;
+mod plugin;
 mod render;
+mod system;
 mod tween;
 mod utils;
 
@@ -12,18 +14,18 @@ use bevy::app::{AppExit, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunne
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
-use bevy::render::camera::{CameraTypePlugin, RenderTarget};
+use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::VisibilityPlugin;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
-use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+// use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
-use frame_capture::{
-    CaptureCamera, Frame, FrameCapture, FrameCaptureEvent, FrameCapturePlugin, TargetBuffer,
-};
+// use frame_capture::{
+//     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
+// FrameCapturePlugin, TargetBuffer, };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use render::*;
@@ -31,6 +33,8 @@ use render::*;
 use bevy::prelude::Transform;
 use bevy::render::texture::Image;
 use webp_animation::Encoder;
+
+pub use bevy;
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -99,7 +103,7 @@ impl BevyRenderer {
             .insert_resource(Capturing(false))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
-            .add_event::<FrameCaptureEvent>()
+            // .add_event::<FrameCaptureEvent>()
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(ShapePlugin)
@@ -109,21 +113,21 @@ impl BevyRenderer {
 
         if capture {
             let encoder = Encoder::new((width, height)).unwrap();
-            app.add_plugin(CameraTypePlugin::<CaptureCamera>::default())
-                .add_plugin(FrameCapturePlugin)
+            app //.add_plugin(CameraTypePlugin::<CaptureCamera>::default())
+                // .add_plugin(FrameCapturePlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
                 .insert_resource(ScheduleRunnerSettings {
                     run_mode: bevy::app::RunMode::Loop { wait: None },
                 })
                 .insert_resource(Capturing(true))
-                .insert_resource(Frame {
-                    width,
-                    height,
-                    data: vec![0; (width * height * 4) as usize],
-                })
-                .add_plugin(ScheduleRunnerPlugin)
-                .add_system(save_img.after(animate_system));
+                // .insert_resource(Frame {
+                //     width,
+                //     height,
+                //     data: vec![0; (width * height * 4) as usize],
+                // })
+                .add_plugin(ScheduleRunnerPlugin);
+            // .add_system(save_img.after(animate_system));
         }
         BevyRenderer { app }
     }
@@ -148,7 +152,20 @@ impl Renderer for BevyRenderer {
             .add_startup_system(setup_system);
     }
 
-    fn render(&mut self) {
+    fn render(&mut self, config: Config) {
+        match config {
+            Config::Window(window_conf) => {
+                #[cfg(feature = "bevy_egui")]
+                if window_conf.show_controls {
+                    self.app.add_plugin(WinitPlugin);
+                    // TODO: bevy_egui currently doesn't support bevy 0.8
+                    // self.app
+                    //     .add_plugin(bevy_egui::EguiPlugin)
+                    //     .add_system(system::controls_system);
+                }
+            }
+            Config::Headless(_) => todo!(),
+        }
         self.app.run()
     }
 }
@@ -164,7 +181,7 @@ fn setup_system(
     // let scale = window.scale_factor() as f32;
     let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
-    let mut camera = OrthographicCameraBundle::new_2d();
+    let mut camera = Camera2dBundle::default();
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
         lottie.model.width as f32 / 2.0,
         lottie.model.height as f32 / 2.0,
@@ -173,31 +190,32 @@ fn setup_system(
     camera.transform = transform;
     let mut cmd = commands.spawn_bundle(camera);
     if capturing.0 {
-        cmd.with_children(|c| {
-            let capture = FrameCapture::new_cpu_buffer(
-                lottie.model.width,
-                lottie.model.height,
-                true,
-                TextureFormat::Rgba8UnormSrgb,
-                &mut image_assets,
-                &render_device,
-            );
-            let t_camera = OrthographicCameraBundle::new_2d();
-            let render_target = RenderTarget::Image(capture.gpu_image.clone());
-            let bundle = OrthographicCameraBundle::<CaptureCamera> {
-                camera: Camera {
-                    target: render_target,
-                    ..default()
-                },
-                orthographic_projection: t_camera.orthographic_projection,
-                visible_entities: t_camera.visible_entities,
-                frustum: t_camera.frustum,
-                transform: Transform::identity(),
-                global_transform: t_camera.global_transform,
-                marker: CaptureCamera,
-            };
-            c.spawn_bundle(bundle).insert(capture);
-        });
+        // cmd.with_children(|c| {
+        //     let capture = FrameCapture::new_cpu_buffer(
+        //         lottie.model.width,
+        //         lottie.model.height,
+        //         true,
+        //         TextureFormat::Rgba8UnormSrgb,
+        //         &mut image_assets,
+        //         &render_device,
+        //     );
+        //     let t_camera = Camera2dBundle::new_2d();
+        //     let render_target =
+        // RenderTarget::Image(capture.gpu_image.clone());
+        //     let bundle = Camera2dBundle::<CaptureCamera> {
+        //         camera: Camera {
+        //             target: render_target,
+        //             ..default()
+        //         },
+        //         orthographic_projection: t_camera.orthographic_projection,
+        //         visible_entities: t_camera.visible_entities,
+        //         frustum: t_camera.frustum,
+        //         transform: Transform::identity(),
+        //         global_transform: t_camera.global_transform,
+        //         marker: CaptureCamera,
+        //     };
+        //     c.spawn_bundle(bundle).insert(capture);
+        // });
     }
 
     lottie.scale = 1.0; //scale;
@@ -328,41 +346,41 @@ fn animate_system(
     info.current_time = current_time;
 }
 
-fn save_img(
-    info: Res<LottieAnimationInfo>,
-    captures: Query<&FrameCapture>,
-    render_device: Res<RenderDevice>,
-    mut frame: ResMut<Frame>,
-    mut encoder: NonSendMut<Encoder>,
-    mut exit: EventWriter<AppExit>,
-    // mut event_writer: EventWriter<FrameCaptureEvent>,
-) {
-    if info.finished_once {
-        let encoder = std::mem::replace(
-            encoder.as_mut(),
-            Encoder::new((info.width as u32, info.height as u32)).unwrap(),
-        );
-        let data = encoder
-            .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
-            .unwrap();
-        let mut f = std::fs::File::create("result.webp").unwrap();
-        f.write_all(&data).unwrap();
-        drop(f);
-        exit.send(AppExit);
-    }
-    for capture in captures.iter() {
-        if let Some(target_buffer) = &capture.target_buffer {
-            match target_buffer {
-                TargetBuffer::CPUBuffer(target_buffer) => {
-                    target_buffer.get(&render_device, |buf| {
-                        frame.load_buffer(&buf);
-                        encoder
-                            .add_frame(&frame.data, (info.current_time * 1000.0) as i32)
-                            .unwrap();
-                    });
-                }
-                _ => continue,
-            }
-        }
-    }
-}
+// fn save_img(
+//     info: Res<LottieAnimationInfo>,
+//     captures: Query<&FrameCapture>,
+//     render_device: Res<RenderDevice>,
+//     mut frame: ResMut<Frame>,
+//     mut encoder: NonSendMut<Encoder>,
+//     mut exit: EventWriter<AppExit>,
+//     // mut event_writer: EventWriter<FrameCaptureEvent>,
+// ) {
+//     if info.finished_once {
+//         let encoder = std::mem::replace(
+//             encoder.as_mut(),
+//             Encoder::new((info.width as u32, info.height as u32)).unwrap(),
+//         );
+//         let data = encoder
+//             .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
+//             .unwrap();
+//         let mut f = std::fs::File::create("result.webp").unwrap();
+//         f.write_all(&data).unwrap();
+//         drop(f);
+//         exit.send(AppExit);
+//     }
+//     for capture in captures.iter() {
+//         if let Some(target_buffer) = &capture.target_buffer {
+//             match target_buffer {
+//                 TargetBuffer::CPUBuffer(target_buffer) => {
+//                     target_buffer.get(&render_device, |buf| {
+//                         frame.load_buffer(&buf);
+//                         encoder
+//                             .add_frame(&frame.data, (info.current_time *
+// 1000.0) as i32)                             .unwrap();
+//                     });
+//                 }
+//                 _ => continue,
+//             }
+//         }
+//     }
+// }
