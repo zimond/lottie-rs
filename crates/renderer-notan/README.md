@@ -13,3 +13,5 @@ Notan is chosen as a renderer because:
 
 - Has a mature and relatively simple API for 2D graphics
 - Support mask and blend mode
+
+NOTE: Notan renderer requires `cmake >= 3.12`
