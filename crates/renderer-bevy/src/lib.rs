@@ -155,9 +155,9 @@ impl Renderer for BevyRenderer {
     fn render(&mut self, config: Config) {
         match config {
             Config::Window(window_conf) => {
+                self.app.add_plugin(WinitPlugin);
                 #[cfg(feature = "bevy_egui")]
                 if window_conf.show_controls {
-                    self.app.add_plugin(WinitPlugin);
                     // TODO: bevy_egui currently doesn't support bevy 0.8
                     // self.app
                     //     .add_plugin(bevy_egui::EguiPlugin)
