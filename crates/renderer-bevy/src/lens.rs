@@ -1,9 +1,10 @@
 use bevy::prelude::Transform;
-use bevy_prototype_lyon::prelude::tess::path::path::Builder;
-use bevy_prototype_lyon::prelude::{DrawMode, Path};
 use bevy_tweening::Lens;
 use lottie_core::prelude::{OpacityHierarchy, PathExt};
 use lottie_core::{Animated, AnimatedExt, Bezier, Transform as LottieTransform};
+use lyon::path::path::Builder;
+
+use crate::shape::{DrawMode, Path};
 
 pub struct PathLens {
     pub(crate) start: Vec<Bezier>,
@@ -43,10 +44,8 @@ pub struct StrokeWidthLens {
 impl Lens<DrawMode> for StrokeWidthLens {
     fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
         let w = self.start + (self.end - self.start) * ratio;
-        match target {
-            DrawMode::Stroke(s) => s.options.line_width = w,
-            DrawMode::Outlined { outline_mode, .. } => outline_mode.options.line_width = w,
-            _ => {}
+        if let Some(stroke) = target.stroke.as_mut() {
+            stroke.options.line_width = w;
         }
     }
 }
@@ -84,16 +83,12 @@ impl Lens<DrawMode> for OpacityLens {
             .as_ref()
             .map(|o| o.value(frame) / 100.0)
             .unwrap_or(1.0);
-        match target {
-            DrawMode::Fill(fill) => fill.color.set_a(value * fill_opacity),
-            DrawMode::Stroke(stroke) => stroke.color.set_a(value * stroke_opacity),
-            DrawMode::Outlined {
-                fill_mode,
-                outline_mode,
-            } => {
-                fill_mode.color.set_a(value * fill_opacity);
-                outline_mode.color.set_a(value * stroke_opacity)
-            }
-        };
+
+        if let Some(fill) = target.fill.as_mut() {
+            fill.color.set_a(value * fill_opacity);
+        }
+        if let Some(stroke) = target.stroke.as_mut() {
+            stroke.color.set_a(value * stroke_opacity);
+        }
     }
 }

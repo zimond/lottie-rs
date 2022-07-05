@@ -2,8 +2,10 @@
 
 // mod frame_capture;
 mod lens;
+mod material;
 mod plugin;
 mod render;
+mod shape;
 mod system;
 mod tween;
 mod utils;
@@ -15,23 +17,27 @@ use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
+use bevy::render::extract_component::ExtractComponentPlugin;
+use bevy::render::render_asset::RenderAssetPlugin;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::VisibilityPlugin;
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
 // FrameCapturePlugin, TargetBuffer, };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
+use material::MaskAwareMaterial;
+use plugin::MaskedShapePlugin;
 use render::*;
 
 use bevy::prelude::Transform;
 use bevy::render::texture::Image;
+use shape::{DrawMode, Path};
 use webp_animation::Encoder;
 
 pub use bevy;
@@ -106,7 +112,7 @@ impl BevyRenderer {
             // .add_event::<FrameCaptureEvent>()
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
-            .add_plugin(ShapePlugin)
+            .add_plugin(MaskedShapePlugin)
             .add_system(component_animator_system::<Path>)
             .add_system(component_animator_system::<DrawMode>)
             .add_system(animate_system);
@@ -175,6 +181,8 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
+    mut material_assets: ResMut<Assets<MaskAwareMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     capturing: Res<Capturing>,
     render_device: Res<RenderDevice>,
 ) {
@@ -189,6 +197,7 @@ fn setup_system(
     ));
     camera.transform = transform;
     let mut cmd = commands.spawn_bundle(camera);
+
     if capturing.0 {
         // cmd.with_children(|c| {
         //     let capture = FrameCapture::new_cpu_buffer(
@@ -238,7 +247,13 @@ fn setup_system(
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     for layer in lottie.timeline().items() {
         let entity = layer
-            .spawn(&mut commands, &mut image_assets, &mut audio_assets)
+            .spawn(
+                &mut commands,
+                &mut meshes,
+                &mut image_assets,
+                &mut audio_assets,
+                &mut material_assets,
+            )
             .unwrap();
         info.entities.insert(layer.id, entity);
         if let Some(parent_id) = layer.parent {

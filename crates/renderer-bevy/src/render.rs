@@ -1,17 +1,20 @@
 use std::time::Duration;
 
-use bevy::math::Vec2;
 use bevy::prelude::{Entity, Image, Transform};
 use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
-use bevy_prototype_lyon::prelude::tess::path::path::Builder;
-use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween, TweeningType};
-use lottie_core::*;
-
 use lottie_core::prelude::*;
-use lottie_core::Transform as LottieTransform;
+use lottie_core::{Transform as LottieTransform, *};
+use lyon::math::Angle;
+use lyon::path::path::Builder;
+use lyon::path::traits::PathBuilder;
+use lyon::path::Winding;
+use wgpu::TextureDimension;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
+use crate::material::MaskAwareMaterial;
+use crate::plugin::MaskMarker;
+use crate::shape::{DrawMode, Path, ShapeBundle};
 use crate::tween::TweenProducer;
 use crate::*;
 
@@ -19,14 +22,19 @@ pub trait LayerRenderer {
     fn spawn(
         &self,
         commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
         image_assets: &mut Assets<Image>,
         audio_assets: &mut Assets<AudioSource>,
+        material_assets: &mut Assets<MaskAwareMaterial>,
     ) -> Result<Entity, TextureError>;
     fn spawn_shape(
         &self,
         zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
+        image_assets: &mut Assets<Image>,
+        material_assets: &mut Assets<MaskAwareMaterial>,
     ) -> Option<Entity>;
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
     fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>>;
@@ -36,8 +44,10 @@ impl LayerRenderer for StagedLayer {
     fn spawn(
         &self,
         commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
         image_assets: &mut Assets<Image>,
         audio_assets: &mut Assets<AudioSource>,
+        material_assets: &mut Assets<MaskAwareMaterial>,
     ) -> Result<Entity, TextureError> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
@@ -59,6 +69,9 @@ impl LayerRenderer for StagedLayer {
                         (zindex as f32 + 1.0) / count + self.zindex as f32,
                         shape,
                         c.commands(),
+                        meshes,
+                        image_assets,
+                        material_assets,
                     ) {
                         log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
@@ -109,7 +122,7 @@ impl LayerRenderer for StagedLayer {
         let id = c.id();
 
         c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
-        c.insert(Visibility { is_visible: false });
+        c.insert(Visibility { is_visible: true });
         Ok(id)
     }
 
@@ -118,6 +131,9 @@ impl LayerRenderer for StagedLayer {
         zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
+        meshes: &mut Assets<Mesh>,
+        image_assets: &mut Assets<Image>,
+        material_assets: &mut Assets<MaskAwareMaterial>,
     ) -> Option<Entity> {
         if shape.shape.hidden {
             return None;
@@ -125,22 +141,17 @@ impl LayerRenderer for StagedLayer {
         let mut draw_mode = utils::shape_draw_mode(&shape);
         let global_opacity = self.opacity.initial_value();
         if global_opacity < 1.0 {
-            match &mut draw_mode {
-                DrawMode::Fill(f) => f.color.set_a(f.color.a() * global_opacity),
-                DrawMode::Stroke(s) => s.color.set_a(s.color.a() * global_opacity),
-                DrawMode::Outlined {
-                    fill_mode,
-                    outline_mode,
-                } => {
-                    fill_mode.color.set_a(fill_mode.color.a() * global_opacity);
-                    outline_mode
-                        .color
-                        .set_a(outline_mode.color.a() * global_opacity)
-                }
-            };
+            if let Some(fill) = draw_mode.fill.as_mut() {
+                fill.color.set_a(fill.color.a() * global_opacity);
+            }
+            if let Some(stroke) = draw_mode.stroke.as_mut() {
+                stroke.color.set_a(stroke.color.a() * global_opacity);
+            }
         }
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;
+
+        let mut builder = Builder::new();
 
         let mut c = commands.spawn();
         match &shape.shape.shape {
@@ -148,16 +159,14 @@ impl LayerRenderer for StagedLayer {
                 let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
                 let initial_pos = position.initial_value();
-                let ellipse_shape = shapes::Ellipse {
-                    radii: Vec2::new(initial_size.x, initial_size.y),
-                    center: Vec2::new(initial_pos.x, initial_pos.y),
-                };
+                builder.add_ellipse(
+                    initial_pos.to_point(),
+                    initial_size,
+                    Angle::zero(),
+                    Winding::Positive,
+                );
+                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                c.insert_bundle(GeometryBuilder::build_as(
-                    &ellipse_shape,
-                    draw_mode,
-                    transform,
-                ));
                 if let Some(animator) = self.transform_animator(&shape.transform) {
                     c.insert(animator);
                 }
@@ -167,10 +176,8 @@ impl LayerRenderer for StagedLayer {
                 c.insert(LottieShapeComp(shape));
             }
             Shape::PolyStar(star) => {
-                let mut builder = Builder::new();
                 star.to_path(0.0, &mut builder);
-                let path_shape = Path(builder.build());
-                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
+                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform) {
                     c.insert(animator);
                 }
@@ -179,10 +186,8 @@ impl LayerRenderer for StagedLayer {
                 }
             }
             Shape::Rectangle(rect) => {
-                let mut builder = Builder::new();
                 rect.to_path(0.0, &mut builder);
-                let path_shape = Path(builder.build());
-                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
+                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform) {
                     c.insert(animator);
                 }
@@ -193,11 +198,40 @@ impl LayerRenderer for StagedLayer {
             Shape::Path { d } => {
                 let beziers = d.initial_value();
 
-                let mut builder = Builder::new();
                 beziers.to_path(0.0, &mut builder);
-                let path_shape = Path(builder.build());
-                c.insert_bundle(TransformBundle::default());
-                c.insert_bundle(GeometryBuilder::build_as(&path_shape, draw_mode, transform));
+                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
+
+                // // Create a dummy 1x1 white image
+                // let image = Image::new_fill(
+                //     wgpu::Extent3d::default(),
+                //     TextureDimension::D2,
+                //     &[255; 4],
+                //     TextureFormat::bevy_default(),
+                // );
+                // let texture_handle = image_assets.add(image);
+
+                // c.insert_bundle(MaterialMesh2dBundle {
+                //     material: handle,
+                //     ..Default::default()
+                // });
+                // let mut mesh = Mesh::from(bevy::render::mesh::shape::Quad {
+                //     size: Vec2::new(100.0, 100.0),
+                //     flip: false,
+                // });
+                // let vertex_colors: Vec<[f32; 4]> = vec![
+                //     Color::RED.as_rgba_f32(),
+                //     Color::GREEN.as_rgba_f32(),
+                //     Color::BLUE.as_rgba_f32(),
+                //     Color::WHITE.as_rgba_f32(),
+                // ];
+                // // Insert the vertex colors as an attribute
+                // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
+                // c.insert_bundle(MaterialMesh2dBundle {
+                //     mesh: meshes.add(mesh).into(),
+                //     transform: Transform::default(),
+                //     material: handle,
+                //     ..default()
+                // });
                 if let Some(animator) = self.transform_animator(&shape.transform) {
                     c.insert(animator);
                 }
@@ -223,8 +257,13 @@ impl LayerRenderer for StagedLayer {
             }
         };
 
+        if self.is_mask {
+            c.insert(MaskMarker);
+        }
+        // let handle = material_assets.add(MaskAwareMaterial { data: 0.5 });
+        // c.insert(handle);
         c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
-        c.insert(Visibility { is_visible: false });
+        c.insert(Visibility { is_visible: true });
         Some(c.id())
     }
 
