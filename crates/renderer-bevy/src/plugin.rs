@@ -1,8 +1,9 @@
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
+use bevy::render::extract_component::ExtractComponentPlugin;
 use bevy::render::mesh::{Indices, MeshVertexAttribute};
-use bevy::render::render_asset::RenderAssets;
+use bevy::render::render_asset::{RenderAssetPlugin, RenderAssets};
 use bevy::render::render_phase::*;
 use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
@@ -159,6 +160,7 @@ pub struct MaskedMesh2dPipeline {
     /// this pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
     pub material2d_layout: BindGroupLayout,
+    mask_layout: BindGroupLayout,
 }
 
 impl FromWorld for MaskedMesh2dPipeline {
@@ -166,17 +168,40 @@ impl FromWorld for MaskedMesh2dPipeline {
         let render_device = world.resource::<RenderDevice>();
         let layout =
             <MaskAwareMaterial as bevy::sprite::Material2d>::bind_group_layout(&render_device);
+        let mask_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(f32::min_size().get()),
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("mask_mesh2d_view_layout"),
+        });
         Self {
             mesh2d_pipeline: Mesh2dPipeline::from_world(world),
             material2d_layout: layout,
+            mask_layout,
         }
     }
+}
+
+#[derive(Eq, PartialEq, Clone, Hash)]
+pub struct MaskMesh2dKey {
+    pub mesh: Mesh2dPipelineKey,
+    pub material: (),
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from
 // `Mesh2dPipeline`
 impl SpecializedRenderPipeline for MaskedMesh2dPipeline {
-    type Key = Mesh2dPipelineKey;
+    type Key = MaskMesh2dKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         // Customize how to store the meshes' vertex attributes in the vertex buffer
@@ -217,6 +242,8 @@ impl SpecializedRenderPipeline for MaskedMesh2dPipeline {
                 self.mesh2d_pipeline.view_layout.clone(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
+                // Bind group 2 is the mask uniform
+                self.mask_layout.clone(),
             ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
@@ -224,12 +251,12 @@ impl SpecializedRenderPipeline for MaskedMesh2dPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: key.mesh.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.mesh.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -246,6 +273,7 @@ type DrawMaskedMesh2d = (
     SetMesh2dViewBindGroup<0>,
     // Set the mesh uniform as bind group 1
     SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<MaskAwareMaterial, 2>,
     // Draw the mesh
     DrawMesh2d,
 );
@@ -259,7 +287,9 @@ pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for MaskedMesh2dPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<MaskAwareMaterial>();
+        app.add_asset::<MaskAwareMaterial>()
+            .add_plugin(ExtractComponentPlugin::<Handle<MaskAwareMaterial>>::extract_visible())
+            .add_plugin(RenderAssetPlugin::<MaskAwareMaterial>::default());
         // Load our custom shader
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(
@@ -305,7 +335,8 @@ pub fn queue_colored_mesh2d(
     mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<Shape>>,
+    render_materials: Res<RenderAssets<MaskAwareMaterial>>,
+    colored_mesh2d: Query<(&Handle<MaskAwareMaterial>, &Mesh2dHandle, &Mesh2dUniform), With<Shape>>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
     if colored_mesh2d.is_empty() {
@@ -313,7 +344,7 @@ pub fn queue_colored_mesh2d(
     }
     // Iterate each view (a camera is a view)
     for (visible_entities, mut transparent_phase) in views.iter_mut() {
-        let draw_colored_mesh2d = transparent_draw_functions
+        let draw_masked_2d = transparent_draw_functions
             .read()
             .get_id::<DrawMaskedMesh2d>()
             .unwrap();
@@ -322,28 +353,39 @@ pub fn queue_colored_mesh2d(
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {
-            if let Ok((mesh2d_handle, mesh2d_uniform)) = colored_mesh2d.get(*visible_entity) {
+            if let Ok((material_handle, mesh2d_handle, mesh2d_uniform)) =
+                colored_mesh2d.get(*visible_entity)
+            {
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                    mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                if let Some(material) = render_materials.get(material_handle) {
+                    if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
+                        mesh2d_key |=
+                            Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+
+                        let pipeline_id = pipelines.specialize(
+                            &mut pipeline_cache,
+                            &colored_mesh2d_pipeline,
+                            MaskMesh2dKey {
+                                mesh: mesh2d_key,
+                                material: (),
+                            },
+                        );
+
+                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
+                        transparent_phase.add(Transparent2d {
+                            entity: *visible_entity,
+                            draw_function: draw_masked_2d,
+                            pipeline: pipeline_id,
+                            // The 2d render items are sorted according to their z value before
+                            // rendering, in order to get correct
+                            // transparency
+                            sort_key: FloatOrd(mesh_z),
+                            // This material is not batched
+                            batch_range: None,
+                        });
+                    }
                 }
-
-                let pipeline_id =
-                    pipelines.specialize(&mut pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
-
-                let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                transparent_phase.add(Transparent2d {
-                    entity: *visible_entity,
-                    draw_function: draw_colored_mesh2d,
-                    pipeline: pipeline_id,
-                    // The 2d render items are sorted according to their z value before rendering,
-                    // in order to get correct transparency
-                    sort_key: FloatOrd(mesh_z),
-                    // This material is not batched
-                    batch_range: None,
-                });
             }
         }
     }

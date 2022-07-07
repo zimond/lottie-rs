@@ -209,6 +209,9 @@ impl LayerRenderer for StagedLayer {
                 //     TextureFormat::bevy_default(),
                 // );
                 // let texture_handle = image_assets.add(image);
+                let material = MaskAwareMaterial { data: 0.5 };
+                let handle = material_assets.add(material);
+                c.insert(handle);
 
                 // c.insert_bundle(MaterialMesh2dBundle {
                 //     material: handle,

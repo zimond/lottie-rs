@@ -36,7 +36,7 @@ impl Material2d for MaskAwareMaterial {
             label: None,
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
