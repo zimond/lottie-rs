@@ -13,6 +13,7 @@ mod utils;
 use std::io::Write;
 
 use bevy::app::{AppExit, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings};
+use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
@@ -21,7 +22,7 @@ use bevy::render::extract_component::ExtractComponentPlugin;
 use bevy::render::render_asset::RenderAssetPlugin;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
-use bevy::render::view::VisibilityPlugin;
+use bevy::render::view::{RenderLayers, VisibilityPlugin};
 use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -36,11 +37,12 @@ use plugin::MaskedShapePlugin;
 use render::*;
 
 use bevy::prelude::Transform;
-use bevy::render::texture::Image;
+use bevy::render::texture::{BevyDefault, Image};
 use shape::{DrawMode, Path};
 use webp_animation::Encoder;
 
 pub use bevy;
+use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureUsages};
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -196,6 +198,44 @@ fn setup_system(
         0.0,
     ));
     camera.transform = transform;
+    // Create the mask texture
+    let size = Extent3d {
+        width: lottie.model.width,
+        height: lottie.model.height,
+        depth_or_array_layers: 1,
+    };
+    let mut image = Image {
+        texture_descriptor: TextureDescriptor {
+            label: Some("mask_texture"),
+            size,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8UnormSrgb,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
+        },
+        ..default()
+    };
+    image.resize(size);
+    let texture_handle = image_assets.add(image);
+    let mask_camera = Camera2dBundle {
+        camera_2d: Camera2d {
+            clear_color: ClearColorConfig::Custom(Color::NONE),
+        },
+        camera: Camera {
+            target: RenderTarget::Image(texture_handle.clone()),
+            priority: -1,
+            ..default()
+        },
+        transform,
+        ..default()
+    };
+    commands
+        .spawn_bundle(mask_camera)
+        .insert(RenderLayers::layer(1));
+
     let mut cmd = commands.spawn_bundle(camera);
 
     if capturing.0 {
@@ -252,6 +292,7 @@ fn setup_system(
             image_assets: &mut image_assets,
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
+            mask_handle: texture_handle.clone(),
         }
         .spawn(&mut commands)
         .unwrap();

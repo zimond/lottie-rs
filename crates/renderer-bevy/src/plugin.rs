@@ -158,7 +158,7 @@ fn build_mesh(buffers: &VertexBuffers) -> Mesh {
 /// Custom pipeline for 2d meshes with vertex colors
 pub struct MaskedMesh2dPipeline {
     /// this pipeline wraps the standard [`Mesh2dPipeline`]
-    mesh2d_pipeline: Mesh2dPipeline,
+    pub mesh2d_pipeline: Mesh2dPipeline,
     pub material2d_layout: BindGroupLayout,
     mask_layout: BindGroupLayout,
 }
@@ -170,15 +170,20 @@ impl FromWorld for MaskedMesh2dPipeline {
             <MaskAwareMaterial as bevy::sprite::Material2d>::bind_group_layout(&render_device);
         let mask_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
-                // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(f32::min_size().get()),
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
                     },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],

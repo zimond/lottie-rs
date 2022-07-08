@@ -25,6 +25,7 @@ pub struct BevyStagedLayer<'a> {
     pub image_assets: &'a mut Assets<Image>,
     pub audio_assets: &'a mut Assets<AudioSource>,
     pub material_assets: &'a mut Assets<MaskAwareMaterial>,
+    pub mask_handle: Handle<Image>,
 }
 
 impl<'a> BevyStagedLayer<'a> {
@@ -175,37 +176,6 @@ impl<'a> BevyStagedLayer<'a> {
                 beziers.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                // // Create a dummy 1x1 white image
-                // let image = Image::new_fill(
-                //     wgpu::Extent3d::default(),
-                //     TextureDimension::D2,
-                //     &[255; 4],
-                //     TextureFormat::bevy_default(),
-                // );
-                // let texture_handle = image_assets.add(image);
-
-                // c.insert_bundle(MaterialMesh2dBundle {
-                //     material: handle,
-                //     ..Default::default()
-                // });
-                // let mut mesh = Mesh::from(bevy::render::mesh::shape::Quad {
-                //     size: Vec2::new(100.0, 100.0),
-                //     flip: false,
-                // });
-                // let vertex_colors: Vec<[f32; 4]> = vec![
-                //     Color::RED.as_rgba_f32(),
-                //     Color::GREEN.as_rgba_f32(),
-                //     Color::BLUE.as_rgba_f32(),
-                //     Color::WHITE.as_rgba_f32(),
-                // ];
-                // // Insert the vertex colors as an attribute
-                // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
-                // c.insert_bundle(MaterialMesh2dBundle {
-                //     mesh: meshes.add(mesh).into(),
-                //     transform: Transform::default(),
-                //     material: handle,
-                //     ..default()
-                // });
                 if let Some(animator) = self.transform_animator(&shape.transform) {
                     c.insert(animator);
                 }
@@ -232,9 +202,15 @@ impl<'a> BevyStagedLayer<'a> {
         };
 
         if self.layer.is_mask {
-            c.insert(MaskMarker).insert(RenderLayers::layer(1));
+            c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
-        let material = MaskAwareMaterial { data: 0.5 };
+        let material = MaskAwareMaterial {
+            mask: if self.layer.matte_mode.is_some() {
+                Some(self.mask_handle.clone())
+            } else {
+                None
+            },
+        };
         let handle = self.material_assets.add(material);
         c.insert(handle);
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));

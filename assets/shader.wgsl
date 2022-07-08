@@ -2,15 +2,14 @@
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
-struct MaskData {
-    alpha: f32;
-};
-
 [[group(1), binding(0)]]
 var<uniform> mesh: Mesh2d;
 
 [[group(2), binding(0)]]
-var<uniform> uniform_data: MaskData;
+var mask: texture_2d<f32>;
+
+[[group(2), binding(1)]]
+var mask_sampler: sampler;
 
 // NOTE: Bindings must come before functions that use them!
 #import bevy_sprite::mesh2d_functions
@@ -49,8 +48,9 @@ struct FragmentInput {
 
 /// Entry point for the fragment shader
 [[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+fn fragment([[builtin(position)]] position: vec4<f32>, in: FragmentInput) -> [[location(0)]] vec4<f32> {
     var out = in.color;
-    out.w = uniform_data.alpha;
+    var mask_pixel = textureSample(mask, mask_sampler, position.xy);
+    out.a = mask_pixel.a;
     return out;
 }
