@@ -246,15 +246,15 @@ fn setup_system(
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     for layer in lottie.timeline().items() {
-        let entity = layer
-            .spawn(
-                &mut commands,
-                &mut meshes,
-                &mut image_assets,
-                &mut audio_assets,
-                &mut material_assets,
-            )
-            .unwrap();
+        let entity = BevyStagedLayer {
+            layer,
+            meshes: &mut meshes,
+            image_assets: &mut image_assets,
+            audio_assets: &mut audio_assets,
+            material_assets: &mut material_assets,
+        }
+        .spawn(&mut commands)
+        .unwrap();
         info.entities.insert(layer.id, entity);
         if let Some(parent_id) = layer.parent {
             if let Some(parent_entity) = info.entities.get(&parent_id) {

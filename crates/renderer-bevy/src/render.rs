@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::{Entity, Image, Transform};
 use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
+use bevy::render::view::RenderLayers;
 use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween, TweeningType};
 use lottie_core::prelude::*;
 use lottie_core::{Transform as LottieTransform, *};
@@ -18,60 +19,36 @@ use crate::shape::{DrawMode, Path, ShapeBundle};
 use crate::tween::TweenProducer;
 use crate::*;
 
-pub trait LayerRenderer {
-    fn spawn(
-        &self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        image_assets: &mut Assets<Image>,
-        audio_assets: &mut Assets<AudioSource>,
-        material_assets: &mut Assets<MaskAwareMaterial>,
-    ) -> Result<Entity, TextureError>;
-    fn spawn_shape(
-        &self,
-        zindex: f32,
-        shape: StyledShape,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        image_assets: &mut Assets<Image>,
-        material_assets: &mut Assets<MaskAwareMaterial>,
-    ) -> Option<Entity>;
-    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>>;
-    fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>>;
+pub struct BevyStagedLayer<'a> {
+    pub layer: &'a StagedLayer,
+    pub meshes: &'a mut Assets<Mesh>,
+    pub image_assets: &'a mut Assets<Image>,
+    pub audio_assets: &'a mut Assets<AudioSource>,
+    pub material_assets: &'a mut Assets<MaskAwareMaterial>,
 }
 
-impl LayerRenderer for StagedLayer {
-    fn spawn(
-        &self,
-        commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        image_assets: &mut Assets<Image>,
-        audio_assets: &mut Assets<AudioSource>,
-        material_assets: &mut Assets<MaskAwareMaterial>,
-    ) -> Result<Entity, TextureError> {
+impl<'a> BevyStagedLayer<'a> {
+    pub fn spawn(mut self, commands: &mut Commands) -> Result<Entity, TextureError> {
         let mut c = commands.spawn();
-        let mut initial_transform = Transform::from_matrix(self.transform.value(0.0));
-        initial_transform.translation.z = self.zindex as f32 * -1.0;
+        let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
+        initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
 
         log::trace!(
             "spawn layer {:?}: start {}, end {}, transform: {:?}",
             c.id(),
-            self.start_frame,
-            self.end_frame,
+            self.layer.start_frame,
+            self.layer.end_frame,
             initial_transform
         );
-        match &self.content {
+        match &self.layer.content {
             RenderableContent::Shape(shapes) => {
                 let shapes = shapes.shapes();
                 let count = shapes.shape_count() as f32 + 1.0;
                 for (zindex, shape) in shapes.enumerate() {
                     if let Some(entity) = self.spawn_shape(
-                        (zindex as f32 + 1.0) / count + self.zindex as f32,
+                        (zindex as f32 + 1.0) / count + self.layer.zindex as f32,
                         shape,
                         c.commands(),
-                        meshes,
-                        image_assets,
-                        material_assets,
                     ) {
                         log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
@@ -97,7 +74,7 @@ impl LayerRenderer for StagedLayer {
                         CompressedImageFormats::NONE,
                         false,
                     )?;
-                    let handle = image_assets.add(image);
+                    let handle = self.image_assets.add(image);
                     c.insert_bundle(SpriteBundle {
                         texture: handle,
                         ..Default::default()
@@ -106,7 +83,7 @@ impl LayerRenderer for StagedLayer {
                     let source = AudioSource {
                         bytes: media.content.as_slice().into(),
                     };
-                    let handle = audio_assets.add(source);
+                    let handle = self.audio_assets.add(source);
                     c.insert(handle);
                 }
             }
@@ -116,30 +93,27 @@ impl LayerRenderer for StagedLayer {
             local: initial_transform,
             global: Default::default(),
         });
-        if let Some(animator) = self.transform_animator(&self.transform) {
+        if let Some(animator) = self.transform_animator(&self.layer.transform) {
             c.insert(animator);
         }
         let id = c.id();
 
-        c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
+        c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
         c.insert(Visibility { is_visible: true });
         Ok(id)
     }
 
     fn spawn_shape(
-        &self,
+        &mut self,
         zindex: f32,
         shape: StyledShape,
         commands: &mut Commands,
-        meshes: &mut Assets<Mesh>,
-        image_assets: &mut Assets<Image>,
-        material_assets: &mut Assets<MaskAwareMaterial>,
     ) -> Option<Entity> {
         if shape.shape.hidden {
             return None;
         }
         let mut draw_mode = utils::shape_draw_mode(&shape);
-        let global_opacity = self.opacity.initial_value();
+        let global_opacity = self.layer.opacity.initial_value();
         if global_opacity < 1.0 {
             if let Some(fill) = draw_mode.fill.as_mut() {
                 fill.color.set_a(fill.color.a() * global_opacity);
@@ -209,9 +183,6 @@ impl LayerRenderer for StagedLayer {
                 //     TextureFormat::bevy_default(),
                 // );
                 // let texture_handle = image_assets.add(image);
-                let material = MaskAwareMaterial { data: 0.5 };
-                let handle = material_assets.add(material);
-                c.insert(handle);
 
                 // c.insert_bundle(MaterialMesh2dBundle {
                 //     material: handle,
@@ -246,7 +217,7 @@ impl LayerRenderer for StagedLayer {
                 if d.is_animated() {
                     let tween = d
                         .keyframes
-                        .tween(self.frame_rate, |start, end| PathLens { start, end });
+                        .tween(self.layer.frame_rate, |start, end| PathLens { start, end });
                     let animator = Animator::new(tween).with_state(AnimatorState::Paused);
                     c.insert(animator);
                 }
@@ -260,19 +231,20 @@ impl LayerRenderer for StagedLayer {
             }
         };
 
-        if self.is_mask {
-            c.insert(MaskMarker);
+        if self.layer.is_mask {
+            c.insert(MaskMarker).insert(RenderLayers::layer(1));
         }
-        // let handle = material_assets.add(MaskAwareMaterial { data: 0.5 });
-        // c.insert(handle);
-        c.insert(FrameTracker(self.frame_transform_hierarchy.clone()));
+        let material = MaskAwareMaterial { data: 0.5 };
+        let handle = self.material_assets.add(material);
+        c.insert(handle);
+        c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
         c.insert(Visibility { is_visible: true });
         Some(c.id())
     }
 
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
-        let frame_rate = self.frame_rate;
+        let frame_rate = self.layer.frame_rate;
         if transform.is_animated() {
             tweens.push(transform.tween(frame_rate, |data, _| TransformLens { data, frames: 0.0 }));
         }
@@ -286,7 +258,7 @@ impl LayerRenderer for StagedLayer {
 
     fn draw_mode_animator(&self, shape: &StyledShape) -> Option<Animator<DrawMode>> {
         let mut tweens = vec![];
-        let frame_rate = self.frame_rate;
+        let frame_rate = self.layer.frame_rate;
         if let Some(stroke) = shape.stroke.as_ref() {
             if stroke.width.is_animated() {
                 tweens.push(
@@ -298,14 +270,14 @@ impl LayerRenderer for StagedLayer {
             }
         }
 
-        if self.opacity.is_animated() {
+        if self.layer.opacity.is_animated() {
             let opacity_lens = OpacityLens {
-                opacity: self.opacity.clone(),
-                frames: self.end_frame,
+                opacity: self.layer.opacity.clone(),
+                frames: self.layer.end_frame,
                 fill_opacity: shape.fill.opacity.clone(),
                 stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity.clone()),
             };
-            let secs = opacity_lens.frames as f32 / self.frame_rate as f32;
+            let secs = opacity_lens.frames as f32 / self.layer.frame_rate as f32;
             let tween = Tween::new(
                 EaseMethod::Linear,
                 TweeningType::Once,
