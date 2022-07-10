@@ -185,10 +185,11 @@ fn setup_system(
     mut audio_assets: ResMut<Assets<AudioSource>>,
     mut material_assets: ResMut<Assets<MaskAwareMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    window: Res<Windows>,
     capturing: Res<Capturing>,
     render_device: Res<RenderDevice>,
 ) {
-    // let scale = window.scale_factor() as f32;
+    let scale = window.primary().scale_factor() as f32;
     let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
     let mut camera = Camera2dBundle::default();
@@ -293,6 +294,7 @@ fn setup_system(
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
             mask_handle: texture_handle.clone(),
+            screen_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32) * scale,
         }
         .spawn(&mut commands)
         .unwrap();

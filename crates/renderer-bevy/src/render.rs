@@ -26,6 +26,7 @@ pub struct BevyStagedLayer<'a> {
     pub audio_assets: &'a mut Assets<AudioSource>,
     pub material_assets: &'a mut Assets<MaskAwareMaterial>,
     pub mask_handle: Handle<Image>,
+    pub screen_size: Vec2,
 }
 
 impl<'a> BevyStagedLayer<'a> {
@@ -205,6 +206,7 @@ impl<'a> BevyStagedLayer<'a> {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
         let material = MaskAwareMaterial {
+            size: self.screen_size,
             mask: if self.layer.matte_mode.is_some() {
                 Some(self.mask_handle.clone())
             } else {

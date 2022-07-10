@@ -9,7 +9,7 @@ use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::BevyDefault;
 use bevy::render::view::VisibleEntities;
-use bevy::render::{RenderApp, RenderStage};
+use bevy::render::{Extract, RenderApp, RenderStage};
 use bevy::sprite::*;
 use bevy::utils::FloatOrd;
 use lyon::lyon_tessellation::*;
@@ -186,6 +186,16 @@ impl FromWorld for MaskedMesh2dPipeline {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(Vec2::min_size().get()),
+                    },
+                    count: None,
+                },
             ],
             label: Some("mask_mesh2d_view_layout"),
         });
@@ -317,7 +327,7 @@ impl Plugin for MaskedMesh2dPlugin {
 pub fn extract_colored_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility), With<Shape>>,
+    query: Extract<Query<(Entity, &ComputedVisibility), With<Shape>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility) in query.iter() {

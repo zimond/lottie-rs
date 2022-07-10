@@ -1,11 +1,13 @@
 use bevy::ecs::system::lifetimeless::SRes;
 use bevy::ecs::system::SystemParamItem;
+use bevy::math::Vec2;
 use bevy::prelude::{AssetServer, Handle, Image, Shader};
 use bevy::reflect::TypeUuid;
 use bevy::render::render_asset::{PrepareAssetError, RenderAsset, RenderAssets};
-use bevy::render::render_resource::{encase, BindGroup, BindGroupLayout};
+use bevy::render::render_resource::{encase, BindGroup, BindGroupLayout, ShaderType};
 use bevy::render::renderer::RenderDevice;
 use bevy::sprite::{Material2d, Material2dPipeline};
+use wgpu::util::BufferInitDescriptor;
 use wgpu::*;
 
 use crate::plugin::MaskedMesh2dPipeline;
@@ -13,6 +15,7 @@ use crate::plugin::MaskedMesh2dPipeline;
 #[derive(TypeUuid, Clone)]
 #[uuid = "e66b6c0e-bcac-4128-bdc6-9a3cace5c2fc"]
 pub struct MaskAwareMaterial {
+    pub size: Vec2,
     pub mask: Option<Handle<Image>>,
 }
 
@@ -45,6 +48,16 @@ impl Material2d for MaskAwareMaterial {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(Vec2::min_size().get()),
+                    },
+                    count: None,
+                },
             ],
         })
     }
@@ -69,6 +82,13 @@ impl RenderAsset for MaskAwareMaterial {
         material: Self::ExtractedAsset,
         (render_device, pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let mut buffer = encase::UniformBuffer::new(Vec::new());
+        buffer.write(&material.size).unwrap();
+        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: None,
+            contents: buffer.as_ref(),
+            usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+        });
         // Ref: bevy-sprite/mesh2d/color_material.rs
         let (texture_view, sampler) = match pipeline
             .mesh2d_pipeline
@@ -88,6 +108,10 @@ impl RenderAsset for MaskAwareMaterial {
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::Sampler(sampler),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: buffer.as_entire_binding(),
                 },
             ],
         });
