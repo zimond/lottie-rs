@@ -1,6 +1,4 @@
 [workspace]
 members = ["crates/*"]
 resolver = "2"
-
-[patch."https://github.com/bevyengine/bevy"]
-bevy = { path = "../bevy" }
+exclude = ["crates/renderer-notan"]
