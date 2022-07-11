@@ -19,7 +19,7 @@ The default player implementation uses [Bevy](https://github.com/bevyengine/bevy
 
 ```bash
 cd crates/player
-cargo r --release -- ../../fixtures/ui/confetti.json
+cargo r --release -- --input ../../fixtures/ui/7148-the-nyan-cat.json
 ```
 
 There are some lottie files for demonstration purpose under `fixtures/ui`
@@ -31,7 +31,7 @@ Exporting animation headlessly is also supported, aiming to render animations on
 
 ```bash
 cd crates/player
-cargo r --release -- ../../fixtures/ui/confetti.json --headless
+cargo r --release -- --input ../../fixtures/ui/7148-the-nyan-cat.json --headless
 ```
 
 # Font Loading
