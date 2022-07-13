@@ -2,3 +2,6 @@
 members = ["crates/*"]
 resolver = "2"
 exclude = ["crates/renderer-notan"]
+
+[patch.crates-io]
+bevy = { git = "https://github.com/bevyengine/bevy.git" }

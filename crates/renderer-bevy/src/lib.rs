@@ -12,14 +12,12 @@ mod utils;
 
 use std::io::Write;
 
-use bevy::app::{AppExit, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings};
+use bevy::app::{Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
-use bevy::render::extract_component::ExtractComponentPlugin;
-use bevy::render::render_asset::RenderAssetPlugin;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::{RenderLayers, VisibilityPlugin};
@@ -37,7 +35,7 @@ use plugin::MaskedShapePlugin;
 use render::*;
 
 use bevy::prelude::Transform;
-use bevy::render::texture::{BevyDefault, Image};
+use bevy::render::texture::Image;
 use shape::{DrawMode, Path};
 use webp_animation::Encoder;
 
@@ -166,10 +164,9 @@ impl Renderer for BevyRenderer {
                 self.app.add_plugin(WinitPlugin);
                 #[cfg(feature = "bevy_egui")]
                 if window_conf.show_controls {
-                    // TODO: bevy_egui currently doesn't support bevy 0.8
-                    // self.app
-                    //     .add_plugin(bevy_egui::EguiPlugin)
-                    //     .add_system(system::controls_system);
+                    self.app
+                        .add_plugin(bevy_egui::EguiPlugin)
+                        .add_system(system::controls_system);
                 }
             }
             Config::Headless(_) => todo!(),

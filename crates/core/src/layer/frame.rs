@@ -20,10 +20,9 @@ impl FrameTransform {
     }
 
     /// Remap a given global frame to local frame number
-    pub fn transform(&self, mut frame: f32) -> f32 {
-        frame -= self.frame_offset;
+    pub fn transform(&self, frame: f32) -> f32 {
         if let Some(animated) = self.time_remapping.as_ref() {
-            let f = animated.value(frame);
+            let f = animated.value(frame - self.frame_offset);
             f * self.frame_rate
         } else {
             frame

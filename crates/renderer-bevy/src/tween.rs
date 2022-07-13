@@ -34,7 +34,12 @@ where
         frame_rate: f32,
         producer: fn(start: Self::Key, end: Self::Key) -> L,
     ) -> Sequence<T> {
-        let mut tween: Option<Sequence<T>> = None;
+        let mut seq = Sequence::with_capacity(self.len() + 1);
+        if self[0].start_frame.is_sign_positive() {
+            seq = seq.then(Delay::new(Duration::from_secs_f32(
+                self[0].start_frame / (frame_rate as f32),
+            )));
+        }
         for k in self.iter() {
             let start = k.start_value.clone();
             let end = k.end_value.clone();
@@ -67,20 +72,9 @@ where
                 Duration::from_secs_f32(secs),
                 producer(start, end),
             );
-            let t = if self[0].start_frame.is_sign_positive() && tween.is_none() {
-                Delay::new(Duration::from_secs_f32(
-                    self[0].start_frame / (frame_rate as f32),
-                ))
-                .then(t)
-            } else {
-                Sequence::from_single(t)
-            };
-            tween = Some(match tween {
-                Some(seq) => seq.then(t),
-                None => Sequence::from_single(t),
-            });
+            seq = seq.then(t);
         }
-        tween.unwrap()
+        seq
     }
 }
 
