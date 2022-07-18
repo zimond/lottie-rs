@@ -201,24 +201,6 @@ where
     // }
 }
 
-impl<'de> Deserialize<'de> for AnimatedColorList {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        todo!()
-    }
-}
-
-impl Serialize for AnimatedColorList {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        todo!()
-    }
-}
-
 pub fn default_vec2_100() -> Animated<Vector2D> {
     Animated {
         animated: false,

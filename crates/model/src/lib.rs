@@ -350,12 +350,6 @@ pub struct Font {
     class: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct AnimatedColorList {
-    animated: bool,
-    colors: Vec<Rgba>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShapeLayer {
     #[serde(rename = "nm", default)]
@@ -397,7 +391,7 @@ pub enum Shape {
         #[serde(rename = "t")]
         gradient_ty: GradientType,
         #[serde(rename = "g")]
-        colors: AnimatedColorList,
+        colors: Animated<Rgba>,
     },
     #[serde(rename = "gs")]
     GradientStroke {
@@ -420,7 +414,7 @@ pub enum Shape {
         #[serde(rename = "t")]
         gradient_ty: GradientType,
         #[serde(rename = "g")]
-        colors: AnimatedColorList,
+        colors: Animated<Rgba>,
     },
     #[serde(rename = "gr")]
     Group {
