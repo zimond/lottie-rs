@@ -64,9 +64,9 @@ impl StrokeVertexConstructor<Vertex> for VertexConstructor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub struct BuildShapes;
 
-pub struct MaskedShapePlugin;
+pub struct LottiePlugin;
 
-impl Plugin for MaskedShapePlugin {
+impl Plugin for LottiePlugin {
     fn build(&self, app: &mut App) {
         let fill_tess = FillTessellator::new();
         let stroke_tess = StrokeTessellator::new();
@@ -166,8 +166,7 @@ pub struct MaskedMesh2dPipeline {
 impl FromWorld for MaskedMesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout =
-            <MaskAwareMaterial as bevy::sprite::Material2d>::bind_group_layout(&render_device);
+        let layout = MaskAwareMaterial::bind_group_layout(&render_device);
         let mask_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
@@ -245,11 +244,11 @@ impl SpecializedRenderPipeline for MaskedMesh2dPipeline {
                 shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs: Vec::new(),
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             // Use the two standard uniforms for 2d meshes
             layout: Some(vec![
@@ -331,7 +330,7 @@ pub fn extract_colored_mesh2d(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         values.push((entity, (Shape,)));

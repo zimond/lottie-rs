@@ -1,6 +1,6 @@
 use bevy::prelude::ResMut;
 #[cfg(feature = "bevy_egui")]
-use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy_egui::{egui, EguiContext};
 
 use crate::LottieAnimationInfo;
 

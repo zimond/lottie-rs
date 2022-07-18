@@ -101,7 +101,7 @@ impl<'a> BevyStagedLayer<'a> {
         let id = c.id();
 
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
-        c.insert(Visibility { is_visible: true });
+        c.insert_bundle(VisibilityBundle::default());
         Ok(id)
     }
 
@@ -216,7 +216,6 @@ impl<'a> BevyStagedLayer<'a> {
         let handle = self.material_assets.add(material);
         c.insert(handle);
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
-        c.insert(Visibility { is_visible: true });
         Some(c.id())
     }
 

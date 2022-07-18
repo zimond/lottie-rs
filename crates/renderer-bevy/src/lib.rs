@@ -31,11 +31,11 @@ use bevy_tweening::{component_animator_system, Animator, AnimatorState, Tweening
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use material::MaskAwareMaterial;
-use plugin::MaskedShapePlugin;
+use plugin::LottiePlugin;
 use render::*;
 
 use bevy::prelude::Transform;
-use bevy::render::texture::Image;
+use bevy::render::texture::{BevyDefault, Image};
 use shape::{DrawMode, Path};
 use webp_animation::Encoder;
 
@@ -112,7 +112,7 @@ impl BevyRenderer {
             // .add_event::<FrameCaptureEvent>()
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
-            .add_plugin(MaskedShapePlugin)
+            .add_plugin(LottiePlugin)
             .add_system(component_animator_system::<Path>)
             .add_system(component_animator_system::<DrawMode>)
             .add_system(animate_system);
@@ -207,7 +207,7 @@ fn setup_system(
             label: Some("mask_texture"),
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
+            format: TextureFormat::bevy_default(),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING
@@ -280,6 +280,7 @@ fn setup_system(
 
     let root_entity = commands
         .spawn()
+        .insert_bundle(VisibilityBundle::default())
         .insert_bundle(TransformBundle::default())
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
@@ -324,6 +325,7 @@ fn animate_system(
     mut visibility_query: Query<(
         Entity,
         &mut Visibility,
+        &ComputedVisibility,
         Option<&Handle<AudioSource>>,
         &FrameTracker,
     )>,
@@ -382,9 +384,11 @@ fn animate_system(
         }
     }
 
-    for (_, mut visibility, audio_handle, tracker) in visibility_query.iter_mut() {
+    for (_, mut visibility, computed_visibility, audio_handle, tracker) in
+        visibility_query.iter_mut()
+    {
         let visible = tracker.value(current_frame).is_some();
-        if let Some(handle) = audio_handle && !visibility.is_visible && visible {
+        if let Some(handle) = audio_handle && !computed_visibility.is_visible() && visible {
             audio.play(handle.clone());
         }
         visibility.is_visible = visible;
