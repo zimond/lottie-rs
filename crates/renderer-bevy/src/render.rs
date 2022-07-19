@@ -15,7 +15,7 @@ use wgpu::TextureDimension;
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::MaskAwareMaterial;
 use crate::plugin::MaskMarker;
-use crate::shape::{DrawMode, Path, ShapeBundle};
+use crate::shape::{DrawMode, ShapeBundle};
 use crate::tween::TweenProducer;
 use crate::*;
 
