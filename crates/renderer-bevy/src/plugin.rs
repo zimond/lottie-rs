@@ -5,7 +5,7 @@ use bevy::sprite::*;
 use lyon::lyon_tessellation::*;
 use lyon::path::Path as LyonPath;
 
-use crate::material::MaskAwareMaterial;
+use crate::material::LottieMaterial;
 use crate::shape::*;
 
 #[derive(Component, Clone, Copy)]
@@ -103,7 +103,7 @@ impl Plugin for LottiePlugin {
         let stroke_tess = StrokeTessellator::new();
         app.insert_resource(fill_tess)
             .insert_resource(stroke_tess)
-            .add_plugin(Material2dPlugin::<MaskAwareMaterial>::default())
+            .add_plugin(Material2dPlugin::<LottieMaterial>::default())
             .add_system_to_stage(CoreStage::PostUpdate, mesh_shapes_system.label(BuildShapes));
     }
 }

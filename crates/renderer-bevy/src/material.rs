@@ -11,15 +11,17 @@ use wgpu::*;
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "e66b6c0e-bcac-4128-bdc6-9a3cace5c2fc"]
-pub struct MaskAwareMaterial {
+pub struct LottieMaterial {
     #[texture(0)]
     #[sampler(1)]
     pub mask: Option<Handle<Image>>,
     #[uniform(2)]
     pub size: Vec2,
+    #[uniform(3)]
+    pub texture_index: Vec2,
 }
 
-impl Material2d for MaskAwareMaterial {
+impl Material2d for LottieMaterial {
     fn vertex_shader() -> ShaderRef {
         "shader.wgsl".into()
     }

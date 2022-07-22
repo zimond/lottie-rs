@@ -671,11 +671,7 @@ pub struct Stroke {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GradientFill {
-    #[serde(rename = "o")]
-    pub opacity: Animated<f32>,
-    #[serde(rename = "r")]
-    pub fill_rule: FillRule,
+pub struct Gradient {
     #[serde(rename = "s")]
     start: Animated<Vector2D>,
     #[serde(rename = "e")]
@@ -684,6 +680,16 @@ pub struct GradientFill {
     gradient_ty: GradientType,
     #[serde(rename = "g")]
     colors: Animated<Rgba>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GradientFill {
+    #[serde(rename = "o")]
+    pub opacity: Animated<f32>,
+    #[serde(rename = "r")]
+    pub fill_rule: FillRule,
+    #[serde(flatten)]
+    pub gradient: Gradient,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -700,14 +706,8 @@ pub struct GradientStroke {
     pub width: Animated<f32>,
     #[serde(rename = "d", default)]
     dashes: Vec<StrokeDash>,
-    #[serde(rename = "s")]
-    start: Animated<Vector2D>,
-    #[serde(rename = "e")]
-    end: Animated<Vector2D>,
-    #[serde(rename = "t")]
-    gradient_ty: GradientType,
-    #[serde(rename = "g")]
-    colors: Animated<Rgba>,
+    #[serde(flatten)]
+    pub gradient: Gradient,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,12 +1,13 @@
 use std::collections::{HashMap, VecDeque};
 
-use lottie_model::{Animated, Asset, Layer, LayerContent, Model};
+use lottie_model::{Animated, Asset, Layer, LayerContent, Model, Shape};
 use slotmap::SlotMap;
 
 use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::opacity::OpacityHierarchy;
 use crate::layer::staged::{StagedLayer, TargetRef};
+use crate::prelude::RenderableContent;
 use crate::Error;
 
 slotmap::new_key_type! {
@@ -35,6 +36,23 @@ impl Timeline {
 
     pub fn items(&self) -> impl Iterator<Item = &StagedLayer> {
         self.store.values()
+    }
+
+    pub fn gradient_count(&self) -> usize {
+        self.items().fold(0, |current, item| {
+            current
+                + match &item.content {
+                    RenderableContent::Shape(shape_group) => shape_group
+                        .shapes
+                        .iter()
+                        .filter(|shape| match &shape.shape {
+                            Shape::GradientFill(_) | Shape::GradientStroke(_) => true,
+                            _ => false,
+                        })
+                        .count(),
+                    _ => 0,
+                }
+        })
     }
 
     fn add_item(&mut self, mut layer: StagedLayer) -> Id {

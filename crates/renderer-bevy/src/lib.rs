@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 
 // mod frame_capture;
+mod gradient;
 mod lens;
 mod material;
 mod plugin;
@@ -25,12 +26,13 @@ use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
+use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
 // FrameCapturePlugin, TargetBuffer, };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
-use material::MaskAwareMaterial;
+use material::LottieMaterial;
 use plugin::LottiePlugin;
 use render::*;
 
@@ -180,7 +182,7 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
-    mut material_assets: ResMut<Assets<MaskAwareMaterial>>,
+    mut material_assets: ResMut<Assets<LottieMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
     capturing: Res<Capturing>,
@@ -202,7 +204,7 @@ fn setup_system(
         height: lottie.model.height,
         depth_or_array_layers: 1,
     };
-    let mut image = Image {
+    let mut mask = Image {
         texture_descriptor: TextureDescriptor {
             label: Some("mask_texture"),
             size,
@@ -216,14 +218,14 @@ fn setup_system(
         },
         ..default()
     };
-    image.resize(size);
-    let texture_handle = image_assets.add(image);
+    mask.resize(size);
+    let mask_texture_handle = image_assets.add(mask);
     let mask_camera = Camera2dBundle {
         camera_2d: Camera2d {
             clear_color: ClearColorConfig::Custom(Color::NONE),
         },
         camera: Camera {
-            target: RenderTarget::Image(texture_handle.clone()),
+            target: RenderTarget::Image(mask_texture_handle.clone()),
             priority: -1,
             ..default()
         },
@@ -233,6 +235,9 @@ fn setup_system(
     commands
         .spawn_bundle(mask_camera)
         .insert(RenderLayers::layer(1));
+
+    // Create the gradient texture
+    let mut gradient_manager = GradientManager::new(&lottie, &mut image_assets);
 
     let mut cmd = commands.spawn_bundle(camera);
 
@@ -291,7 +296,8 @@ fn setup_system(
             image_assets: &mut image_assets,
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
-            mask_handle: texture_handle.clone(),
+            gradient: &mut gradient_manager,
+            mask_handle: mask_texture_handle.clone(),
             screen_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32) * scale,
         }
         .spawn(&mut commands)
