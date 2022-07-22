@@ -673,13 +673,13 @@ pub struct Stroke {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Gradient {
     #[serde(rename = "s")]
-    start: Animated<Vector2D>,
+    pub start: Animated<Vector2D>,
     #[serde(rename = "e")]
-    end: Animated<Vector2D>,
+    pub end: Animated<Vector2D>,
     #[serde(rename = "t")]
-    gradient_ty: GradientType,
+    pub gradient_ty: GradientType,
     #[serde(rename = "g")]
-    colors: Animated<Rgba>,
+    pub colors: Animated<Rgba>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

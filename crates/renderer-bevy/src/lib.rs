@@ -32,13 +32,13 @@ use gradient::GradientManager;
 // FrameCapturePlugin, TargetBuffer, };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
-use material::LottieMaterial;
+use material::{GradientMaterial, MaskMaterial};
 use plugin::LottiePlugin;
 use render::*;
 
 use bevy::prelude::Transform;
 use bevy::render::texture::{BevyDefault, Image};
-use shape::{DrawMode, Fill, Path, Stroke};
+use shape::{DrawMode, Path};
 use webp_animation::Encoder;
 
 pub use bevy;
@@ -182,7 +182,8 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
-    mut material_assets: ResMut<Assets<LottieMaterial>>,
+    mut material_assets: ResMut<Assets<MaskMaterial>>,
+    mut gradient_assets: ResMut<Assets<GradientMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
     capturing: Res<Capturing>,
@@ -296,6 +297,7 @@ fn setup_system(
             image_assets: &mut image_assets,
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
+            gradient_assets: &mut gradient_assets,
             gradient: &mut gradient_manager,
             mask_handle: mask_texture_handle.clone(),
             screen_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32) * scale,

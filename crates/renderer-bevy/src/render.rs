@@ -13,7 +13,7 @@ use lyon::path::Winding;
 use wgpu::TextureDimension;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
-use crate::material::LottieMaterial;
+use crate::material::{GradientMaterial, MaskMaterial};
 use crate::plugin::MaskMarker;
 use crate::shape::ShapeBundle;
 use crate::tween::TweenProducer;
@@ -24,7 +24,8 @@ pub struct BevyStagedLayer<'a> {
     pub meshes: &'a mut Assets<Mesh>,
     pub image_assets: &'a mut Assets<Image>,
     pub audio_assets: &'a mut Assets<AudioSource>,
-    pub material_assets: &'a mut Assets<LottieMaterial>,
+    pub material_assets: &'a mut Assets<MaskMaterial>,
+    pub gradient_assets: &'a mut Assets<GradientMaterial>,
     pub gradient: &'a mut GradientManager,
     pub mask_handle: Handle<Image>,
     pub screen_size: Vec2,
@@ -128,12 +129,16 @@ impl<'a> BevyStagedLayer<'a> {
 
         // register gradient texture if any
         let fill_index = if let AnyFill::Gradient(g) = &shape.fill {
-            self.gradient.register(&g.gradient) as f32
+            self.gradient
+                .register(&g.gradient, self.meshes, self.gradient_assets, commands)
+                as f32
         } else {
             -1.0
         };
         let stroke_index = if let AnyFill::Gradient(g) = &shape.fill {
-            self.gradient.register(&g.gradient) as f32
+            self.gradient
+                .register(&g.gradient, self.meshes, self.gradient_assets, commands)
+                as f32
         } else {
             -1.0
         };
@@ -218,7 +223,7 @@ impl<'a> BevyStagedLayer<'a> {
         if self.layer.is_mask {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
-        let material = LottieMaterial {
+        let material = MaskMaterial {
             size: self.screen_size,
             mask: if self.layer.matte_mode.is_some() {
                 Some(self.mask_handle.clone())
