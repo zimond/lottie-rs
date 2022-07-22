@@ -379,43 +379,9 @@ pub enum Shape {
     #[serde(rename = "st")]
     Stroke(Stroke),
     #[serde(rename = "gf")]
-    GradientFill {
-        #[serde(rename = "o")]
-        opacity: Animated<f32>,
-        #[serde(rename = "r")]
-        fill_rule: FillRule,
-        #[serde(rename = "s")]
-        start: Animated<Vector2D>,
-        #[serde(rename = "e")]
-        end: Animated<Vector2D>,
-        #[serde(rename = "t")]
-        gradient_ty: GradientType,
-        #[serde(rename = "g")]
-        colors: Animated<Rgba>,
-    },
+    GradientFill(GradientFill),
     #[serde(rename = "gs")]
-    GradientStroke {
-        #[serde(rename = "lc")]
-        line_cap: LineCap,
-        #[serde(rename = "lj")]
-        line_join: LineJoin,
-        #[serde(rename = "ml")]
-        miter_limit: f32,
-        #[serde(rename = "o")]
-        opacity: Animated<f32>,
-        #[serde(rename = "w")]
-        width: Animated<f32>,
-        #[serde(rename = "d", default)]
-        dashes: Vec<StrokeDash>,
-        #[serde(rename = "s")]
-        start: Animated<Vector2D>,
-        #[serde(rename = "e")]
-        end: Animated<Vector2D>,
-        #[serde(rename = "t")]
-        gradient_ty: GradientType,
-        #[serde(rename = "g")]
-        colors: Animated<Rgba>,
-    },
+    GradientStroke(GradientStroke),
     #[serde(rename = "gr")]
     Group {
         // TODO: add np property
@@ -702,6 +668,46 @@ pub struct Stroke {
     dashes: Vec<StrokeDash>,
     #[serde(rename = "c")]
     pub color: Animated<Rgb>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GradientFill {
+    #[serde(rename = "o")]
+    pub opacity: Animated<f32>,
+    #[serde(rename = "r")]
+    pub fill_rule: FillRule,
+    #[serde(rename = "s")]
+    start: Animated<Vector2D>,
+    #[serde(rename = "e")]
+    end: Animated<Vector2D>,
+    #[serde(rename = "t")]
+    gradient_ty: GradientType,
+    #[serde(rename = "g")]
+    colors: Animated<Rgba>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GradientStroke {
+    #[serde(rename = "lc")]
+    pub line_cap: LineCap,
+    #[serde(rename = "lj")]
+    pub line_join: LineJoin,
+    #[serde(rename = "ml")]
+    miter_limit: f32,
+    #[serde(rename = "o")]
+    pub opacity: Animated<f32>,
+    #[serde(rename = "w")]
+    pub width: Animated<f32>,
+    #[serde(rename = "d", default)]
+    dashes: Vec<StrokeDash>,
+    #[serde(rename = "s")]
+    start: Animated<Vector2D>,
+    #[serde(rename = "e")]
+    end: Animated<Vector2D>,
+    #[serde(rename = "t")]
+    gradient_ty: GradientType,
+    #[serde(rename = "g")]
+    colors: Animated<Rgba>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -15,7 +15,7 @@ use wgpu::TextureDimension;
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::MaskAwareMaterial;
 use crate::plugin::MaskMarker;
-use crate::shape::{DrawMode, ShapeBundle};
+use crate::shape::ShapeBundle;
 use crate::tween::TweenProducer;
 use crate::*;
 
@@ -118,10 +118,10 @@ impl<'a> BevyStagedLayer<'a> {
         let global_opacity = self.layer.opacity.initial_value();
         if global_opacity < 1.0 {
             if let Some(fill) = draw_mode.fill.as_mut() {
-                fill.color.set_a(fill.color.a() * global_opacity);
+                fill.opacity *= global_opacity;
             }
             if let Some(stroke) = draw_mode.stroke.as_mut() {
-                stroke.color.set_a(stroke.color.a() * global_opacity);
+                stroke.opacity *= global_opacity;
             }
         }
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
@@ -237,10 +237,10 @@ impl<'a> BevyStagedLayer<'a> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
         if let Some(stroke) = shape.stroke.as_ref() {
-            if stroke.width.is_animated() {
+            if stroke.width().is_animated() {
                 tweens.push(
                     stroke
-                        .width
+                        .width()
                         .keyframes
                         .tween(frame_rate, |start, end| StrokeWidthLens { start, end }),
                 );
@@ -251,8 +251,8 @@ impl<'a> BevyStagedLayer<'a> {
             let opacity_lens = OpacityLens {
                 opacity: self.layer.opacity.clone(),
                 frames: self.layer.end_frame,
-                fill_opacity: shape.fill.opacity.clone(),
-                stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity.clone()),
+                fill_opacity: shape.fill.opacity().clone(),
+                stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity().clone()),
             };
             let secs = opacity_lens.frames as f32 / self.layer.frame_rate as f32;
             let tween = Tween::new(

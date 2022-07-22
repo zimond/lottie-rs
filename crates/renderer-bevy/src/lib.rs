@@ -36,7 +36,7 @@ use render::*;
 
 use bevy::prelude::Transform;
 use bevy::render::texture::{BevyDefault, Image};
-use shape::{DrawMode, Path};
+use shape::{DrawMode, Fill, Path, Stroke};
 use webp_animation::Encoder;
 
 pub use bevy;

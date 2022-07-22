@@ -17,6 +17,9 @@ pub struct MaskMarker;
 pub struct Vertex {
     pub position: [f32; 2],
     pub color: u32,
+    /// Use a texture instead of solid color, when this field contains a valid
+    /// coord, `color` is ignored
+    pub texture_anchor: [f32; 2],
 }
 
 type IndexType = u32;
@@ -25,16 +28,42 @@ pub type VertexBuffers = lyon::tessellation::VertexBuffers<Vertex, IndexType>;
 
 /// Zero-sized type used to implement various vertex construction traits from
 /// Lyon.
-pub struct VertexConstructor {
-    pub color: Color,
+pub enum VertexConstructor {
+    Solid(Color),
+    Texture { anchor: [f32; 2], opacity: f32 },
+}
+
+impl VertexConstructor {
+    fn from_color(color: &SolidOrGradient, opacity: f32) -> Self {
+        match color {
+            SolidOrGradient::Solid(c) => {
+                let mut c = *c;
+                c.set_a(c.a() * opacity);
+                VertexConstructor::Solid(c)
+            }
+            SolidOrGradient::Gradient(g) => unimplemented!(),
+        }
+    }
 }
 
 /// Enables the construction of a [`Vertex`] when using a `FillTessellator`.
 impl FillVertexConstructor<Vertex> for VertexConstructor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
-        Vertex {
-            position: vertex.position().to_array(),
-            color: self.color.as_linear_rgba_u32(),
+        match self {
+            VertexConstructor::Solid(color) => Vertex {
+                position: vertex.position().to_array(),
+                color: color.as_linear_rgba_u32(),
+                texture_anchor: [-1.0, -1.0],
+            },
+            VertexConstructor::Texture { anchor, opacity } => {
+                let mut color = Color::WHITE;
+                color.set_a(*opacity);
+                Vertex {
+                    position: vertex.position().to_array(),
+                    color: color.as_linear_rgba_u32(),
+                    texture_anchor: *anchor,
+                }
+            }
         }
     }
 }
@@ -42,9 +71,21 @@ impl FillVertexConstructor<Vertex> for VertexConstructor {
 /// Enables the construction of a [`Vertex`] when using a `StrokeTessellator`.
 impl StrokeVertexConstructor<Vertex> for VertexConstructor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
-        Vertex {
-            position: vertex.position().to_array(),
-            color: self.color.as_linear_rgba_u32(),
+        match self {
+            VertexConstructor::Solid(color) => Vertex {
+                position: vertex.position().to_array(),
+                color: color.as_linear_rgba_u32(),
+                texture_anchor: [-1.0, -1.0],
+            },
+            VertexConstructor::Texture { anchor, opacity } => {
+                let mut color = Color::WHITE;
+                color.set_a(*opacity);
+                Vertex {
+                    position: vertex.position().to_array(),
+                    color: color.as_linear_rgba_u32(),
+                    texture_anchor: *anchor,
+                }
+            }
         }
     }
 }
@@ -100,7 +141,10 @@ fn fill(
     if let Err(e) = tess.tessellate_path(
         path,
         &mode.options,
-        &mut BuffersBuilder::new(buffers, VertexConstructor { color: mode.color }),
+        &mut BuffersBuilder::new(
+            buffers,
+            VertexConstructor::from_color(&mode.color, mode.opacity),
+        ),
     ) {
         error!("FillTessellator error: {:?}", e);
     }
@@ -116,7 +160,10 @@ fn stroke(
     if let Err(e) = tess.tessellate_path(
         path,
         &mode.options,
-        &mut BuffersBuilder::new(buffers, VertexConstructor { color: mode.color }),
+        &mut BuffersBuilder::new(
+            buffers,
+            VertexConstructor::from_color(&mode.color, mode.opacity),
+        ),
     ) {
         error!("StrokeTessellator error: {:?}", e);
     }

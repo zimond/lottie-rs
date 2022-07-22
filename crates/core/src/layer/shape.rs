@@ -48,14 +48,26 @@ impl<'a> Iterator for ShapeIter {
         for index in (self.shape_index as usize + 1)..self.shapes.len() {
             let shape = &self.shapes[index];
             if shape.shape.is_style() && !shape.hidden {
-                if let Shape::Fill(f) = &shape.shape && fill.is_none() {
-                    fill = Some(f.clone());
-                } else if let Shape::Stroke(s) = &shape.shape {
-                    find_stroke = true;
-                    if index > self.stroke_index && stroke.is_none() {
-                        stroke = Some(s.clone());
-                        target_stroke_index = index;
+                match &shape.shape {
+                    Shape::Fill(f) if fill.is_none() => fill = Some(AnyFill::Solid(f.clone())),
+                    Shape::GradientFill(f) if fill.is_none() => {
+                        fill = Some(AnyFill::Gradient(f.clone()))
                     }
+                    Shape::Stroke(s) => {
+                        find_stroke = true;
+                        if index > self.stroke_index && stroke.is_none() {
+                            stroke = Some(AnyStroke::Solid(s.clone()));
+                            target_stroke_index = index;
+                        }
+                    }
+                    Shape::GradientStroke(s) => {
+                        find_stroke = true;
+                        if index > self.stroke_index && stroke.is_none() {
+                            stroke = Some(AnyStroke::Gradient(s.clone()));
+                            target_stroke_index = index;
+                        }
+                    }
+                    _ => {}
                 }
             } else if let Shape::Transform(_) = &shape.shape {
                 break;
@@ -72,7 +84,7 @@ impl<'a> Iterator for ShapeIter {
             self.stroke_index = self.shape_index as usize;
             return self.next();
         }
-        let fill = fill.unwrap_or_else(Fill::transparent);
+        let fill = fill.unwrap_or_else(|| AnyFill::Solid(Fill::transparent()));
         if !find_stroke {
             self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
@@ -115,10 +127,59 @@ fn flatten(shapes: &Vec<ShapeLayer>) -> Vec<ShapeLayer> {
         .collect()
 }
 
+pub enum AnyFill {
+    Solid(Fill),
+    Gradient(GradientFill),
+}
+
+impl AnyFill {
+    pub fn opacity(&self) -> &Animated<f32> {
+        match &self {
+            AnyFill::Solid(s) => &s.opacity,
+            AnyFill::Gradient(g) => &g.opacity,
+        }
+    }
+}
+
+pub enum AnyStroke {
+    Solid(Stroke),
+    Gradient(GradientStroke),
+}
+
+impl AnyStroke {
+    pub fn width(&self) -> &Animated<f32> {
+        match &self {
+            AnyStroke::Solid(s) => &s.width,
+            AnyStroke::Gradient(g) => &g.width,
+        }
+    }
+
+    pub fn line_cap(&self) -> LineCap {
+        match &self {
+            AnyStroke::Solid(s) => s.line_cap,
+            AnyStroke::Gradient(g) => g.line_cap,
+        }
+    }
+
+    pub fn line_join(&self) -> LineJoin {
+        match &self {
+            AnyStroke::Solid(s) => s.line_join,
+            AnyStroke::Gradient(g) => g.line_join,
+        }
+    }
+
+    pub fn opacity(&self) -> &Animated<f32> {
+        match &self {
+            AnyStroke::Solid(s) => &s.opacity,
+            AnyStroke::Gradient(g) => &g.opacity,
+        }
+    }
+}
+
 pub struct StyledShape {
     pub shape: ShapeLayer,
-    pub fill: Fill,
-    pub stroke: Option<Stroke>,
+    pub fill: AnyFill,
+    pub stroke: Option<AnyStroke>,
     pub transform: Transform,
     pub styles: Vec<ShapeLayer>,
 }

@@ -1,3 +1,4 @@
+use bevy::math::Vec2;
 use bevy::prelude::{
     Bundle, Color, Component, ComputedVisibility, Deref, GlobalTransform, Transform, Visibility,
 };
@@ -20,14 +21,29 @@ pub struct DrawMode {
 
 #[derive(Clone)]
 pub struct Fill {
-    pub color: Color,
+    pub color: SolidOrGradient,
     pub options: FillOptions,
+    pub opacity: f32,
 }
 
 #[derive(Clone)]
 pub struct Stroke {
-    pub color: Color,
+    pub color: SolidOrGradient,
     pub options: StrokeOptions,
+    pub opacity: f32,
+}
+
+#[derive(Clone)]
+pub enum SolidOrGradient {
+    Solid(Color),
+    Gradient(Gradient),
+}
+
+#[derive(Clone)]
+pub struct Gradient {
+    start: Vec2,
+    end: Vec2,
+    ty: (),
 }
 
 #[derive(Bundle)]
