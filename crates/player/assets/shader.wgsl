@@ -81,7 +81,7 @@ fn point_projection(pt: vec2<f32>, start: vec2<f32>, end: vec2<f32>) -> vec2<f32
     let v = end - start;
     var a = -v.y;
     var b = v.x;
-    var c = -(a* start.x + b * start.y);
+    var c = -(a * start.x + b * start.y);
     let div = 1.0 / length(vec2(a, b));
     a = a * div;
     b = b * div;
@@ -101,13 +101,14 @@ struct FragmentInput {
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @location(0) vec4<f32> {
     var out: vec4<f32>;
-    if gradient.use_gradient == 1u {
+    if (gradient.use_gradient == 1u) {
         var proj = point_projection(position.xy, gradient.start_pos, gradient.end_pos);
-        var inv = smoothstep(gradient.start_pos, gradient.end_pos, proj);
+        var inv = (proj - gradient.start_pos) / (gradient.end_pos - gradient.start_pos);
         var t = inv.x;
-        if (t == 0.0 || t == 1.0) && inv.y > 0.0 && inv.y < 1.0 {
+        if (gradient.end_pos.x == gradient.start_pos.x) {
             t = inv.y;
         }
+        t = clamp(t, 0.0, 1.0);
         // var st = position.xy / size;
         // var color = sRGBToLinear(vec3<f32>(st.x));
         out = vec4(mix(gradient.stops[0].color.xyz, gradient.stops[1].color.xyz, t), 1.0);
