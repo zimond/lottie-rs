@@ -671,6 +671,19 @@ pub struct Stroke {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(from = "ColorListHelper", into = "ColorListHelper")]
+pub struct ColorList {
+    color_count: usize,
+    pub colors: Animated<Vec<GradientColor>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GradientColor {
+    pub offset: f32,
+    pub color: Rgba,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Gradient {
     #[serde(rename = "s")]
     pub start: Animated<Vector2D>,
@@ -679,7 +692,7 @@ pub struct Gradient {
     #[serde(rename = "t")]
     pub gradient_ty: GradientType,
     #[serde(rename = "g")]
-    pub colors: Animated<Rgba>,
+    pub colors: ColorList,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 
 // mod frame_capture;
-mod gradient;
+// mod gradient;
 mod lens;
 mod material;
 mod plugin;
@@ -26,13 +26,13 @@ use bevy::utils::HashMap;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
-use gradient::GradientManager;
+// use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
 // FrameCapturePlugin, TargetBuffer, };
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
-use material::{GradientMaterial, MaskMaterial};
+use material::LottieMaterial;
 use plugin::LottiePlugin;
 use render::*;
 
@@ -182,13 +182,15 @@ fn setup_system(
     mut lottie: ResMut<Option<Lottie>>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
-    mut material_assets: ResMut<Assets<MaskMaterial>>,
-    mut gradient_assets: ResMut<Assets<GradientMaterial>>,
+    mut material_assets: ResMut<Assets<LottieMaterial>>,
+    // mut gradient_assets: ResMut<Assets<GradientMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
     capturing: Res<Capturing>,
+    asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
+    asset_server.watch_for_changes().unwrap();
     let scale = window.primary().scale_factor() as f32;
     let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
@@ -238,7 +240,8 @@ fn setup_system(
         .insert(RenderLayers::layer(1));
 
     // Create the gradient texture
-    let mut gradient_manager = GradientManager::new(&lottie, &mut image_assets);
+    // let mut gradient_manager = GradientManager::new(&lottie, &mut image_assets,
+    // scale);
 
     let mut cmd = commands.spawn_bundle(camera);
 
@@ -297,10 +300,11 @@ fn setup_system(
             image_assets: &mut image_assets,
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
-            gradient_assets: &mut gradient_assets,
-            gradient: &mut gradient_manager,
+            // gradient_assets: &mut gradient_assets,
+            // gradient: &mut gradient_manager,
             mask_handle: mask_texture_handle.clone(),
-            screen_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32) * scale,
+            model_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32),
+            scale,
         }
         .spawn(&mut commands)
         .unwrap();

@@ -278,3 +278,100 @@ where
         _ => unreachable!(),
     })
 }
+
+#[derive(Deserialize, Serialize)]
+pub(crate) struct ColorListHelper {
+    #[serde(rename = "p")]
+    color_count: usize,
+    #[serde(rename = "k")]
+    colors: Animated<Vec<f32>>,
+}
+
+impl From<ColorListHelper> for ColorList {
+    fn from(helper: ColorListHelper) -> Self {
+        let color_count = helper.color_count;
+        ColorList {
+            color_count,
+            colors: Animated {
+                animated: helper.colors.animated,
+                keyframes: helper
+                    .colors
+                    .keyframes
+                    .into_iter()
+                    .map(|keyframe| {
+                        let start = f32_to_gradient_colors(&keyframe.start_value, color_count);
+                        let end = f32_to_gradient_colors(&keyframe.end_value, color_count);
+                        keyframe.alter_value(start, end)
+                    })
+                    .collect(),
+            },
+        }
+    }
+}
+
+fn f32_to_gradient_colors(data: &Vec<f32>, color_count: usize) -> Vec<GradientColor> {
+    if data.len() == color_count * 4 {
+        // Rgb color
+        data.chunks(4)
+            .map(|chunk| GradientColor {
+                offset: chunk[0],
+                color: Rgba::new_f32(chunk[1], chunk[2], chunk[3], 1.0),
+            })
+            .collect()
+    } else if data.len() == color_count * 4 + color_count * 2 {
+        // Rgba color
+        (&data[0..(color_count * 4)])
+            .chunks(4)
+            .zip((&data[(color_count * 4)..]).chunks(2))
+            .map(|(chunk, opacity)| GradientColor {
+                offset: chunk[0],
+                color: Rgba::new_f32(chunk[1], chunk[2], chunk[3], opacity[1]),
+            })
+            .collect()
+    } else {
+        unimplemented!()
+    }
+}
+
+impl From<ColorList> for ColorListHelper {
+    fn from(list: ColorList) -> Self {
+        ColorListHelper {
+            color_count: list.color_count,
+            colors: Animated {
+                animated: list.colors.animated,
+                keyframes: list
+                    .colors
+                    .keyframes
+                    .into_iter()
+                    .map(|keyframe| {
+                        let start = gradient_colors_to_f32(&keyframe.start_value);
+                        let end = gradient_colors_to_f32(&keyframe.end_value);
+                        keyframe.alter_value(start, end)
+                    })
+                    .collect(),
+            },
+        }
+    }
+}
+
+fn gradient_colors_to_f32(data: &Vec<GradientColor>) -> Vec<f32> {
+    let mut start = data
+        .iter()
+        .flat_map(|color| {
+            vec![
+                color.offset,
+                color.color.r as f32 / 255.0,
+                color.color.g as f32 / 255.0,
+                color.color.b as f32 / 255.0,
+            ]
+        })
+        .collect::<Vec<_>>();
+    let start_has_opacity = data.iter().any(|color| color.color.a < 255);
+    if start_has_opacity {
+        start.extend(
+            data.iter()
+                .flat_map(|color| vec![color.offset, color.color.a as f32 / 255.0]),
+        );
+    }
+    start
+}

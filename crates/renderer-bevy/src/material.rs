@@ -1,27 +1,30 @@
 use bevy::math::Vec2;
-use bevy::prelude::{Handle, Image};
+use bevy::prelude::{Color, Handle, Image};
 use bevy::reflect::TypeUuid;
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
-    AsBindGroup, BindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+    AsBindGroup, RenderPipelineDescriptor, ShaderRef, ShaderType, SpecializedMeshPipelineError,
     VertexBufferLayout,
 };
 use bevy::sprite::{Material2d, Material2dKey};
+use lottie_core::GradientColor;
 use wgpu::*;
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "e66b6c0e-bcac-4128-bdc6-9a3cace5c2fc"]
-pub struct MaskMaterial {
+// #[uniform(3, GradientDataUniform)]
+#[bind_group_data(GradientDataKey)]
+pub struct LottieMaterial {
     #[texture(0)]
     #[sampler(1)]
     pub mask: Option<Handle<Image>>,
     #[uniform(2)]
     pub size: Vec2,
     #[uniform(3)]
-    pub texture_index: Vec2,
+    pub gradient: GradientDataUniform,
 }
 
-impl Material2d for MaskMaterial {
+impl Material2d for LottieMaterial {
     fn vertex_shader() -> ShaderRef {
         "shader.wgsl".into()
     }
@@ -33,7 +36,7 @@ impl Material2d for MaskMaterial {
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         _: &MeshVertexBufferLayout,
-        _: Material2dKey<Self>,
+        key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Customize how to store the meshes' vertex attributes in the vertex buffer
         // Our meshes only have position and color
@@ -51,25 +54,78 @@ impl Material2d for MaskMaterial {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
         descriptor.vertex.buffers = vec![vertex_layout];
+
+        if key.bind_group_data.use_gradient {
+            let fragment = descriptor.fragment.as_mut().unwrap();
+            fragment.shader_defs.push("USE_GRADIENT".to_string());
+        }
         Ok(())
     }
 }
 
-#[derive(AsBindGroup, TypeUuid, Clone)]
-#[uuid = "777b2e54-4580-4cc7-8e86-07e1d7ad6ba3"]
-pub struct GradientMaterial {
-    #[uniform(0)]
-    pub start: Vec2,
-    #[uniform(1)]
-    pub end: Vec2,
+#[derive(Clone)]
+pub struct GradientInfo {
+    pub start_pos: Vec2,
+    pub end_pos: Vec2,
 }
 
-impl Material2d for GradientMaterial {
-    fn vertex_shader() -> ShaderRef {
-        "gradient.wgsl".into()
-    }
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct GradientDataKey {
+    use_gradient: bool,
+}
 
-    fn fragment_shader() -> ShaderRef {
-        "gradient.wgsl".into()
+#[derive(Clone, Default, ShaderType)]
+pub struct GradientDataUniform {
+    pub start: Vec2,
+    pub end: Vec2,
+    // #[size(runtime)]
+    // TODO: change this to a Vec (which compiles to a storage buffer) when bevy supports it
+    // tracking: https://github.com/bevyengine/bevy/issues/5499
+    pub use_gradient: u32,
+    pub stops: [GradientDataStop; 2],
+}
+
+#[derive(Clone, Default, ShaderType)]
+pub struct GradientDataStop {
+    pub offset: f32,
+    pub color: Color,
+}
+
+impl<'a> From<&'a GradientColor> for GradientDataStop {
+    fn from(stop: &'a GradientColor) -> Self {
+        GradientDataStop {
+            offset: stop.offset,
+            color: Color::Rgba {
+                red: stop.color.r as f32 / 255.0,
+                green: stop.color.g as f32 / 255.0,
+                blue: stop.color.b as f32 / 255.0,
+                alpha: stop.color.a as f32 / 255.0,
+            },
+        }
+    }
+}
+
+// impl From<&LottieMaterial> for GradientDataUniform {
+//     fn from(material: &LottieMaterial) -> Self {
+//         GradientDataUniform {
+//             start: material
+//                 .gradient_info
+//                 .as_ref()
+//                 .map(|g| g.start_pos)
+//                 .unwrap_or_default(),
+//             end: material
+//                 .gradient_info
+//                 .as_ref()
+//                 .map(|g| g.end_pos)
+//                 .unwrap_or_default(),
+//         }
+//     }
+// }
+
+impl From<&LottieMaterial> for GradientDataKey {
+    fn from(material: &LottieMaterial) -> Self {
+        Self {
+            use_gradient: material.gradient.stops.is_empty(),
+        }
     }
 }

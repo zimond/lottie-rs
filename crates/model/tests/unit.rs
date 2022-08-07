@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Error;
 
-use lottie_model::{Animated, Rgb, Stroke, Transform};
+use lottie_model::{Animated, GradientFill, Rgb, Stroke, Transform};
 
 #[test]
 pub fn test_transform_complex() -> Result<(), Error> {
@@ -28,5 +28,13 @@ pub fn test_stroke() -> Result<(), Error> {
             panic!("abort");
         }
     };
+    Ok(())
+}
+
+#[test]
+pub fn test_gradient_fill() -> Result<(), Error> {
+    let file = fs::File::open("../../fixtures/unit/gradient_fill.json")?;
+    let d = &mut serde_json::Deserializer::from_reader(file);
+    let _: GradientFill = serde_path_to_error::deserialize(d).unwrap();
     Ok(())
 }

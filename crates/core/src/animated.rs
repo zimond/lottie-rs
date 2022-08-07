@@ -1,7 +1,7 @@
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use glam::{Mat4, Vec3};
-use lottie_model::{Animated, Bezier, Easing, Rgb, Transform, Vector2D};
+use lottie_model::{Animated, Bezier, Easing, GradientColor, Rgb, Transform, Vector2D};
 
 pub trait AnimatedExt {
     type Target;
@@ -171,6 +171,14 @@ impl Lerp for Vec<Bezier> {
 
 impl Lerp for Rgb {
     type Target = Rgb;
+
+    fn lerp(&self, other: &Self, t: f32) -> Self::Target {
+        todo!()
+    }
+}
+
+impl Lerp for Vec<GradientColor> {
+    type Target = Vec<GradientColor>;
 
     fn lerp(&self, other: &Self, t: f32) -> Self::Target {
         todo!()

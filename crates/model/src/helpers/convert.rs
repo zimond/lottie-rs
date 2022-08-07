@@ -59,3 +59,17 @@ impl FromTo<Value> for Vec<Bezier> {
         Value::ComplexBezier(self)
     }
 }
+
+impl FromTo<Value> for Vec<f32> {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Primitive(f) => vec![f],
+            Value::List(l) => l,
+            _ => todo!(),
+        }
+    }
+
+    fn to(self) -> Value {
+        Value::List(self)
+    }
+}
