@@ -118,7 +118,8 @@ impl<'a> BevyStagedLayer<'a> {
             return None;
         }
         let mut draw_mode = utils::shape_draw_mode(&shape);
-        let global_opacity = self.layer.opacity.initial_value();
+        let opacity = OpacityHierarchy::from(&self.layer.transform_hierarchy);
+        let global_opacity = opacity.initial_value();
         if global_opacity < 1.0 {
             if let Some(fill) = draw_mode.fill.as_mut() {
                 fill.opacity *= global_opacity;
@@ -138,27 +139,10 @@ impl<'a> BevyStagedLayer<'a> {
             gradient: GradientDataUniform::default(),
         };
 
-        // register gradient texture if any
-        if let AnyFill::Gradient(g) = &shape.fill {
-            let start = g.gradient.start.initial_value();
-            let end = g.gradient.end.initial_value();
-            let stops = g.gradient.colors.colors.initial_value();
-            assert!(stops.len() >= 2, "gradient stops must be at least 2");
-            let stops = stops.iter().map(GradientDataStop::from).collect::<Vec<_>>();
-            material.gradient.stops = [stops[0].clone(), stops[1].clone()];
-            material.gradient.start = Vec2::new(start.x, start.y) * self.scale;
-            material.gradient.end = Vec2::new(end.x, end.y) * self.scale;
-            material.gradient.use_gradient = 1;
-        }
-        // let stroke_index = if let AnyFill::Gradient(g) = &shape.fill {
-        //     self.gradient
-        //         .register(&g.gradient, self.meshes, self.gradient_assets, commands)
-        //         as f32
-        // } else {
-        //     -1.0
-        // };
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;
+
+        let mut initial_pos = Vector2D::new(0.0, 0.0);
 
         let mut builder = Builder::new();
 
@@ -167,7 +151,7 @@ impl<'a> BevyStagedLayer<'a> {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
                 let initial_size = size.initial_value() / 2.0;
-                let initial_pos = position.initial_value();
+                initial_pos = position.initial_value();
                 builder.add_ellipse(
                     initial_pos.to_point(),
                     initial_size,
@@ -182,9 +166,9 @@ impl<'a> BevyStagedLayer<'a> {
                 if let Some(animator) = self.draw_mode_animator(&shape) {
                     c.insert(animator);
                 }
-                c.insert(LottieShapeComp(shape));
             }
             Shape::PolyStar(star) => {
+                initial_pos = star.position.initial_value();
                 star.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform) {
@@ -195,6 +179,7 @@ impl<'a> BevyStagedLayer<'a> {
                 }
             }
             Shape::Rectangle(rect) => {
+                initial_pos = rect.position.initial_value();
                 rect.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform) {
@@ -239,6 +224,26 @@ impl<'a> BevyStagedLayer<'a> {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
 
+        // register gradient texture if any
+        if let AnyFill::Gradient(g) = &shape.fill {
+            let start = g.gradient.start.initial_value();
+            let end = g.gradient.end.initial_value();
+            let stops = g.gradient.colors.colors.initial_value();
+            assert!(stops.len() >= 2, "gradient stops must be at least 2");
+            let stops = stops.iter().map(GradientDataStop::from).collect::<Vec<_>>();
+            material.gradient.stops = [stops[0].clone(), stops[1].clone()];
+            material.gradient.start = Vec2::new(start.x, start.y) * self.scale;
+            material.gradient.end = Vec2::new(end.x, end.y) * self.scale;
+            material.gradient.use_gradient = 1;
+        }
+        // let stroke_index = if let AnyFill::Gradient(g) = &shape.fill {
+        //     self.gradient
+        //         .register(&g.gradient, self.meshes, self.gradient_assets, commands)
+        //         as f32
+        // } else {
+        //     -1.0
+        // };
+
         let handle = self.material_assets.add(material);
         c.insert(handle);
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
@@ -273,9 +278,10 @@ impl<'a> BevyStagedLayer<'a> {
             }
         }
 
-        if self.layer.opacity.is_animated() {
+        let opacity = OpacityHierarchy::from(&self.layer.transform_hierarchy);
+        if opacity.is_animated() {
             let opacity_lens = OpacityLens {
-                opacity: self.layer.opacity.clone(),
+                opacity,
                 frames: self.layer.end_frame,
                 fill_opacity: shape.fill.opacity().clone(),
                 stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity().clone()),

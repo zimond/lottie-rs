@@ -1,10 +1,26 @@
-use lottie_model::Animated;
+use lottie_model::{Animated, Transform};
 
 use crate::AnimatedExt;
 
 #[derive(Default, Debug, Clone)]
+pub struct TransformHierarchy {
+    pub(crate) stack: Vec<Transform>,
+}
+
 pub struct OpacityHierarchy {
-    pub(crate) stack: Vec<Animated<f32>>,
+    stack: Vec<Animated<f32>>,
+}
+
+impl<'a> From<&'a TransformHierarchy> for OpacityHierarchy {
+    fn from(t: &'a TransformHierarchy) -> Self {
+        OpacityHierarchy {
+            stack: t
+                .stack
+                .iter()
+                .map(|transform| transform.opacity.clone())
+                .collect(),
+        }
+    }
 }
 
 impl AnimatedExt for OpacityHierarchy {

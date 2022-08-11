@@ -1,4 +1,4 @@
-#![feature(type_alias_impl_trait, let_chains)]
+#![feature(type_alias_impl_trait)]
 
 use std::io::Read;
 
@@ -19,7 +19,7 @@ mod timeline;
 
 pub mod prelude {
     pub use crate::layer::frame::*;
-    pub use crate::layer::opacity::OpacityHierarchy;
+    pub use crate::layer::hierarchy::*;
     pub use crate::layer::shape::{AnyFill, AnyStroke, PathExt, ShapeIterator, StyledShape};
     pub use crate::layer::staged::{RenderableContent, StagedLayer};
     pub use crate::timeline::{Id, TimelineAction};

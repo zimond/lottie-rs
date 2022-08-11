@@ -5,8 +5,8 @@ use crate::prelude::Id;
 use crate::Error;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
+use super::hierarchy::TransformHierarchy;
 use super::media::Media;
-use super::opacity::OpacityHierarchy;
 
 #[derive(Debug, Clone)]
 pub enum RenderableContent {
@@ -31,9 +31,9 @@ pub struct StagedLayer {
     pub end_frame: f32,
     pub frame_rate: f32,
     pub parent: Option<Id>,
-    pub transform: Transform,
     pub zindex: f32,
-    pub opacity: OpacityHierarchy,
+    pub transform: Transform,
+    pub transform_hierarchy: TransformHierarchy,
     pub frame_transform: FrameTransform,
     pub frame_transform_hierarchy: FrameTransformHierarchy,
     pub is_mask: bool,
@@ -86,7 +86,7 @@ impl StagedLayer {
             end_frame: layer.end_frame,
             transform,
             frame_rate: 0.0,
-            opacity: OpacityHierarchy::default(),
+            transform_hierarchy: TransformHierarchy::default(),
             frame_transform: FrameTransform::new(0.0, layer.start_time),
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
             is_mask: false,

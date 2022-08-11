@@ -5,7 +5,7 @@ use slotmap::SlotMap;
 
 use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
-use crate::layer::opacity::OpacityHierarchy;
+use crate::layer::hierarchy::TransformHierarchy;
 use crate::layer::staged::{StagedLayer, TargetRef};
 use crate::prelude::RenderableContent;
 use crate::Error;
@@ -201,30 +201,30 @@ impl Timeline {
         Ok(timeline)
     }
 
-    fn opacity(&self, id: Id) -> Option<OpacityHierarchy> {
+    fn transform_hierarchy(&self, id: Id) -> Option<TransformHierarchy> {
         let mut layer = self.item(id)?;
-        let mut stack = vec![layer.transform.opacity.clone()];
+        let mut stack = vec![layer.transform.clone()];
         while let Some(parent) = layer.parent {
             if let Some(l) = self.item(parent) {
-                stack.push(l.transform.opacity.clone());
+                stack.push(l.transform.clone());
                 layer = l;
             } else {
                 break;
             }
         }
-        Some(OpacityHierarchy { stack })
+        Some(TransformHierarchy { stack })
     }
 
     fn build_opacity_hierarchy(&mut self) {
         let mut result = vec![];
         for id in self.store.keys() {
-            if let Some(opacity) = self.opacity(id) {
-                result.push((id, opacity));
+            if let Some(t) = self.transform_hierarchy(id) {
+                result.push((id, t));
             }
         }
-        for (id, opacity) in result {
+        for (id, t) in result {
             if let Some(layer) = self.store.get_mut(id) {
-                layer.opacity = opacity;
+                layer.transform_hierarchy = t;
             }
         }
     }
