@@ -130,7 +130,7 @@ impl<'a> BevyStagedLayer<'a> {
         }
 
         let mut material = LottieMaterial {
-            size: self.model_size * self.scale,
+            size: Vec4::new(self.model_size.x, self.model_size.y, self.scale, 0.0),
             mask: if self.layer.matte_mode.is_some() {
                 Some(self.mask_handle.clone())
             } else {
@@ -232,8 +232,8 @@ impl<'a> BevyStagedLayer<'a> {
             assert!(stops.len() >= 2, "gradient stops must be at least 2");
             let stops = stops.iter().map(GradientDataStop::from).collect::<Vec<_>>();
             material.gradient.stops = [stops[0].clone(), stops[1].clone()];
-            material.gradient.start = Vec2::new(start.x, start.y) * self.scale;
-            material.gradient.end = Vec2::new(end.x, end.y) * self.scale;
+            material.gradient.start = Vec2::new(start.x, start.y);
+            material.gradient.end = Vec2::new(end.x, end.y);
             material.gradient.use_gradient = 1;
         }
         // let stroke_index = if let AnyFill::Gradient(g) = &shape.fill {

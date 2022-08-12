@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy::prelude::{Color, Handle, Image};
+use bevy::prelude::{Color, Handle, Image, Vec4};
 use bevy::reflect::TypeUuid;
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
@@ -18,8 +18,9 @@ pub struct LottieMaterial {
     #[texture(0)]
     #[sampler(1)]
     pub mask: Option<Handle<Image>>,
+    // width, height, scale
     #[uniform(2)]
-    pub size: Vec2,
+    pub size: Vec4,
     #[uniform(3)]
     pub gradient: GradientDataUniform,
 }
@@ -104,23 +105,6 @@ impl<'a> From<&'a GradientColor> for GradientDataStop {
         }
     }
 }
-
-// impl From<&LottieMaterial> for GradientDataUniform {
-//     fn from(material: &LottieMaterial) -> Self {
-//         GradientDataUniform {
-//             start: material
-//                 .gradient_info
-//                 .as_ref()
-//                 .map(|g| g.start_pos)
-//                 .unwrap_or_default(),
-//             end: material
-//                 .gradient_info
-//                 .as_ref()
-//                 .map(|g| g.end_pos)
-//                 .unwrap_or_default(),
-//         }
-//     }
-// }
 
 impl From<&LottieMaterial> for GradientDataKey {
     fn from(material: &LottieMaterial) -> Self {

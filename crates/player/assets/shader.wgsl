@@ -3,7 +3,7 @@
 #import bevy_sprite::mesh2d_view_bindings
 
 struct MaskData {
-    size: vec2<f32>,
+    size: vec3<f32>,
 };
 
 struct GradientStop {
@@ -58,7 +58,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
     // out.clip_position = view.view_proj * mesh.model * vec4<f32>(vertex.position, 0.0, 1.0);
-    out.clip_position = mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position.x, vertex.position.y, 0.0, 1.0));
+    out.clip_position = mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position.xy, 0.0, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;
@@ -101,21 +101,22 @@ struct FragmentInput {
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @location(0) vec4<f32> {
     var out: vec4<f32>;
+    let pos = position.xy / uniform_data.size.z;
     if (gradient.use_gradient == 1u) {
-        var proj = point_projection(position.xy, gradient.start_pos, gradient.end_pos);
-        var inv = (proj - gradient.start_pos) / (gradient.end_pos - gradient.start_pos);
+        var start = (mesh.model * vec4<f32>(gradient.start_pos, 0.0, 1.0)).xy;
+        let end = (mesh.model * vec4<f32>(gradient.end_pos, 0.0, 1.0)).xy;
+        let proj = point_projection(pos.xy, start, end);
+        let inv = smoothstep(start, end, proj);
         var t = inv.x;
-        if (gradient.end_pos.x == gradient.start_pos.x) {
+        if (end.x == start.x) {
             t = inv.y;
         }
-        t = clamp(t, 0.0, 1.0);
-        // var st = position.xy / size;
-        // var color = sRGBToLinear(vec3<f32>(st.x));
-        out = vec4(mix(gradient.stops[0].color.xyz, gradient.stops[1].color.xyz, t), 1.0);
+        let color = mix(gradient.stops[0].color.xyz, gradient.stops[1].color.xyz, t);
+        out = vec4(color, 1.0);
     } else {
         out = in.color;
     }
-    var mask_pixel = textureSample(mask, mask_sampler, position.xy / uniform_data.size);
+    var mask_pixel = textureSample(mask, mask_sampler, position.xy / uniform_data.size.xy);
     out.a = mask_pixel.a;
     return out;
 }
