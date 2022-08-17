@@ -15,11 +15,9 @@ where
     T: 'static,
 {
     type Key;
-    fn tween(
-        &self,
-        frame_rate: f32,
-        producer: fn(start: Self::Key, end: Self::Key) -> L,
-    ) -> Sequence<T>;
+    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<T>
+    where
+        F: Fn(Self::Key, Self::Key) -> L;
 }
 
 impl<L, T, V> TweenProducer<T, L> for Vec<KeyFrame<V>>
@@ -29,11 +27,10 @@ where
     V: Clone,
 {
     type Key = V;
-    fn tween(
-        &self,
-        frame_rate: f32,
-        producer: fn(start: Self::Key, end: Self::Key) -> L,
-    ) -> Sequence<T> {
+    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<T>
+    where
+        F: Fn(Self::Key, Self::Key) -> L,
+    {
         let mut seq = Sequence::with_capacity(self.len() + 1);
         if self[0].start_frame.is_sign_positive() {
             seq = seq.then(Delay::new(Duration::from_secs_f32(
@@ -81,11 +78,10 @@ where
 impl TweenProducer<Transform, TransformLens> for LottieTransform {
     type Key = LottieTransform;
 
-    fn tween(
-        &self,
-        frame_rate: f32,
-        producer: fn(start: Self::Key, end: Self::Key) -> TransformLens,
-    ) -> Sequence<Transform> {
+    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<Transform>
+    where
+        F: Fn(Self::Key, Self::Key) -> TransformLens,
+    {
         let frames = self.frames();
         let secs = frames as f32 / frame_rate as f32;
         let mut transform = producer(self.clone(), self.clone());
