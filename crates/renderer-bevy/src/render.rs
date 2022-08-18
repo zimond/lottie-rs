@@ -25,11 +25,11 @@ pub struct BevyStagedLayer<'a> {
     pub image_assets: &'a mut Assets<Image>,
     pub audio_assets: &'a mut Assets<AudioSource>,
     pub material_assets: &'a mut Assets<LottieMaterial>,
-    // pub gradient_assets: &'a mut Assets<GradientMaterial>,
-    // pub gradient: &'a mut GradientManager,
     pub mask_handle: Handle<Image>,
     pub model_size: Vec2,
     pub scale: f32,
+    pub mask_index: &'a mut u32,
+    pub mask_count: u32,
 }
 
 impl<'a> BevyStagedLayer<'a> {
@@ -37,6 +37,9 @@ impl<'a> BevyStagedLayer<'a> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
+        if self.layer.is_mask {
+            initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x;
+        }
 
         log::trace!(
             "spawn layer {:?}: start {}, end {}, transform: {:?}",
@@ -101,8 +104,12 @@ impl<'a> BevyStagedLayer<'a> {
         if let Some(animator) = self.transform_animator(&self.layer.transform) {
             c.insert(animator);
         }
-        let id = c.id();
 
+        if self.layer.matte_mode.is_some() {
+            *self.mask_index = *self.mask_index + 1;
+        }
+
+        let id = c.id();
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
         c.insert_bundle(VisibilityBundle::default());
         Ok(id)
@@ -129,8 +136,15 @@ impl<'a> BevyStagedLayer<'a> {
             }
         }
 
+        let matte_mode = self
+            .layer
+            .matte_mode
+            .as_ref()
+            .map(|mode| *mode as u8)
+            .unwrap_or(0);
         let mut material = LottieMaterial {
             size: Vec4::new(self.model_size.x, self.model_size.y, self.scale, 0.0),
+            mask_info: UVec4::new(*self.mask_index, self.mask_count, matte_mode as u32, 0),
             mask: if self.layer.matte_mode.is_some() {
                 Some(self.mask_handle.clone())
             } else {
@@ -138,15 +152,20 @@ impl<'a> BevyStagedLayer<'a> {
             },
             gradient: GradientDataUniform::default(),
         };
+        println!("{:?} {:?}", material.size, material.mask_info);
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;
 
-        let mut initial_pos = Vector2D::new(0.0, 0.0);
+        let mut c = commands.spawn();
 
+        if self.layer.is_mask {
+            c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
+        }
+
+        let mut initial_pos = Vector2D::new(0.0, 0.0);
         let mut builder = Builder::new();
 
-        let mut c = commands.spawn();
         match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
                 let Ellipse { size, position, .. } = ellipse;
@@ -220,10 +239,6 @@ impl<'a> BevyStagedLayer<'a> {
             }
         };
 
-        if self.layer.is_mask {
-            c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
-        }
-
         // register gradient texture if any
         if let AnyFill::Gradient(g) = &shape.fill {
             let start = g.gradient.start.initial_value();
@@ -253,8 +268,17 @@ impl<'a> BevyStagedLayer<'a> {
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
+        let mask_offset = if self.layer.is_mask {
+            Vec2::new(*self.mask_index as f32 * self.model_size.x, 0.0)
+        } else {
+            Vec2::ZERO
+        };
         if transform.is_animated() {
-            tweens.push(transform.tween(frame_rate, |data, _| TransformLens { data, frames: 0.0 }));
+            tweens.push(transform.tween(frame_rate, |data, _| TransformLens {
+                data,
+                frames: 0.0,
+                mask_offset,
+            }));
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);

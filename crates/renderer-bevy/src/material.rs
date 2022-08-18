@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy::prelude::{Color, Handle, Image, Vec4};
+use bevy::prelude::{Color, Handle, Image, UVec4, Vec4};
 use bevy::reflect::TypeUuid;
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
@@ -21,7 +21,10 @@ pub struct LottieMaterial {
     // width, height, scale
     #[uniform(2)]
     pub size: Vec4,
+    /// Mask index, mask count, matte mode
     #[uniform(3)]
+    pub mask_info: UVec4,
+    #[uniform(4)]
     pub gradient: GradientDataUniform,
 }
 

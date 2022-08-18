@@ -17,6 +17,8 @@ webp-animation = "0.6.0"
 bevy_tweening = { git = "https://github.com/zimond/bevy_tweening", rev = "1b3011c" }
 lottie-core = { path = "../core" }
 lyon = "0.17.10"
+futures-intrusive = "0.4.0"
+pollster = "0.2.5"
 
 [features]
 default = ["bevy_egui"]

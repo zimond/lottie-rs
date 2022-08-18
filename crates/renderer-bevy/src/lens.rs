@@ -1,4 +1,4 @@
-use bevy::prelude::Transform;
+use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
 use lottie_core::prelude::{OpacityHierarchy, PathExt, TransformHierarchy};
 use lottie_core::{Animated, AnimatedExt, Bezier, Transform as LottieTransform};
@@ -54,6 +54,7 @@ impl Lens<DrawMode> for StrokeWidthLens {
 pub struct TransformLens {
     pub(crate) data: LottieTransform,
     pub(crate) frames: f32,
+    pub(crate) mask_offset: Vec2,
 }
 
 impl Lens<Transform> for TransformLens {
@@ -63,6 +64,7 @@ impl Lens<Transform> for TransformLens {
         let zindex = target.translation.z;
         *target = Transform::from_matrix(value);
         target.translation.z = zindex;
+        target.translation.x += self.mask_offset.x;
     }
 }
 

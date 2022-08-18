@@ -2,10 +2,6 @@
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
-struct MaskData {
-    size: vec3<f32>,
-};
-
 struct GradientStop {
     offset: f32,
     color: vec4<f32>,
@@ -25,9 +21,12 @@ var mask: texture_2d<f32>;
 var mask_sampler: sampler;
 
 @group(1) @binding(2)
-var<uniform> uniform_data: MaskData;
+var<uniform> scene_size: vec4<f32>;
 
 @group(1) @binding(3)
+var<uniform> mask_info: vec4<u32>;
+
+@group(1) @binding(4)
 var<uniform> gradient: GradientInfo;
 
 @group(2) @binding(0)
@@ -101,7 +100,10 @@ struct FragmentInput {
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @location(0) vec4<f32> {
     var out: vec4<f32>;
-    let pos = position.xy / uniform_data.size.z;
+    let scale = scene_size.z;
+    let mask_index = f32(mask_info.x);
+    let mask_count = f32(mask_info.y);
+    let pos = position.xy / scale;
     if (gradient.use_gradient == 1u) {
         var start = (mesh.model * vec4<f32>(gradient.start_pos, 0.0, 1.0)).xy;
         let end = (mesh.model * vec4<f32>(gradient.end_pos, 0.0, 1.0)).xy;
@@ -116,7 +118,17 @@ fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @locat
     } else {
         out = in.color;
     }
-    var mask_pixel = textureSample(mask, mask_sampler, position.xy / uniform_data.size.xy);
-    out.a = mask_pixel.a;
+    let mask_size = vec2<f32>(textureDimensions(mask));
+    let stride = vec2(mask_size.x / mask_count, 0.0);
+    let sample_pos = (position.xy + stride * mask_index) / mask_size;
+    var mask_pixel = textureSample(mask, mask_sampler, sample_pos);
+    if (mask_info.z == 2u) {
+        out.a = 1.0 - mask_pixel.a;
+    } else {
+        out.a = mask_pixel.a;
+    }
+    // if (mask_info.z != 0u) {
+    //     out = mask_pixel;
+    // }
     return out;
 }

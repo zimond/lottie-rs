@@ -1,4 +1,4 @@
-// mod frame_capture;
+mod frame_capture;
 // mod gradient;
 mod lens;
 mod material;
@@ -10,20 +10,25 @@ mod tween;
 mod utils;
 
 use std::io::Write;
+use std::time::Duration;
 
-use bevy::app::{Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings};
+use bevy::app::{
+    AppExit, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
+};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
+use bevy::render::camera::{RenderTarget, Viewport};
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::{RenderLayers, VisibilityPlugin};
 use bevy::utils::HashMap;
+use bevy::window::{ModifiesWindows, WindowSettings};
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
+use frame_capture::{ImageCopier, ImageCopyPlugin, ImageToSave};
 // use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
@@ -54,6 +59,8 @@ struct LottieShapeComp(StyledShape);
 
 #[derive(Component)]
 struct LayerId(TimelineItemId);
+
+fn modifies_windows() {}
 
 pub struct LottieAnimationInfo {
     start_frame: f32,
@@ -119,21 +126,25 @@ impl BevyRenderer {
 
         if capture {
             let encoder = Encoder::new((width, height)).unwrap();
-            app //.add_plugin(CameraTypePlugin::<CaptureCamera>::default())
-                // .add_plugin(FrameCapturePlugin)
+            app.add_plugin(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
-                .insert_resource(ScheduleRunnerSettings {
-                    run_mode: bevy::app::RunMode::Loop { wait: None },
+                .add_system_to_stage(
+                    CoreStage::PostUpdate,
+                    // Bevy hard-coded this so use an empty function to prevent warnings
+                    modifies_windows.label(ModifiesWindows),
+                )
+                .insert_resource(WindowSettings {
+                    add_primary_window: false,
+                    exit_on_all_closed: false,
+                    close_when_requested: true,
                 })
+                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+                    1.0 / 60.0, //Don't run faster than 60fps
+                )))
                 .insert_resource(Capturing(true))
-                // .insert_resource(Frame {
-                //     width,
-                //     height,
-                //     data: vec![0; (width * height * 4) as usize],
-                // })
-                .add_plugin(ScheduleRunnerPlugin);
-            // .add_system(save_img.after(animate_system));
+                .add_plugin(ScheduleRunnerPlugin)
+                .add_system_to_stage(CoreStage::PostUpdate, save_img);
         }
         BevyRenderer { app }
     }
@@ -169,7 +180,7 @@ impl Renderer for BevyRenderer {
                         .add_system(system::controls_system);
                 }
             }
-            Config::Headless(_) => todo!(),
+            Config::Headless(_) => {}
         }
         self.app.run()
     }
@@ -189,7 +200,10 @@ fn setup_system(
     render_device: Res<RenderDevice>,
 ) {
     asset_server.watch_for_changes().unwrap();
-    let scale = window.primary().scale_factor() as f32;
+    let scale = window
+        .get_primary()
+        .map(|p| p.scale_factor() as f32)
+        .unwrap_or(1.0);
     let mut lottie = lottie.take().unwrap();
     commands.remove_resource::<Lottie>();
     let mut camera = Camera2dBundle::default();
@@ -199,9 +213,14 @@ fn setup_system(
         0.0,
     ));
     camera.transform = transform;
+    let mask_count = lottie
+        .timeline()
+        .items()
+        .filter(|layer| layer.matte_mode.is_some())
+        .count() as u32;
     // Create the mask texture
     let size = Extent3d {
-        width: lottie.model.width,
+        width: std::cmp::max(1, lottie.model.width * mask_count),
         height: lottie.model.height,
         depth_or_array_layers: 1,
     };
@@ -215,6 +234,7 @@ fn setup_system(
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
+                | TextureUsages::COPY_SRC
                 | TextureUsages::RENDER_ATTACHMENT,
         },
         ..default()
@@ -237,40 +257,57 @@ fn setup_system(
         .spawn_bundle(mask_camera)
         .insert(RenderLayers::layer(1));
 
-    // Create the gradient texture
-    // let mut gradient_manager = GradientManager::new(&lottie, &mut image_assets,
-    // scale);
+    if capturing.0 {
+        let size = Extent3d {
+            width: lottie.model.width,
+            height: lottie.model.height,
+            depth_or_array_layers: 1,
+        };
+
+        let mut cpu_image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: Some("cpu image"),
+                size,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            },
+            ..Default::default()
+        };
+        cpu_image.resize(size);
+        let mut render_target_image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: Some("render target image"),
+                size,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::RENDER_ATTACHMENT,
+            },
+            ..Default::default()
+        };
+        render_target_image.resize(size);
+        let cpu_image_handle = image_assets.add(cpu_image);
+        let render_target_image_handle = image_assets.add(render_target_image);
+        camera.camera.target = RenderTarget::Image(render_target_image_handle.clone());
+        commands.spawn().insert(ImageCopier::new(
+            render_target_image_handle,
+            cpu_image_handle.clone(),
+            size,
+            &render_device,
+        ));
+        commands
+            .spawn()
+            .insert(ImageToSave(cpu_image_handle.clone()));
+    }
 
     let mut cmd = commands.spawn_bundle(camera);
-
-    if capturing.0 {
-        // cmd.with_children(|c| {
-        //     let capture = FrameCapture::new_cpu_buffer(
-        //         lottie.model.width,
-        //         lottie.model.height,
-        //         true,
-        //         TextureFormat::Rgba8UnormSrgb,
-        //         &mut image_assets,
-        //         &render_device,
-        //     );
-        //     let t_camera = Camera2dBundle::new_2d();
-        //     let render_target =
-        // RenderTarget::Image(capture.gpu_image.clone());
-        //     let bundle = Camera2dBundle::<CaptureCamera> {
-        //         camera: Camera {
-        //             target: render_target,
-        //             ..default()
-        //         },
-        //         orthographic_projection: t_camera.orthographic_projection,
-        //         visible_entities: t_camera.visible_entities,
-        //         frustum: t_camera.frustum,
-        //         transform: Transform::identity(),
-        //         global_transform: t_camera.global_transform,
-        //         marker: CaptureCamera,
-        //     };
-        //     c.spawn_bundle(bundle).insert(capture);
-        // });
-    }
 
     lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
@@ -291,6 +328,7 @@ fn setup_system(
         .insert_bundle(TransformBundle::default())
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
+    let mut mask_index = 0_u32;
     for layer in lottie.timeline().items() {
         let entity = BevyStagedLayer {
             layer,
@@ -301,6 +339,8 @@ fn setup_system(
             // gradient_assets: &mut gradient_assets,
             // gradient: &mut gradient_manager,
             mask_handle: mask_texture_handle.clone(),
+            mask_index: &mut mask_index,
+            mask_count,
             model_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32),
             scale,
         }
@@ -415,41 +455,39 @@ fn animate_system(
     info.current_time = current_time;
 }
 
-// fn save_img(
-//     info: Res<LottieAnimationInfo>,
-//     captures: Query<&FrameCapture>,
-//     render_device: Res<RenderDevice>,
-//     mut frame: ResMut<Frame>,
-//     mut encoder: NonSendMut<Encoder>,
-//     mut exit: EventWriter<AppExit>,
-//     // mut event_writer: EventWriter<FrameCaptureEvent>,
-// ) {
-//     if info.finished_once {
-//         let encoder = std::mem::replace(
-//             encoder.as_mut(),
-//             Encoder::new((info.width as u32, info.height as u32)).unwrap(),
-//         );
-//         let data = encoder
-//             .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
-//             .unwrap();
-//         let mut f = std::fs::File::create("result.webp").unwrap();
-//         f.write_all(&data).unwrap();
-//         drop(f);
-//         exit.send(AppExit);
-//     }
-//     for capture in captures.iter() {
-//         if let Some(target_buffer) = &capture.target_buffer {
-//             match target_buffer {
-//                 TargetBuffer::CPUBuffer(target_buffer) => {
-//                     target_buffer.get(&render_device, |buf| {
-//                         frame.load_buffer(&buf);
-//                         encoder
-//                             .add_frame(&frame.data, (info.current_time *
-// 1000.0) as i32)                             .unwrap();
-//                     });
-//                 }
-//                 _ => continue,
-//             }
-//         }
-//     }
-// }
+fn save_img(
+    info: Res<LottieAnimationInfo>,
+    image_to_save: Query<&ImageToSave>,
+    mut images: ResMut<Assets<Image>>,
+    mut encoder: NonSendMut<Encoder>,
+    mut exit: EventWriter<AppExit>,
+    // mut event_writer: EventWriter<FrameCaptureEvent>,
+) {
+    println!("ya");
+    if info.finished_once {
+        let encoder = std::mem::replace(
+            encoder.as_mut(),
+            Encoder::new((info.width as u32, info.height as u32)).unwrap(),
+        );
+        let data = encoder
+            .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
+            .unwrap();
+        let mut f = std::fs::File::create("result.webp").unwrap();
+        f.write_all(&data).unwrap();
+        drop(f);
+        exit.send(AppExit);
+    }
+    for capture in image_to_save.iter() {
+        let data = &mut images.get_mut(capture).unwrap().data;
+        if data.is_empty() {
+            continue;
+        }
+        // bgra -> rgba
+        for pixel in data.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+        }
+        encoder
+            .add_frame(data, (info.current_time * 1000.0) as i32)
+            .unwrap();
+    }
+}
