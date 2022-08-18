@@ -9,6 +9,7 @@ mod system;
 mod tween;
 mod utils;
 
+use std::borrow::Cow;
 use std::io::Write;
 use std::time::Duration;
 
@@ -92,6 +93,32 @@ impl LottieAnimationInfo {
     }
 }
 
+struct WebpEncoder {
+    encoder: Encoder,
+    width: u32,
+    height: u32,
+}
+
+impl WebpEncoder {
+    pub fn new() -> Self {
+        WebpEncoder {
+            encoder: Encoder::new((1, 1)).unwrap(),
+            width: 1,
+            height: 1,
+        }
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.encoder = Encoder::new((width, height)).unwrap();
+        self.width = width;
+        self.height = height;
+    }
+
+    pub fn take(&mut self) -> Encoder {
+        std::mem::replace(&mut self.encoder, Encoder::new((1, 1)).unwrap())
+    }
+}
+
 pub struct BevyRenderer {
     app: App,
 }
@@ -105,6 +132,13 @@ impl BevyRenderer {
             resizable: false,
             ..default()
         });
+        if capture {
+            app.insert_resource(WindowSettings {
+                add_primary_window: false,
+                exit_on_all_closed: false,
+                close_when_requested: true,
+            });
+        }
         let mut plugin_group_builder = PluginGroupBuilder::default();
         DefaultPlugins.build(&mut plugin_group_builder);
         // Defaulty disable GUI window
@@ -116,7 +150,6 @@ impl BevyRenderer {
             .insert_resource(Capturing(false))
             .add_plugin(TweeningPlugin)
             .add_plugin(VisibilityPlugin)
-            // .add_event::<FrameCaptureEvent>()
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(LottiePlugin)
@@ -125,7 +158,7 @@ impl BevyRenderer {
             .add_system(animate_system);
 
         if capture {
-            let encoder = Encoder::new((width, height)).unwrap();
+            let encoder = WebpEncoder::new();
             app.add_plugin(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
@@ -134,11 +167,6 @@ impl BevyRenderer {
                     // Bevy hard-coded this so use an empty function to prevent warnings
                     modifies_windows.label(ModifiesWindows),
                 )
-                .insert_resource(WindowSettings {
-                    add_primary_window: false,
-                    exit_on_all_closed: false,
-                    close_when_requested: true,
-                })
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                     1.0 / 60.0, //Don't run faster than 60fps
                 )))
@@ -219,7 +247,7 @@ fn setup_system(
         .filter(|layer| layer.matte_mode.is_some())
         .count() as u32;
     // Create the mask texture
-    let size = Extent3d {
+    let mask_size = Extent3d {
         width: std::cmp::max(1, lottie.model.width * mask_count),
         height: lottie.model.height,
         depth_or_array_layers: 1,
@@ -227,7 +255,7 @@ fn setup_system(
     let mut mask = Image {
         texture_descriptor: TextureDescriptor {
             label: Some("mask_texture"),
-            size,
+            size: mask_size,
             dimension: TextureDimension::D2,
             format: TextureFormat::bevy_default(),
             mip_level_count: 1,
@@ -239,7 +267,7 @@ fn setup_system(
         },
         ..default()
     };
-    mask.resize(size);
+    mask.resize(mask_size);
     let mask_texture_handle = image_assets.add(mask);
     let mask_camera = Camera2dBundle {
         camera_2d: Camera2d {
@@ -258,6 +286,7 @@ fn setup_system(
         .insert(RenderLayers::layer(1));
 
     if capturing.0 {
+        // let size = mask_size;
         let size = Extent3d {
             width: lottie.model.width,
             height: lottie.model.height,
@@ -294,7 +323,9 @@ fn setup_system(
         };
         render_target_image.resize(size);
         let cpu_image_handle = image_assets.add(cpu_image);
+        // let render_target_image_handle = mask_texture_handle.clone();
         let render_target_image_handle = image_assets.add(render_target_image);
+
         camera.camera.target = RenderTarget::Image(render_target_image_handle.clone());
         commands.spawn().insert(ImageCopier::new(
             render_target_image_handle,
@@ -307,7 +338,7 @@ fn setup_system(
             .insert(ImageToSave(cpu_image_handle.clone()));
     }
 
-    let mut cmd = commands.spawn_bundle(camera);
+    commands.spawn_bundle(camera);
 
     lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
@@ -459,16 +490,12 @@ fn save_img(
     info: Res<LottieAnimationInfo>,
     image_to_save: Query<&ImageToSave>,
     mut images: ResMut<Assets<Image>>,
-    mut encoder: NonSendMut<Encoder>,
+    mut encoder: NonSendMut<WebpEncoder>,
     mut exit: EventWriter<AppExit>,
     // mut event_writer: EventWriter<FrameCaptureEvent>,
 ) {
-    println!("ya");
     if info.finished_once {
-        let encoder = std::mem::replace(
-            encoder.as_mut(),
-            Encoder::new((info.width as u32, info.height as u32)).unwrap(),
-        );
+        let encoder = encoder.take();
         let data = encoder
             .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
             .unwrap();
@@ -476,9 +503,16 @@ fn save_img(
         f.write_all(&data).unwrap();
         drop(f);
         exit.send(AppExit);
+        return;
     }
     for capture in image_to_save.iter() {
-        let data = &mut images.get_mut(capture).unwrap().data;
+        let image = images.get_mut(capture).unwrap();
+        let (width, height) = (image.size().x as u32, image.size().y as u32);
+        println!("{} {}", width, height);
+        if encoder.width != width || encoder.height != height {
+            encoder.resize(width, height);
+        }
+        let data = &mut image.data;
         if data.is_empty() {
             continue;
         }
@@ -486,8 +520,22 @@ fn save_img(
         for pixel in data.chunks_exact_mut(4) {
             pixel.swap(0, 2);
         }
+        let unpadded_len = (width * height) as usize * 4;
+        let data = if data.len() != unpadded_len {
+            // Has padding
+            let len = data.len();
+            let mut result = Vec::with_capacity(unpadded_len);
+            for chunk in data.chunks_exact_mut(len / height as usize) {
+                result.extend_from_slice(&chunk[..(unpadded_len / height as usize)]);
+            }
+            assert_eq!(unpadded_len, result.len());
+            Cow::Owned(result)
+        } else {
+            Cow::Borrowed(data)
+        };
         encoder
-            .add_frame(data, (info.current_time * 1000.0) as i32)
+            .encoder
+            .add_frame(&data, (info.current_time * 1000.0) as i32)
             .unwrap();
     }
 }
