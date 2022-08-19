@@ -278,7 +278,11 @@ fn setup_system(
             priority: -1,
             ..default()
         },
-        transform,
+        transform: Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
+            mask_size.width as f32 / 2.0,
+            mask_size.height as f32 / 2.0,
+            0.0,
+        )),
         ..default()
     };
     commands
@@ -367,8 +371,6 @@ fn setup_system(
             image_assets: &mut image_assets,
             audio_assets: &mut audio_assets,
             material_assets: &mut material_assets,
-            // gradient_assets: &mut gradient_assets,
-            // gradient: &mut gradient_manager,
             mask_handle: mask_texture_handle.clone(),
             mask_index: &mut mask_index,
             mask_count,
@@ -508,7 +510,6 @@ fn save_img(
     for capture in image_to_save.iter() {
         let image = images.get_mut(capture).unwrap();
         let (width, height) = (image.size().x as u32, image.size().y as u32);
-        println!("{} {}", width, height);
         if encoder.width != width || encoder.height != height {
             encoder.resize(width, height);
         }

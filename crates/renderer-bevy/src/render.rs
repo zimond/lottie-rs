@@ -152,7 +152,6 @@ impl<'a> BevyStagedLayer<'a> {
             },
             gradient: GradientDataUniform::default(),
         };
-        println!("{:?} {:?}", material.size, material.mask_info);
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;
