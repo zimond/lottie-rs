@@ -1,7 +1,7 @@
 // use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 use clap::Parser;
-use lottie_core::{Config, HeadlessConfig, Lottie, Renderer, WindowConfig};
-use lottie_renderer_bevy::{BevyRenderer, LottieAnimationInfo};
+use lottie_core::{Config, HeadlessConfig, Lottie, Renderer, Target, WindowConfig};
+use lottie_renderer_bevy::BevyRenderer;
 use std::fs;
 
 #[derive(Parser)]
@@ -23,9 +23,11 @@ fn main() {
     let args = Args::parse();
     let f = fs::File::open(&args.input).unwrap();
     let lottie = Lottie::from_reader(f).unwrap();
-    let mut renderer = BevyRenderer::new(lottie.model.width, lottie.model.height, args.headless);
+    let mut renderer = BevyRenderer::new(lottie.model.width, lottie.model.height);
     let config = if args.headless {
-        Config::Headless(HeadlessConfig {})
+        Config::Headless(HeadlessConfig {
+            target: Target::Default,
+        })
     } else {
         Config::Window(WindowConfig {
             show_controls: true,
@@ -34,6 +36,6 @@ fn main() {
     };
     // renderer.add_plugin(DebugLinesPlugin::default());
     // renderer.add_system(axis_system);
-    renderer.load_lottie(lottie);
-    renderer.render(config);
+    renderer.load_lottie(lottie, config);
+    renderer.render();
 }

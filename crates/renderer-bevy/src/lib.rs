@@ -130,7 +130,7 @@ pub struct BevyRenderer {
 }
 
 impl BevyRenderer {
-    pub fn new(width: u32, height: u32, capture: bool) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         let mut app = App::new();
         app.insert_resource(WindowDescriptor {
             width: width as f32,
@@ -138,48 +138,7 @@ impl BevyRenderer {
             resizable: false,
             ..default()
         });
-        if capture {
-            app.insert_resource(WindowSettings {
-                add_primary_window: false,
-                exit_on_all_closed: false,
-                close_when_requested: true,
-            });
-        }
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        DefaultPlugins.build(&mut plugin_group_builder);
-        // Defaulty disable GUI window
-        plugin_group_builder.disable::<WinitPlugin>();
-        // Disable gamepad support
-        plugin_group_builder.disable::<GilrsPlugin>();
-        plugin_group_builder.finish(&mut app);
-        app.insert_resource(Msaa { samples: 4 })
-            .insert_resource(Capturing(false))
-            .add_plugin(TweeningPlugin)
-            .add_plugin(VisibilityPlugin)
-            // .add_plugin(FrameTimeDiagnosticsPlugin)
-            // .add_plugin(LogDiagnosticsPlugin::default())
-            .add_plugin(LottiePlugin)
-            .add_system(component_animator_system::<Path>)
-            .add_system(component_animator_system::<DrawMode>)
-            .add_system(animate_system);
 
-        if capture {
-            let encoder = WebpEncoder::new();
-            app.add_plugin(ImageCopyPlugin)
-                .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
-                .insert_non_send_resource(encoder)
-                .add_system_to_stage(
-                    CoreStage::PostUpdate,
-                    // Bevy hard-coded this so use an empty function to prevent warnings
-                    modifies_windows.label(ModifiesWindows),
-                )
-                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-                    1.0 / 60.0, //Don't run faster than 60fps
-                )))
-                .insert_resource(Capturing(true))
-                .add_plugin(ScheduleRunnerPlugin)
-                .add_system_to_stage(CoreStage::PostUpdate, save_img);
-        }
         BevyRenderer { app }
     }
 
@@ -197,25 +156,71 @@ impl BevyRenderer {
 }
 
 impl Renderer for BevyRenderer {
-    fn load_lottie(&mut self, lottie: Lottie) {
-        self.app
-            .insert_resource(Some(lottie))
-            .add_startup_system(setup_system);
-    }
-
-    fn render(&mut self, config: Config) {
-        match config {
+    fn load_lottie(&mut self, lottie: Lottie, config: Config) {
+        let capture = match &config {
             Config::Window(window_conf) => {
-                self.app.add_plugin(WinitPlugin);
                 #[cfg(feature = "bevy_egui")]
                 if window_conf.show_controls {
                     self.app
                         .add_plugin(bevy_egui::EguiPlugin)
                         .add_system(system::controls_system);
                 }
+                false
             }
-            Config::Headless(_) => {}
+            Config::Headless(_) => {
+                self.app.insert_resource(WindowSettings {
+                    add_primary_window: false,
+                    exit_on_all_closed: false,
+                    close_when_requested: true,
+                });
+                true
+            }
+        };
+        let mut plugin_group_builder = PluginGroupBuilder::default();
+        DefaultPlugins.build(&mut plugin_group_builder);
+        // Defaulty disable GUI window
+        plugin_group_builder.disable::<WinitPlugin>();
+        // Disable gamepad support
+        plugin_group_builder.disable::<GilrsPlugin>();
+        plugin_group_builder.finish(&mut self.app);
+
+        self.app
+            .insert_resource(Msaa { samples: 4 })
+            .insert_resource(Capturing(false))
+            .add_plugin(TweeningPlugin)
+            .add_plugin(VisibilityPlugin)
+            // .add_plugin(FrameTimeDiagnosticsPlugin)
+            // .add_plugin(LogDiagnosticsPlugin::default())
+            .add_plugin(LottiePlugin)
+            .add_system(component_animator_system::<Path>)
+            .add_system(component_animator_system::<DrawMode>)
+            .add_system(animate_system)
+            .insert_resource(Some(lottie))
+            .add_startup_system(setup_system)
+            .insert_resource(config);
+        if capture {
+            let encoder = WebpEncoder::new();
+            self.app
+                .add_plugin(ImageCopyPlugin)
+                .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+                .insert_non_send_resource(encoder)
+                .add_system_to_stage(
+                    CoreStage::PostUpdate,
+                    // Bevy hard-coded this so use an empty function to prevent warnings
+                    modifies_windows.label(ModifiesWindows),
+                )
+                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+                    1.0 / 60.0, //Don't run faster than 60fps
+                )))
+                .insert_resource(Capturing(true))
+                .add_plugin(ScheduleRunnerPlugin)
+                .add_system_to_stage(CoreStage::PostUpdate, save_img);
+        } else {
+            self.app.add_plugin(WinitPlugin);
         }
+    }
+
+    fn render(&mut self) {
         self.app.run()
     }
 }
@@ -228,11 +233,10 @@ fn setup_system(
     mut material_assets: ResMut<Assets<LottieMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
+    config: Res<Config>,
     capturing: Res<Capturing>,
-    asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    asset_server.watch_for_changes().unwrap();
     let scale = window
         .get_primary()
         .map(|p| p.scale_factor() as f32)
@@ -295,11 +299,19 @@ fn setup_system(
         .insert(RenderLayers::layer(1));
 
     if capturing.0 {
-        // let size = mask_size;
-        let size = Extent3d {
-            width: lottie.model.width,
-            height: lottie.model.height,
-            depth_or_array_layers: 1,
+        let target = if let Config::Headless(headless) = &*config {
+            headless.target
+        } else {
+            Target::Default
+        };
+        let size = if target == Target::Mask {
+            mask_size
+        } else {
+            Extent3d {
+                width: lottie.model.width,
+                height: lottie.model.height,
+                depth_or_array_layers: 1,
+            }
         };
 
         let mut cpu_image = Image {
@@ -315,27 +327,32 @@ fn setup_system(
             ..Default::default()
         };
         cpu_image.resize(size);
-        let mut render_target_image = Image {
-            texture_descriptor: TextureDescriptor {
-                label: Some("render target image"),
-                size,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::COPY_DST
-                    | TextureUsages::COPY_SRC
-                    | TextureUsages::RENDER_ATTACHMENT,
-            },
-            ..Default::default()
-        };
-        render_target_image.resize(size);
         let cpu_image_handle = image_assets.add(cpu_image);
-        // let render_target_image_handle = mask_texture_handle.clone();
-        let render_target_image_handle = image_assets.add(render_target_image);
+        let render_target_image_handle = if target == Target::Default {
+            let mut render_target_image = Image {
+                texture_descriptor: TextureDescriptor {
+                    label: Some("render target image"),
+                    size,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Bgra8UnormSrgb,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    usage: TextureUsages::TEXTURE_BINDING
+                        | TextureUsages::COPY_DST
+                        | TextureUsages::COPY_SRC
+                        | TextureUsages::RENDER_ATTACHMENT,
+                },
+                ..Default::default()
+            };
+            render_target_image.resize(size);
+            image_assets.add(render_target_image)
+        } else {
+            mask_texture_handle.clone()
+        };
 
-        camera.camera.target = RenderTarget::Image(render_target_image_handle.clone());
+        if target == Target::Default {
+            camera.camera.target = RenderTarget::Image(render_target_image_handle.clone());
+        }
         commands.spawn().insert(ImageCopier::new(
             render_target_image_handle,
             cpu_image_handle.clone(),
