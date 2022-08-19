@@ -114,8 +114,14 @@ impl WebpEncoder {
         self.height = height;
     }
 
-    pub fn take(&mut self) -> Encoder {
+    pub fn finish(&mut self) -> Encoder {
+        self.width = 0;
+        self.height = 0;
         std::mem::replace(&mut self.encoder, Encoder::new((1, 1)).unwrap())
+    }
+
+    pub fn finished(&self) -> bool {
+        self.width == 0
     }
 }
 
@@ -220,7 +226,6 @@ fn setup_system(
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
     mut material_assets: ResMut<Assets<LottieMaterial>>,
-    // mut gradient_assets: ResMut<Assets<GradientMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
     capturing: Res<Capturing>,
@@ -496,11 +501,25 @@ fn save_img(
     mut exit: EventWriter<AppExit>,
     // mut event_writer: EventWriter<FrameCaptureEvent>,
 ) {
+    // Capture has 1 frame latency
+    let delta = 1.0 / info.frame_rate;
+    let mut timestamp = info.current_time - delta;
     if info.finished_once {
-        let encoder = encoder.take();
-        let data = encoder
-            .finalize(((info.end_frame / info.frame_rate) * 1000.0) as i32)
-            .unwrap();
+        if !encoder.finished() {
+            timestamp += info.end_frame / info.frame_rate;
+        } else {
+            return;
+        }
+    }
+    // Skip first frame
+    timestamp -= 2.0 * delta;
+    if timestamp < 0.0 {
+        return;
+    }
+    let end_time = info.end_frame / info.frame_rate;
+    if timestamp >= end_time && !encoder.finished() {
+        let encoder = encoder.finish();
+        let data = encoder.finalize((end_time * 1000.0) as i32).unwrap();
         let mut f = std::fs::File::create("result.webp").unwrap();
         f.write_all(&data).unwrap();
         drop(f);
@@ -536,7 +555,7 @@ fn save_img(
         };
         encoder
             .encoder
-            .add_frame(&data, (info.current_time * 1000.0) as i32)
+            .add_frame(&data, (timestamp * 1000.0) as i32)
             .unwrap();
     }
 }
