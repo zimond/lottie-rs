@@ -78,8 +78,8 @@ impl AnimatedExt for Transform {
 
     fn value(&self, frame: f32) -> Self::Target {
         let mut angle = 0.0;
-        if let Some(position) = self.position.as_ref() && self.auto_orient {
-            if position.is_animated() {
+        if let Some(position) = self.position.as_ref() {
+            if self.auto_orient && position.is_animated() {
                 let len = position.keyframes.len() - 1;
                 let mut frame = position.keyframes[0].start_frame.max(frame);
                 frame = position.keyframes[len].start_frame.min(frame);

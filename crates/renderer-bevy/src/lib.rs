@@ -493,8 +493,10 @@ fn animate_system(
         visibility_query.iter_mut()
     {
         let visible = tracker.value(current_frame).is_some();
-        if let Some(handle) = audio_handle && !computed_visibility.is_visible() && visible {
-            audio.play(handle.clone());
+        if let Some(handle) = audio_handle {
+            if !computed_visibility.is_visible() && visible {
+                audio.play(handle.clone());
+            }
         }
         visibility.is_visible = visible;
     }

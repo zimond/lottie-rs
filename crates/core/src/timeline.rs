@@ -163,8 +163,10 @@ impl Timeline {
             staged.frame_transform.time_remapping = time_remapping;
             staged.frame_transform.frame_rate = default_frame_rate;
 
-            if let Some(id) = previous && staged.matte_mode.is_some() {
-                timeline.store.get_mut(id).unwrap().is_mask = true;
+            if let Some(id) = previous {
+                if staged.matte_mode.is_some() {
+                    timeline.store.get_mut(id).unwrap().is_mask = true;
+                }
             }
 
             let id = timeline.add_item(staged);
