@@ -22,18 +22,20 @@ impl FontDB {
     pub fn load_fonts_from_model(&mut self, model: &Model) -> Result<(), Error> {
         // load remote fonts
         for font in &model.fonts.list {
-            if let Some(path) = font.path.as_ref() && font.origin == FontPathOrigin::FontUrl {
-                let response = ureq::get(path).call()?;
-                let len: usize = response.header("Content-Length")
-                    .ok_or_else(|| Error::NetworkMissingContentLength(path.clone()))?
-                    .parse().map_err(|_| Error::NetworkMalformedContentLength(path.clone()))?;
+            if let Some(path) = font.path.as_ref() {
+                if font.origin == FontPathOrigin::FontUrl {
+                    let response = ureq::get(path).call()?;
+                    let len: usize = response.header("Content-Length")
+                        .ok_or_else(|| Error::NetworkMissingContentLength(path.clone()))?
+                        .parse().map_err(|_| Error::NetworkMalformedContentLength(path.clone()))?;
 
-                let mut bytes: Vec<u8> = Vec::with_capacity(len);
-                response.into_reader()
-                    .take(len as u64)
-                    .read_to_end(&mut bytes)?;
-                let key = self.fontkit.add_font_from_buffer(bytes)?;
-                self.font_map.insert(font.name.clone(), key);
+                    let mut bytes: Vec<u8> = Vec::with_capacity(len);
+                    response.into_reader()
+                        .take(len as u64)
+                        .read_to_end(&mut bytes)?;
+                    let key = self.fontkit.add_font_from_buffer(bytes)?;
+                    self.font_map.insert(font.name.clone(), key);
+                }
             }
         }
         Ok(())

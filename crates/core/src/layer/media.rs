@@ -34,9 +34,13 @@ impl Media {
                     .as_ref()
                     .map(|url| !url.has_host())
                     .unwrap_or_else(|e| *e == ParseError::RelativeUrlWithoutBase);
-                let url = if no_host && let Some(host) = host {
-                    let url = host.parse::<Url>()?;
-                    url.join(&path)?
+                let url = if no_host {
+                    if let Some(host) = host {
+                        let url = host.parse::<Url>()?;
+                        url.join(&path)?
+                    } else {
+                        url?
+                    }
                 } else {
                     url?
                 };
