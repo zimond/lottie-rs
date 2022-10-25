@@ -13,6 +13,7 @@ fontkit = "0.1.0" #{ path = "../../../font-toolkit" }
 ureq = "2.4.0"
 base64 = "0.13.0"
 url = "2.2.2"
+log = "0.4.17"
 
 [dependencies.lottie-model]
 path = "../model"

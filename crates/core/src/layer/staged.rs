@@ -47,7 +47,13 @@ impl StagedLayer {
             LayerContent::PreCompositionRef(_)
             | LayerContent::Empty
             | LayerContent::MediaRef(_) => RenderableContent::Group,
-            LayerContent::Text(text) => RenderableContent::from_text(&text, model, fontdb)?,
+            LayerContent::Text(text) => match RenderableContent::from_text(&text, model, fontdb) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::warn!("{:?}", e);
+                    RenderableContent::Group
+                }
+            },
             LayerContent::SolidColor {
                 color,
                 height,
