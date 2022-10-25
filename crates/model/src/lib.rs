@@ -602,6 +602,26 @@ impl Default for TextCaps {
 
 #[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
 #[repr(u8)]
+pub enum TextBased {
+    Characters = 1,
+    CharactersExcludingSpaces = 2,
+    Words = 3,
+    Lines = 4,
+}
+
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum TextShape {
+    Square = 1,
+    RampUp = 2,
+    RampDown = 3,
+    Triangle = 4,
+    Round = 5,
+    Smooth = 6,
+}
+
+#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum MatteMode {
     Normal = 0,
     Alpha = 1,
@@ -855,13 +875,76 @@ pub struct Bezier {
 #[derive(Deserialize, Debug, Clone)]
 pub struct TextAnimationData {
     #[serde(rename = "a")]
-    properties: Vec<()>,
+    properties: Vec<TextAnimationProperty>,
     #[serde(rename = "d")]
     pub data: TextData,
     #[serde(rename = "m")]
     options: TextMoreOptions,
     #[serde(rename = "p")]
     masked_path: MaskedPath,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum TextAnimationProperty {
+    Data(TextAnimationDataProperty),
+    Selector(TextAnimationSelector),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextAnimationDataProperty {
+    stroke_width: Animated<f32>,
+    stroke_color: Animated<Rgb>,
+    stroke_hue: Animated<f32>,
+    stroke_saturation: Animated<f32>,
+    stroke_brightness: Animated<f32>,
+    stroke_opacity: Animated<f32>,
+    fill_color: Animated<Rgb>,
+    fill_hue: Animated<f32>,
+    fill_saturation: Animated<f32>,
+    fill_brightness: Animated<f32>,
+    tracking: Animated<f32>,
+    blur: Animated<f32>,
+    line_spacing: Animated<f32>,
+    transform: Transform,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextAnimationSelector {
+    #[serde(rename = "nm", default)]
+    name: Option<String>,
+    #[serde(rename = "a", default)]
+    transform: Option<Transform>,
+    #[serde(rename = "s")]
+    selector: TextSelectorProperty,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TextSelectorProperty {
+    #[serde(rename = "t", deserialize_with = "bool_from_int")]
+    expressible: bool,
+    #[serde(rename = "xe")]
+    max_ease: Animated<f32>,
+    #[serde(rename = "ne")]
+    min_ease: Animated<f32>,
+    #[serde(rename = "a")]
+    max_amount: Animated<f32>,
+    #[serde(rename = "b")]
+    based_on: TextBased,
+    #[serde(rename = "rn", deserialize_with = "bool_from_int")]
+    randomize: bool,
+    #[serde(rename = "sh")]
+    shape: TextShape,
+    #[serde(rename = "o", default)]
+    offset: Option<Animated<f32>>,
+    #[serde(rename = "r")]
+    range_units: TextBased,
+    #[serde(rename = "sm", default)]
+    selector_smoothness: Option<Animated<f32>>,
+    #[serde(rename = "s", default)]
+    start: Option<Animated<f32>>,
+    #[serde(rename = "e", default)]
+    end: Option<Animated<f32>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
