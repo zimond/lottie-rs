@@ -11,7 +11,7 @@ goes to original owners/creators of the files.
 |----------|-------------|
 | Confetti | <img src="fixtures/results/confetti.webp" width="200"> |
 | Techno Penguin | <img src="fixtures/results/techno_penguin.webp" width="200"> |
-| Drink | <img src="fixtures/results/drink.webp" width="200"> |
+| Nyan Cat | <img src="fixtures/results/nyan_cat.webp" width="200"> |
 
 # Try it out
 
