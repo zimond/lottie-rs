@@ -1,0 +1,1 @@
+Since `lottie-web` doesn't have a proper test suite, this directory is copied from [lottie-ios](https://github.com/airbnb/lottie-ios) repo and the goal is to pass all these test files. All the copyrights of the lottie animations goes to the original declared owners.
