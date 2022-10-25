@@ -80,7 +80,7 @@ impl<'a> BevyStagedLayer<'a> {
                         &media.content,
                         ImageType::MimeType(mime.mime_type()),
                         CompressedImageFormats::NONE,
-                        false,
+                        true,
                     )?;
                     let handle = self.image_assets.add(image);
                     c.insert_bundle(SpriteBundle {
