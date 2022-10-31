@@ -6,7 +6,6 @@ version = "0.1.0"
 [dependencies]
 # bevy-inspector-egui = "0.11.0"
 # bevy_prototype_debug_lines = { git = "https://github.com/Toqozz/bevy_debug_lines" }
-env_logger = "0.9.0"
 
 
 [dependencies.clap]

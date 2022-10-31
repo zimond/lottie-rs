@@ -8,7 +8,7 @@ use crate::Error;
 
 pub struct FontDB {
     fontkit: FontKit,
-    font_map: HashMap<String, FontKey>,
+    font_map: HashMap<String, Vec<FontKey>>,
 }
 
 impl FontDB {
@@ -25,16 +25,19 @@ impl FontDB {
             if let Some(path) = font.path.as_ref() {
                 if font.origin == FontPathOrigin::FontUrl {
                     let response = ureq::get(path).call()?;
-                    let len: usize = response.header("Content-Length")
+                    let len: usize = response
+                        .header("Content-Length")
                         .ok_or_else(|| Error::NetworkMissingContentLength(path.clone()))?
-                        .parse().map_err(|_| Error::NetworkMalformedContentLength(path.clone()))?;
+                        .parse()
+                        .map_err(|_| Error::NetworkMalformedContentLength(path.clone()))?;
 
                     let mut bytes: Vec<u8> = Vec::with_capacity(len);
-                    response.into_reader()
+                    response
+                        .into_reader()
                         .take(len as u64)
                         .read_to_end(&mut bytes)?;
-                    let key = self.fontkit.add_font_from_buffer(bytes)?;
-                    self.font_map.insert(font.name.clone(), key);
+                    let keys = self.fontkit.add_font_from_buffer(bytes)?;
+                    self.font_map.insert(font.name.clone(), keys);
                 }
             }
         }
@@ -45,9 +48,11 @@ impl FontDB {
         match font.origin {
             FontPathOrigin::Local => {
                 self.fontkit
-                    .query(&FontKey::new(&font.family, 400, false, Width::from(5)))
+                    .query(&FontKey::new(font.name.clone(), 400, false, Width::from(5)))
             }
-            FontPathOrigin::FontUrl => self.fontkit.query(self.font_map.get(&font.name)?),
+            // TODO: What if font from url is *.ttc and font.name points to one font in the
+            // collection? Could this be possible?
+            FontPathOrigin::FontUrl => self.fontkit.query(self.font_map.get(&font.name)?.first()?),
             _ => todo!(),
         }
     }

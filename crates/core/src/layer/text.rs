@@ -9,7 +9,7 @@ impl RenderableContent {
     pub fn from_text(
         text: &TextAnimationData,
         model: &Model,
-        fontkit: &FontDB,
+        fontdb: &FontDB,
     ) -> Result<Self, Error> {
         let mut path_frames = vec![];
         let mut fill_frames = vec![];
@@ -19,21 +19,25 @@ impl RenderableContent {
             let font = model
                 .font(&doc.font_family)
                 .ok_or_else(|| Error::FontFamilyNotFound(doc.font_family.clone()))?;
-            let font = fontkit
+            let font = fontdb
                 .font(font)
                 .ok_or_else(|| Error::FontNotLoaded(doc.font_family.clone()))?;
             font.load()?;
-            let metrics = font.measure(&doc.value, None)?;
+            let metrics = font.measure(&doc.value)?;
             let units = font.units_per_em() as f32;
             let factor = doc.size / units;
             let mut beziers = vec![];
+            let mut adv = 0.0;
             for (c, metric) in doc.value.chars().zip(metrics.positions()) {
                 let (glyph, _) = font
                     .outline(c)
                     .ok_or_else(|| Error::FontGlyphNotFound(doc.font_family.clone(), c))?;
                 let mut bezier = Bezier::default();
                 let mut last_pt = Vector2D::new(0.0, 0.0);
-                let offset = Vector2D::new(metric.x_a as f32 * factor, 0.0);
+                let length =
+                    metric.metrics.advanced_x as f32 * factor + metric.kerning as f32 * factor;
+                let offset = Vector2D::new(adv, 0.0);
+                adv += length;
                 for segment in glyph.path.iter() {
                     match segment {
                         PathSegment::MoveTo { x, y } => {

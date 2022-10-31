@@ -49,6 +49,8 @@ impl Lottie {
         let mut fontkit = FontKit::new();
         let path = dirs::font_dir().unwrap();
         fontkit.search_fonts_from_path(path)?;
+        #[cfg(target_os = "macos")]
+        fontkit.search_fonts_from_path(std::path::PathBuf::from("/System/Library/Fonts"))?;
         let model = Model::from_reader(r)?;
         Ok(Lottie::new(model, fontkit)?)
     }

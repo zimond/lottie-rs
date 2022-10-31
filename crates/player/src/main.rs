@@ -19,7 +19,6 @@ struct Args {
 // }
 
 fn main() {
-    // env_logger::init();
     let args = Args::parse();
     let f = fs::File::open(&args.input).unwrap();
     let lottie = Lottie::from_reader(f).unwrap();
