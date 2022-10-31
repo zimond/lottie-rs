@@ -1,4 +1,4 @@
-use crate::{Bezier, Rgb, Value, Vector2D};
+use crate::{Bezier, Rgb, TextDocument, Value, Vector2D};
 
 pub trait FromTo<T> {
     fn from(v: T) -> Self;
@@ -71,5 +71,18 @@ impl FromTo<Value> for Vec<f32> {
 
     fn to(self) -> Value {
         Value::List(self)
+    }
+}
+
+impl FromTo<Value> for TextDocument {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::TextDocument(t) => t,
+            _ => todo!(),
+        }
+    }
+
+    fn to(self) -> Value {
+        Value::TextDocument(self)
     }
 }

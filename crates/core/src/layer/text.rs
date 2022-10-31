@@ -17,11 +17,11 @@ impl RenderableContent {
         for keyframe in &text.data.keyframes {
             let doc = &keyframe.start_value;
             let font = model
-                .font(&doc.font_family)
-                .ok_or_else(|| Error::FontFamilyNotFound(doc.font_family.clone()))?;
+                .font(&doc.font_name)
+                .ok_or_else(|| Error::FontFamilyNotFound(doc.font_name.clone()))?;
             let font = fontdb
                 .font(font)
-                .ok_or_else(|| Error::FontNotLoaded(doc.font_family.clone()))?;
+                .ok_or_else(|| Error::FontNotLoaded(doc.font_name.clone()))?;
             font.load()?;
             let metrics = font.measure(&doc.value)?;
             let units = font.units_per_em() as f32;
@@ -31,7 +31,7 @@ impl RenderableContent {
             for (c, metric) in doc.value.chars().zip(metrics.positions()) {
                 let (glyph, _) = font
                     .outline(c)
-                    .ok_or_else(|| Error::FontGlyphNotFound(doc.font_family.clone(), c))?;
+                    .ok_or_else(|| Error::FontGlyphNotFound(doc.font_name.clone(), c))?;
                 let mut bezier = Bezier::default();
                 let mut last_pt = Vector2D::new(0.0, 0.0);
                 let length =

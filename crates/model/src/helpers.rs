@@ -18,6 +18,7 @@ pub enum Value {
     List(Vec<f32>),
     Bezier(Bezier),
     ComplexBezier(Vec<Bezier>),
+    TextDocument(TextDocument),
 }
 
 impl Value {
@@ -72,6 +73,19 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&b.to_string())
+}
+
+pub fn array_from_rgba<S>(b: &Rgba, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let a = [b.r as f32, b.g as f32, b.b as f32, b.a as f32];
+    let mut seq = serializer.serialize_seq(Some(a.len()))?;
+    seq.serialize_element(&a[0])?;
+    seq.serialize_element(&a[1])?;
+    seq.serialize_element(&a[2])?;
+    seq.serialize_element(&a[3])?;
+    seq.end()
 }
 
 impl<'de> serde::Deserialize<'de> for LayerContent {

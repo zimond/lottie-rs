@@ -239,6 +239,7 @@ pub struct KeyFrame<T> {
     pub end_value: T,
     #[serde(rename = "t", default)]
     pub start_frame: f32,
+    // TODO: could end_frame & next start_frame create a gap?
     #[serde(skip)]
     pub end_frame: f32,
     #[serde(rename = "o", default)]
@@ -271,7 +272,7 @@ impl<T: Clone> KeyFrame<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Easing {
     #[serde(deserialize_with = "array_from_array_or_number")]
     pub x: Vec<f32>,
@@ -951,7 +952,11 @@ pub struct TextSelectorProperty {
 pub struct TextData {
     #[serde(rename = "x", default)]
     expression: Option<String>,
-    #[serde(rename = "k")]
+    #[serde(
+        deserialize_with = "keyframes_from_array",
+        serialize_with = "array_from_keyframes",
+        rename = "k"
+    )]
     pub keyframes: Vec<KeyFrame<TextDocument>>,
 }
 
@@ -961,17 +966,27 @@ pub struct TextMoreOptions {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MaskedPath {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TextDocument {
     #[serde(rename = "t")]
     pub value: String,
     #[serde(rename = "f")]
-    pub font_family: String,
+    pub font_name: String,
     #[serde(rename = "s")]
     pub size: f32,
-    #[serde(rename = "fc", deserialize_with = "array_to_rgba", default)]
+    #[serde(
+        rename = "fc",
+        deserialize_with = "array_to_rgba",
+        serialize_with = "array_from_rgba",
+        default
+    )]
     pub fill_color: Rgba,
-    #[serde(rename = "sc", deserialize_with = "array_to_rgba", default)]
+    #[serde(
+        rename = "sc",
+        deserialize_with = "array_to_rgba",
+        serialize_with = "array_from_rgba",
+        default
+    )]
     stroke_color: Rgba,
     #[serde(rename = "sw", default)]
     stroke_width: f32,
@@ -993,7 +1008,7 @@ pub struct TextDocument {
 impl Default for TextDocument {
     fn default() -> Self {
         TextDocument {
-            font_family: String::new(),
+            font_name: String::new(),
             size: 14.0,
             fill_color: Rgba::new_u8(0, 0, 0, 255),
             stroke_color: Rgba::new_u8(0, 0, 0, 255),

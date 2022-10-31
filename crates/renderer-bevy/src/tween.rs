@@ -40,16 +40,24 @@ where
         for k in self.iter() {
             let start = k.start_value.clone();
             let end = k.end_value.clone();
-            let ease_out = k.easing_out.clone().unwrap();
-            let ease_in = k.easing_in.clone().unwrap();
+            let ease_out = k.easing_out.clone().unwrap_or_default();
+            let ease_in = k.easing_in.clone().unwrap_or_default();
             let frames = k.end_frame - k.start_frame;
+            if frames <= 0.0 {
+                continue;
+            }
             let secs = frames as f32 / frame_rate as f32;
-            debug_assert!(secs > 0.0);
             let curve = Curve::from_points(
                 Coord2(0.0, 0.0),
                 (
-                    Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
-                    Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
+                    Coord2(
+                        ease_out.x.get(0).cloned().unwrap_or(0.0) as f64,
+                        ease_out.y.get(0).cloned().unwrap_or(0.0) as f64,
+                    ),
+                    Coord2(
+                        ease_in.x.get(0).cloned().unwrap_or(1.0) as f64,
+                        ease_in.y.get(0).cloned().unwrap_or(1.0) as f64,
+                    ),
                 ),
                 Coord2(1.0, 1.0),
             );
