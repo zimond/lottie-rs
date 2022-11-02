@@ -46,14 +46,14 @@ impl FontDB {
 
     pub fn font(&self, font: &LottieFont) -> Option<&Font> {
         match font.origin {
-            FontPathOrigin::Local => {
-                self.fontkit
-                    .query(&FontKey::new(font.name.clone(), 400, false, Width::from(5)))
-            }
+            // This is not an html player. So we treat script/css urls as local obtained fonts
+            // TODO: could this be a thing in WASM target?
+            FontPathOrigin::Local | FontPathOrigin::ScriptUrl | FontPathOrigin::CssUrl => self
+                .fontkit
+                .query(&FontKey::new(font.name.clone(), 400, false, Width::from(5))),
             // TODO: What if font from url is *.ttc and font.name points to one font in the
             // collection? Could this be possible?
             FontPathOrigin::FontUrl => self.fontkit.query(self.font_map.get(&font.name)?.first()?),
-            _ => todo!(),
         }
     }
 }
