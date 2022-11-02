@@ -68,6 +68,9 @@ where
             }
             TolerantAnimatedHelper::AnimatedHelper(v) => {
                 let mut result: Vec<LegacyKeyFrame<Value>> = vec![];
+                // Sometimes keyframes especially from TextData do not have an ending frame, so
+                // we double check here to avoid removing them.
+                let mut has_t_only_frame = false;
                 for k in v {
                     match k {
                         LegacyTolerantKeyFrame::LegacyKeyFrame(mut k) => {
@@ -83,6 +86,7 @@ where
                             if let Some(prev) = result.last_mut() {
                                 prev.end_frame = t;
                             }
+                            has_t_only_frame = true;
                             break;
                         }
                     }
@@ -94,18 +98,23 @@ where
                         }
                     }
                 }
-                if result
-                    .last()
-                    .map(|keyframe| keyframe.end_value.is_none())
-                    .unwrap_or(false)
+                if has_t_only_frame
+                    && result
+                        .last()
+                        .map(|keyframe| keyframe.end_value.is_none())
+                        .unwrap_or(false)
                 {
                     result.pop();
                 }
                 result
                     .into_iter()
                     .map(|keyframe| KeyFrame {
+                        end_value: T::from(
+                            keyframe
+                                .end_value
+                                .unwrap_or_else(|| keyframe.start_value.clone()),
+                        ),
                         start_value: T::from(keyframe.start_value),
-                        end_value: T::from(keyframe.end_value.expect("unreachable")),
                         start_frame: keyframe.start_frame,
                         end_frame: keyframe.end_frame,
                         easing_in: keyframe.easing_in,

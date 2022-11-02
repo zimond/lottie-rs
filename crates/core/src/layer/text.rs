@@ -8,6 +8,7 @@ use crate::Error;
 impl RenderableContent {
     pub fn from_text(
         text: &TextAnimationData,
+        end_frame: f32,
         model: &Model,
         fontdb: &FontDB,
     ) -> Result<Self, Error> {
@@ -85,13 +86,18 @@ impl RenderableContent {
                 }
             }
 
+            let end = if keyframe.end_frame == 0.0 {
+                end_frame
+            } else {
+                keyframe.end_frame
+            };
             path_frames.push(KeyFrame {
                 start_value: beziers.clone(),
                 end_value: beziers.clone(),
                 start_frame: keyframe.start_frame,
-                end_frame: keyframe.end_frame,
-                easing_out: None,
-                easing_in: None,
+                end_frame: end,
+                easing_out: keyframe.easing_out.clone(),
+                easing_in: keyframe.easing_in.clone(),
             });
 
             let rgb = Rgb::new_u8(doc.fill_color.r, doc.fill_color.g, doc.fill_color.b);
@@ -99,18 +105,18 @@ impl RenderableContent {
                 start_value: rgb,
                 end_value: rgb,
                 start_frame: keyframe.start_frame,
-                end_frame: keyframe.end_frame,
-                easing_out: None,
-                easing_in: None,
+                end_frame: end,
+                easing_out: keyframe.easing_out.clone(),
+                easing_in: keyframe.easing_in.clone(),
             });
             let opacity = doc.fill_color.a as f32 / 255.0 * 100.0;
             fill_opacity_frames.push(KeyFrame {
                 start_value: opacity,
                 end_value: opacity,
                 start_frame: keyframe.start_frame,
-                end_frame: keyframe.end_frame,
-                easing_out: None,
-                easing_in: None,
+                end_frame: end,
+                easing_out: keyframe.easing_out.clone(),
+                easing_in: keyframe.easing_in.clone(),
             })
         }
         Ok(RenderableContent::Shape(ShapeGroup {
