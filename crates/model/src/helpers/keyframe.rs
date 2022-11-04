@@ -116,7 +116,7 @@ where
                         ),
                         start_value: T::from(keyframe.start_value),
                         start_frame: keyframe.start_frame,
-                        end_frame: keyframe.end_frame,
+                        end_frame: keyframe.end_frame.max(keyframe.start_frame),
                         easing_in: keyframe.easing_in,
                         easing_out: keyframe.easing_out,
                     })

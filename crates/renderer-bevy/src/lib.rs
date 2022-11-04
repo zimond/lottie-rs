@@ -457,10 +457,12 @@ fn animate_system(
     let current_frame = info.current_time * info.frame_rate;
 
     for (mut a, tracker) in transform_animation.iter_mut() {
-        if let Some(frame) = tracker.value(current_frame) {
+        let total = a.tweenable().unwrap().duration().as_secs_f32();
+        if total == 0.0 {
+            a.set_progress(1.0);
+        } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            let total = a.tweenable().unwrap().duration().as_secs_f32();
             a.set_progress(secs / total);
         } else {
             a.state = AnimatorState::Paused
@@ -468,10 +470,12 @@ fn animate_system(
     }
 
     for (mut a, tracker) in path_animation.iter_mut() {
-        if let Some(frame) = tracker.value(current_frame) {
+        let total = a.tweenable().unwrap().duration().as_secs_f32();
+        if total == 0.0 {
+            a.set_progress(1.0);
+        } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            let total = a.tweenable().unwrap().duration().as_secs_f32();
             a.set_progress(secs / total);
         } else {
             a.state = AnimatorState::Paused
