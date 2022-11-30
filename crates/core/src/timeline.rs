@@ -6,7 +6,7 @@ use slotmap::SlotMap;
 use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::hierarchy::TransformHierarchy;
-use crate::layer::staged::{StagedLayer, TargetRef};
+use crate::layer::staged::{StagedLayer, StagedLayerMask, StagedLayerMaskInfo, TargetRef};
 use crate::prelude::RenderableContent;
 use crate::Error;
 
@@ -20,7 +20,7 @@ pub enum TimelineAction {
     Destroy(Id),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Timeline {
     start_frame: f32,
     end_frame: f32,
@@ -155,6 +155,7 @@ impl Timeline {
                 _ => {}
             }
 
+            let matte_mode = layer.matte_mode;
             let mut staged = StagedLayer::new(layer, model, fontdb)?;
             staged.target = target_ref;
             staged.parent = parent;
@@ -164,8 +165,9 @@ impl Timeline {
             staged.frame_transform.frame_rate = default_frame_rate;
 
             if let Some(id) = previous {
-                if staged.matte_mode.is_some() {
-                    timeline.store.get_mut(id).unwrap().is_mask = true;
+                if let Some(mode) = matte_mode {
+                    timeline.store.get_mut(id).unwrap().mask = StagedLayerMask::IsMask;
+                    staged.mask = StagedLayerMask::HasMask(vec![StagedLayerMaskInfo { id, mode }]);
                 }
             }
 

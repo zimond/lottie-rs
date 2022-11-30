@@ -21,6 +21,42 @@ pub enum TargetRef {
     Asset(String),
 }
 
+#[derive(Debug, Clone)]
+pub enum StagedLayerMask {
+    None,
+    IsMask,
+    HasMask(Vec<StagedLayerMaskInfo>),
+}
+
+impl StagedLayerMask {
+    pub fn is_mask(&self) -> bool {
+        match self {
+            StagedLayerMask::IsMask => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        match self {
+            StagedLayerMask::None => true,
+            _ => false,
+        }
+    }
+
+    pub fn masks(&self) -> Option<&[StagedLayerMaskInfo]> {
+        match self {
+            StagedLayerMask::HasMask(info) => Some(info.as_slice()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StagedLayerMaskInfo {
+    pub mode: MatteMode,
+    pub id: Id,
+}
+
 /// A wrapper for [Layer], ready to be rendered
 #[derive(Debug, Clone)]
 pub struct StagedLayer {
@@ -36,8 +72,7 @@ pub struct StagedLayer {
     pub transform_hierarchy: TransformHierarchy,
     pub frame_transform: FrameTransform,
     pub frame_transform_hierarchy: FrameTransformHierarchy,
-    pub is_mask: bool,
-    pub matte_mode: Option<MatteMode>,
+    pub mask: StagedLayerMask,
 }
 
 impl StagedLayer {
@@ -95,8 +130,7 @@ impl StagedLayer {
             transform_hierarchy: TransformHierarchy::default(),
             frame_transform: FrameTransform::new(0.0, layer.start_time),
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
-            is_mask: false,
-            matte_mode: layer.matte_mode.clone(),
+            mask: StagedLayerMask::None,
         })
     }
 }

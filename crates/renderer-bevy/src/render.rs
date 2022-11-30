@@ -37,7 +37,7 @@ impl<'a> BevyStagedLayer<'a> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
-        if self.layer.is_mask {
+        if self.layer.mask.is_mask() {
             initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x;
         }
 
@@ -105,7 +105,7 @@ impl<'a> BevyStagedLayer<'a> {
             c.insert(animator);
         }
 
-        if self.layer.matte_mode.is_some() {
+        if let StagedLayerMask::HasMask(_) = &self.layer.mask {
             *self.mask_index = *self.mask_index + 1;
         }
 
@@ -138,14 +138,14 @@ impl<'a> BevyStagedLayer<'a> {
 
         let matte_mode = self
             .layer
-            .matte_mode
-            .as_ref()
-            .map(|mode| *mode as u8)
+            .mask
+            .masks()
+            .map(|modes| modes[0].mode as u8)
             .unwrap_or(0);
         let mut material = LottieMaterial {
             size: Vec4::new(self.model_size.x, self.model_size.y, self.scale, 0.0),
             mask_info: UVec4::new(*self.mask_index, self.mask_count, matte_mode as u32, 0),
-            mask: if self.layer.matte_mode.is_some() {
+            mask: if self.layer.mask.masks().is_some() {
                 Some(self.mask_handle.clone())
             } else {
                 None
@@ -158,7 +158,7 @@ impl<'a> BevyStagedLayer<'a> {
 
         let mut c = commands.spawn();
 
-        if self.layer.is_mask {
+        if self.layer.mask.is_mask() {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
 
@@ -267,7 +267,7 @@ impl<'a> BevyStagedLayer<'a> {
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
-        let mask_offset = if self.layer.is_mask {
+        let mask_offset = if self.layer.mask.is_mask() {
             Vec2::new(*self.mask_index as f32 * self.model_size.x, 0.0)
         } else {
             Vec2::ZERO

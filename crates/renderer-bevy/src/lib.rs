@@ -135,7 +135,7 @@ impl BevyRenderer {
         app.insert_resource(WindowDescriptor {
             width: width as f32,
             height: height as f32,
-            resizable: false,
+            // resizable: false,
             ..default()
         });
 
@@ -253,7 +253,7 @@ fn setup_system(
     let mask_count = lottie
         .timeline()
         .items()
-        .filter(|layer| layer.matte_mode.is_some())
+        .filter(|layer| layer.mask.masks().is_some())
         .count() as u32;
     // Create the mask texture
     let mask_size = Extent3d {
