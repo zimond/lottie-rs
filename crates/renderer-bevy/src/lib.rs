@@ -253,7 +253,7 @@ fn setup_system(
     let mask_count = lottie
         .timeline()
         .items()
-        .filter(|layer| layer.mask.masks().is_some())
+        .filter(|layer| layer.mask.is_mask())
         .count() as u32;
     // Create the mask texture
     let mask_size = Extent3d {
@@ -386,22 +386,51 @@ fn setup_system(
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     let mut mask_index = 0_u32;
+    let mut mask_registry = HashMap::new();
+    // First we spawn all mask layers
     for layer in lottie.timeline().items() {
-        let entity = BevyStagedLayer {
-            layer,
-            meshes: &mut meshes,
-            image_assets: &mut image_assets,
-            audio_assets: &mut audio_assets,
-            material_assets: &mut material_assets,
-            mask_handle: mask_texture_handle.clone(),
-            mask_index: &mut mask_index,
-            mask_count,
-            model_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32),
-            scale,
+        if layer.mask.is_mask() {
+            let entity = BevyStagedLayer {
+                layer,
+                meshes: &mut meshes,
+                image_assets: &mut image_assets,
+                audio_assets: &mut audio_assets,
+                material_assets: &mut material_assets,
+                mask_handle: mask_texture_handle.clone(),
+                mask_index: &mut mask_index,
+                mask_registry: &mut mask_registry,
+                mask_count,
+                model_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32),
+                scale,
+            }
+            .spawn(&mut commands)
+            .unwrap();
+            info.entities.insert(layer.id, entity);
         }
-        .spawn(&mut commands)
-        .unwrap();
-        info.entities.insert(layer.id, entity);
+    }
+
+    for layer in lottie.timeline().items() {
+        let entity = if !layer.mask.is_mask() {
+            let entity = BevyStagedLayer {
+                layer,
+                meshes: &mut meshes,
+                image_assets: &mut image_assets,
+                audio_assets: &mut audio_assets,
+                material_assets: &mut material_assets,
+                mask_handle: mask_texture_handle.clone(),
+                mask_index: &mut mask_index,
+                mask_registry: &mut mask_registry,
+                mask_count,
+                model_size: Vec2::new(lottie.model.width as f32, lottie.model.height as f32),
+                scale,
+            }
+            .spawn(&mut commands)
+            .unwrap();
+            info.entities.insert(layer.id, entity);
+            entity
+        } else {
+            *info.entities.get(&layer.id).unwrap()
+        };
         if let Some(parent_id) = layer.parent {
             if let Some(parent_entity) = info.entities.get(&parent_id) {
                 log::trace!("adding {:?} -> {:?}", entity, parent_entity);

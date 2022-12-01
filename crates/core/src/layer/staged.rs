@@ -51,7 +51,7 @@ impl StagedLayerMask {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct StagedLayerMaskInfo {
     pub mode: MatteMode,
     pub id: Id,

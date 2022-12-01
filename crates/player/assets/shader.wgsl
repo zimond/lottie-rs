@@ -14,6 +14,12 @@ struct GradientInfo {
     stops: array<GradientStop, 2>
 };
 
+struct MaskInfo {
+    masks: array<vec4<u32>, 4>,
+    mask_count: u32,
+    mask_total_count: u32
+}
+
 @group(1) @binding(0)
 var mask: texture_2d<f32>;
 
@@ -24,7 +30,7 @@ var mask_sampler: sampler;
 var<uniform> scene_size: vec4<f32>;
 
 @group(1) @binding(3)
-var<uniform> mask_info: vec4<u32>;
+var<uniform> mask_info: MaskInfo;
 
 @group(1) @binding(4)
 var<uniform> gradient: GradientInfo;
@@ -101,16 +107,14 @@ struct FragmentInput {
 fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @location(0) vec4<f32> {
     var out: vec4<f32>;
     let scale = scene_size.z;
-    let mask_index = f32(mask_info.x);
-    let mask_count = f32(mask_info.y);
     let pos = position.xy / scale;
-    if (gradient.use_gradient == 1u) {
+    if gradient.use_gradient == 1u {
         var start = (mesh.model * vec4<f32>(gradient.start_pos, 0.0, 1.0)).xy;
         let end = (mesh.model * vec4<f32>(gradient.end_pos, 0.0, 1.0)).xy;
         let proj = point_projection(pos.xy, start, end);
         let inv = smoothstep(start, end, proj);
         var t = inv.x;
-        if (end.x == start.x) {
+        if end.x == start.x {
             t = inv.y;
         }
         let color = mix(gradient.stops[0].color.xyz, gradient.stops[1].color.xyz, t);
@@ -119,13 +123,19 @@ fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @locat
         out = in.color;
     }
     let mask_size = vec2<f32>(textureDimensions(mask));
-    let stride = vec2(mask_size.x / mask_count, 0.0);
-    let sample_pos = (pos.xy + stride * mask_index) / mask_size;
-    var mask_pixel = textureSample(mask, mask_sampler, sample_pos);
-    if (mask_info.z == 2u) {
-        out.a = 1.0 - mask_pixel.a;
-    } else {
-        out.a = mask_pixel.a;
+    let count = mask_info.mask_count;
+    for (var i: u32 = 0u; i < count; i++) {
+        let info = mask_info.masks[i];
+        let mask_index = f32(info.x);
+        let mask_count = f32(mask_info.mask_total_count);
+        let stride = vec2(mask_size.x / mask_count, 0.0);
+        let sample_pos = (pos.xy + stride * mask_index) / mask_size;
+        var mask_pixel = textureSample(mask, mask_sampler, sample_pos);
+        if info.y == 2u {
+            out.a = 1.0 - mask_pixel.a;
+        } else {
+            out.a = mask_pixel.a;
+        }
     }
     // if (mask_info.z != 0u) {
     //     out = mask_pixel;

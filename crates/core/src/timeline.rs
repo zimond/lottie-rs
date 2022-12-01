@@ -202,6 +202,9 @@ impl Timeline {
         }
         timeline.build_opacity_hierarchy();
         timeline.build_frame_hierarchy();
+        timeline.build_mask_hierarchy();
+
+        // dbg!(&timeline);
         Ok(timeline)
     }
 
@@ -254,6 +257,30 @@ impl Timeline {
             stack.reverse();
             self.store.get_mut(id).unwrap().frame_transform_hierarchy =
                 FrameTransformHierarchy { stack };
+        }
+    }
+
+    fn build_mask_hierarchy(&mut self) {
+        let ids = self.store.keys().collect::<Vec<_>>();
+        for id in ids {
+            let mut layer = self.store.get(id).unwrap();
+            if layer.mask.is_mask() {
+                // TODO: could we support mask on mask?
+                continue;
+            }
+            let mut info = vec![];
+            if let StagedLayerMask::HasMask(masks) = &layer.mask {
+                info.push(masks[0]);
+            }
+            while let Some(parent) = layer.parent.and_then(|id| self.store.get(id)) {
+                if let StagedLayerMask::HasMask(masks) = &parent.mask {
+                    info.push(masks[0]);
+                    layer = parent;
+                }
+            }
+            if !info.is_empty() {
+                self.store.get_mut(id).unwrap().mask = StagedLayerMask::HasMask(info);
+            }
         }
     }
 }

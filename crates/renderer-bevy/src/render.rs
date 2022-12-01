@@ -13,7 +13,7 @@ use lyon::path::Winding;
 use wgpu::TextureDimension;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
-use crate::material::{GradientDataStop, GradientDataUniform, GradientInfo, LottieMaterial};
+use crate::material::*;
 use crate::plugin::MaskMarker;
 use crate::shape::ShapeBundle;
 use crate::tween::TweenProducer;
@@ -25,11 +25,12 @@ pub struct BevyStagedLayer<'a> {
     pub image_assets: &'a mut Assets<Image>,
     pub audio_assets: &'a mut Assets<AudioSource>,
     pub material_assets: &'a mut Assets<LottieMaterial>,
-    pub mask_handle: Handle<Image>,
     pub model_size: Vec2,
     pub scale: f32,
+    pub mask_handle: Handle<Image>,
     pub mask_index: &'a mut u32,
     pub mask_count: u32,
+    pub mask_registry: &'a mut HashMap<Id, u32>,
 }
 
 impl<'a> BevyStagedLayer<'a> {
@@ -39,6 +40,7 @@ impl<'a> BevyStagedLayer<'a> {
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
         if self.layer.mask.is_mask() {
             initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x;
+            self.mask_registry.insert(self.layer.id, *self.mask_index);
         }
 
         log::trace!(
@@ -105,8 +107,8 @@ impl<'a> BevyStagedLayer<'a> {
             c.insert(animator);
         }
 
-        if let StagedLayerMask::HasMask(_) = &self.layer.mask {
-            *self.mask_index = *self.mask_index + 1;
+        if self.layer.mask.is_mask() {
+            *self.mask_index += 1;
         }
 
         let id = c.id();
@@ -136,15 +138,18 @@ impl<'a> BevyStagedLayer<'a> {
             }
         }
 
-        let matte_mode = self
-            .layer
-            .mask
-            .masks()
-            .map(|modes| modes[0].mode as u8)
-            .unwrap_or(0);
         let mut material = LottieMaterial {
             size: Vec4::new(self.model_size.x, self.model_size.y, self.scale, 0.0),
-            mask_info: UVec4::new(*self.mask_index, self.mask_count, matte_mode as u32, 0),
+            mask_info: MaskDataUniform {
+                masks: [
+                    UVec4::default(),
+                    UVec4::default(),
+                    UVec4::default(),
+                    UVec4::default(),
+                ],
+                mask_count: self.layer.mask.masks().map(|d| d.len()).unwrap_or(0) as u32,
+                mask_total_count: self.mask_count,
+            },
             mask: if self.layer.mask.masks().is_some() {
                 Some(self.mask_handle.clone())
             } else {
@@ -152,6 +157,14 @@ impl<'a> BevyStagedLayer<'a> {
             },
             gradient: GradientDataUniform::default(),
         };
+
+        if let Some(masks) = self.layer.mask.masks() {
+            for (index, item) in masks.iter().enumerate() {
+                let mask_index = *self.mask_registry.get(&item.id).unwrap();
+                let mode = item.mode as u32;
+                material.mask_info.masks[index] = UVec4::new(mask_index, mode, 0, 0);
+            }
+        }
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
         transform.translation.z = -1.0 * zindex;

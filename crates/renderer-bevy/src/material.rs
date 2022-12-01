@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy::prelude::{Color, Handle, Image, UVec4, Vec4};
+use bevy::prelude::{Color, Handle, Image, UVec2, UVec4, Vec4};
 use bevy::reflect::TypeUuid;
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{
@@ -23,7 +23,7 @@ pub struct LottieMaterial {
     pub size: Vec4,
     /// Mask index, mask count, matte mode
     #[uniform(3)]
-    pub mask_info: UVec4,
+    pub mask_info: MaskDataUniform,
     #[uniform(4)]
     pub gradient: GradientDataUniform,
 }
@@ -87,6 +87,16 @@ pub struct GradientDataUniform {
     // tracking: https://github.com/bevyengine/bevy/issues/5499
     pub use_gradient: u32,
     pub stops: [GradientDataStop; 2],
+}
+
+#[derive(Clone, Default, ShaderType)]
+pub struct MaskDataUniform {
+    // #[size(runtime)]
+    // TODO: change this to a Vec (which compiles to a storage buffer) when bevy supports it
+    // tracking: https://github.com/bevyengine/bevy/issues/5499
+    pub masks: [UVec4; 4],
+    pub mask_count: u32,
+    pub mask_total_count: u32,
 }
 
 #[derive(Clone, Default, ShaderType)]
