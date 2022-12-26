@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 
 use lottie_model::{Animated, Asset, Layer, LayerContent, Model, Shape};
 use slotmap::SlotMap;
@@ -6,8 +8,8 @@ use slotmap::SlotMap;
 use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::hierarchy::TransformHierarchy;
-use crate::layer::staged::{StagedLayer, StagedLayerMask, StagedLayerMaskInfo, TargetRef};
-use crate::prelude::RenderableContent;
+use crate::layer::staged::{StagedLayer, TargetRef};
+use crate::prelude::{RenderableContent, StagedLayerMask};
 use crate::Error;
 
 slotmap::new_key_type! {
@@ -80,6 +82,8 @@ impl Timeline {
             index_id_map: HashMap::new(),
             store: SlotMap::with_key(),
         };
+        let default_parent_map: Rc<RefCell<HashMap<u32, Id>>> = Rc::default();
+        let default_standby_map: Rc<RefCell<HashMap<u32, Vec<Id>>>> = Rc::default();
         let mut layers = model
             .layers
             .iter()
@@ -90,12 +94,12 @@ impl Timeline {
                 child_index_window: 1.0,
                 target_ref: TargetRef::Layer(layer.id),
                 parent: None,
+                parent_map: default_parent_map.clone(),
+                standby_map: default_standby_map.clone(),
                 time_remapping: layer.time_remapping(),
             })
             .collect::<VecDeque<_>>();
         let default_frame_rate = model.frame_rate;
-        let mut standby_map: HashMap<u32, Vec<Id>> = HashMap::new();
-        let mut parents_map = HashMap::new();
         let mut previous = None;
         while !layers.is_empty() {
             let LayerInfo {
@@ -104,6 +108,8 @@ impl Timeline {
                 child_index_window,
                 target_ref,
                 parent,
+                parent_map,
+                standby_map,
                 time_remapping,
             } = layers.pop_front().unwrap();
             let index = layer.index;
@@ -114,6 +120,9 @@ impl Timeline {
                     match model.assets.iter().find(|asset| asset.id() == r.ref_id) {
                         Some(Asset::Precomposition(asset)) => {
                             let step = child_index_window / (asset.layers.len() as f32 + 1.0);
+                            let default_parent_map: Rc<RefCell<HashMap<u32, Id>>> = Rc::default();
+                            let default_standby_map: Rc<RefCell<HashMap<u32, Vec<Id>>>> =
+                                Rc::default();
                             for (index, asset_layer) in asset.layers.iter().enumerate() {
                                 let asset_layer = asset_layer.clone();
 
@@ -123,6 +132,8 @@ impl Timeline {
                                     child_index_window: step,
                                     target_ref: TargetRef::Asset(r.ref_id.clone()),
                                     parent: None,
+                                    standby_map: default_standby_map.clone(),
+                                    parent_map: default_parent_map.clone(),
                                     time_remapping: None,
                                 });
                             }
@@ -146,6 +157,8 @@ impl Timeline {
                                 child_index_window: 0.5,
                                 target_ref: TargetRef::Asset(i.ref_id.clone()),
                                 parent: None,
+                                parent_map: Default::default(),
+                                standby_map: Default::default(),
                                 time_remapping: None,
                             });
                         }
@@ -166,8 +179,11 @@ impl Timeline {
 
             if let Some(id) = previous {
                 if let Some(mode) = matte_mode {
-                    timeline.store.get_mut(id).unwrap().mask = StagedLayerMask::IsMask;
-                    staged.mask = StagedLayerMask::HasMask(vec![StagedLayerMaskInfo { id, mode }]);
+                    timeline.store.get_mut(id).unwrap().is_mask = true;
+                    staged
+                        .mask_hierarchy
+                        .stack
+                        .push(StagedLayerMask { id, mode });
                 }
             }
 
@@ -179,21 +195,26 @@ impl Timeline {
             }
 
             if let Some(ind) = index {
-                parents_map.insert(ind, id);
+                parent_map.borrow_mut().insert(ind, id);
             }
 
             if let Some(index) = parent_index {
-                if let Some(parent_id) = parents_map.get(&index) {
+                if let Some(parent_id) = parent_map.borrow().get(&index) {
                     if let Some(child) = timeline.store.get_mut(id) {
                         child.parent = Some(*parent_id);
                     }
                 } else {
-                    standby_map.entry(index).or_default().push(id);
+                    standby_map.borrow_mut().entry(index).or_default().push(id);
                 }
             }
 
             if let Some(index) = index {
-                for child_id in standby_map.remove(&index).into_iter().flatten() {
+                for child_id in standby_map
+                    .borrow_mut()
+                    .remove(&index)
+                    .into_iter()
+                    .flatten()
+                {
                     if let Some(child) = timeline.store.get_mut(child_id) {
                         child.parent = Some(id);
                     }
@@ -264,23 +285,22 @@ impl Timeline {
         let ids = self.store.keys().collect::<Vec<_>>();
         for id in ids {
             let mut layer = self.store.get(id).unwrap();
-            if layer.mask.is_mask() {
+            if layer.is_mask {
+                println!("mask over mask!");
                 // TODO: could we support mask on mask?
                 continue;
             }
             let mut info = vec![];
-            if let StagedLayerMask::HasMask(masks) = &layer.mask {
-                info.push(masks[0]);
+            if let Some(mask) = layer.mask_hierarchy.stack.first() {
+                info.push(*mask);
             }
             while let Some(parent) = layer.parent.and_then(|id| self.store.get(id)) {
-                if let StagedLayerMask::HasMask(masks) = &parent.mask {
-                    info.push(masks[0]);
-                    layer = parent;
+                if let Some(mask) = parent.mask_hierarchy.stack.first() {
+                    info.push(*mask);
                 }
+                layer = parent;
             }
-            if !info.is_empty() {
-                self.store.get_mut(id).unwrap().mask = StagedLayerMask::HasMask(info);
-            }
+            self.store.get_mut(id).unwrap().mask_hierarchy.stack = info;
         }
     }
 }
@@ -291,5 +311,7 @@ struct LayerInfo {
     child_index_window: f32,
     target_ref: TargetRef,
     parent: Option<Id>,
+    parent_map: Rc<RefCell<HashMap<u32, Id>>>,
+    standby_map: Rc<RefCell<HashMap<u32, Vec<Id>>>>,
     time_remapping: Option<Animated<f32>>,
 }

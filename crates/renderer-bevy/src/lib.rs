@@ -253,7 +253,7 @@ fn setup_system(
     let mask_count = lottie
         .timeline()
         .items()
-        .filter(|layer| layer.mask.is_mask())
+        .filter(|layer| layer.is_mask)
         .count() as u32;
     // Create the mask texture
     let mask_size = Extent3d {
@@ -389,7 +389,7 @@ fn setup_system(
     let mut mask_registry = HashMap::new();
     // First we spawn all mask layers
     for layer in lottie.timeline().items() {
-        if layer.mask.is_mask() {
+        if layer.is_mask {
             let entity = BevyStagedLayer {
                 layer,
                 meshes: &mut meshes,
@@ -410,7 +410,7 @@ fn setup_system(
     }
 
     for layer in lottie.timeline().items() {
-        let entity = if !layer.mask.is_mask() {
+        let entity = if !layer.is_mask {
             let entity = BevyStagedLayer {
                 layer,
                 meshes: &mut meshes,

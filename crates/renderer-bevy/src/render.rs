@@ -38,7 +38,7 @@ impl<'a> BevyStagedLayer<'a> {
         let mut c = commands.spawn();
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
-        if self.layer.mask.is_mask() {
+        if self.layer.is_mask {
             initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x;
             self.mask_registry.insert(self.layer.id, *self.mask_index);
         }
@@ -107,7 +107,7 @@ impl<'a> BevyStagedLayer<'a> {
             c.insert(animator);
         }
 
-        if self.layer.mask.is_mask() {
+        if self.layer.is_mask {
             *self.mask_index += 1;
         }
 
@@ -147,10 +147,10 @@ impl<'a> BevyStagedLayer<'a> {
                     UVec4::default(),
                     UVec4::default(),
                 ],
-                mask_count: self.layer.mask.masks().map(|d| d.len()).unwrap_or(0) as u32,
+                mask_count: self.layer.mask_hierarchy.len() as u32,
                 mask_total_count: self.mask_count,
             },
-            mask: if self.layer.mask.masks().is_some() {
+            mask: if !self.layer.mask_hierarchy.is_empty() {
                 Some(self.mask_handle.clone())
             } else {
                 None
@@ -158,12 +158,10 @@ impl<'a> BevyStagedLayer<'a> {
             gradient: GradientDataUniform::default(),
         };
 
-        if let Some(masks) = self.layer.mask.masks() {
-            for (index, item) in masks.iter().enumerate() {
-                let mask_index = *self.mask_registry.get(&item.id).unwrap();
-                let mode = item.mode as u32;
-                material.mask_info.masks[index] = UVec4::new(mask_index, mode, 0, 0);
-            }
+        for (index, item) in self.layer.mask_hierarchy.masks().iter().enumerate() {
+            let mask_index = *self.mask_registry.get(&item.id).unwrap();
+            let mode = item.mode as u32;
+            material.mask_info.masks[index] = UVec4::new(mask_index, mode, 0, 0);
         }
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
@@ -171,7 +169,7 @@ impl<'a> BevyStagedLayer<'a> {
 
         let mut c = commands.spawn();
 
-        if self.layer.mask.is_mask() {
+        if self.layer.is_mask {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
         }
 
@@ -280,7 +278,7 @@ impl<'a> BevyStagedLayer<'a> {
     fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
-        let mask_offset = if self.layer.mask.is_mask() {
+        let mask_offset = if self.layer.is_mask {
             Vec2::new(*self.mask_index as f32 * self.model_size.x, 0.0)
         } else {
             Vec2::ZERO

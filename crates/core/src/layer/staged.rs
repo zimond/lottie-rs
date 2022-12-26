@@ -1,7 +1,7 @@
 use lottie_model::*;
 
 use crate::font::FontDB;
-use crate::prelude::Id;
+use crate::prelude::{Id, MaskHierarchy};
 use crate::Error;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
@@ -21,46 +21,12 @@ pub enum TargetRef {
     Asset(String),
 }
 
-#[derive(Debug, Clone)]
-pub enum StagedLayerMask {
-    None,
-    IsMask,
-    HasMask(Vec<StagedLayerMaskInfo>),
-}
-
-impl StagedLayerMask {
-    pub fn is_mask(&self) -> bool {
-        match self {
-            StagedLayerMask::IsMask => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_none(&self) -> bool {
-        match self {
-            StagedLayerMask::None => true,
-            _ => false,
-        }
-    }
-
-    pub fn masks(&self) -> Option<&[StagedLayerMaskInfo]> {
-        match self {
-            StagedLayerMask::HasMask(info) => Some(info.as_slice()),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct StagedLayerMaskInfo {
-    pub mode: MatteMode,
-    pub id: Id,
-}
-
 /// A wrapper for [Layer], ready to be rendered
 #[derive(Debug, Clone)]
 pub struct StagedLayer {
+    /// Unique Id across the model
     pub id: Id,
+    /// Content that could be rendered, including media, shapes and groups
     pub content: RenderableContent,
     pub target: TargetRef,
     pub start_frame: f32,
@@ -72,7 +38,9 @@ pub struct StagedLayer {
     pub transform_hierarchy: TransformHierarchy,
     pub frame_transform: FrameTransform,
     pub frame_transform_hierarchy: FrameTransformHierarchy,
-    pub mask: StagedLayerMask,
+    /// Mask info of this layer
+    pub is_mask: bool,
+    pub mask_hierarchy: MaskHierarchy,
 }
 
 impl StagedLayer {
@@ -130,7 +98,8 @@ impl StagedLayer {
             transform_hierarchy: TransformHierarchy::default(),
             frame_transform: FrameTransform::new(0.0, layer.start_time),
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
-            mask: StagedLayerMask::None,
+            is_mask: false,
+            mask_hierarchy: MaskHierarchy::default(),
         })
     }
 }
