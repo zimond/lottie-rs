@@ -284,21 +284,13 @@ impl Timeline {
     fn build_mask_hierarchy(&mut self) {
         let ids = self.store.keys().collect::<Vec<_>>();
         for id in ids {
-            let mut layer = self.store.get(id).unwrap();
-            if layer.is_mask {
-                println!("mask over mask!");
-                // TODO: could we support mask on mask?
-                continue;
-            }
+            let mut layer = self.store.get(id);
             let mut info = vec![];
-            if let Some(mask) = layer.mask_hierarchy.stack.first() {
-                info.push(*mask);
-            }
-            while let Some(parent) = layer.parent.and_then(|id| self.store.get(id)) {
-                if let Some(mask) = parent.mask_hierarchy.stack.first() {
+            while let Some(l) = layer {
+                for mask in l.mask_hierarchy.masks() {
                     info.push(*mask);
                 }
-                layer = parent;
+                layer = l.parent.and_then(|id| self.store.get(id));
             }
             self.store.get_mut(id).unwrap().mask_hierarchy.stack = info;
         }

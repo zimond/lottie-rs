@@ -10,7 +10,6 @@ use lyon::math::Angle;
 use lyon::path::path::Builder;
 use lyon::path::traits::PathBuilder;
 use lyon::path::Winding;
-use wgpu::TextureDimension;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::*;
@@ -150,7 +149,7 @@ impl<'a> BevyStagedLayer<'a> {
                 mask_count: self.layer.mask_hierarchy.len() as u32,
                 mask_total_count: self.mask_count,
             },
-            mask: if !self.layer.mask_hierarchy.is_empty() {
+            mask: if !self.layer.is_mask {
                 Some(self.mask_handle.clone())
             } else {
                 None

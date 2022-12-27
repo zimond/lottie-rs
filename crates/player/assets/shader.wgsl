@@ -132,9 +132,9 @@ fn fragment(@builtin(position) position: vec4<f32>, in: FragmentInput) -> @locat
         let sample_pos = (pos.xy + stride * mask_index) / mask_size;
         var mask_pixel = textureSample(mask, mask_sampler, sample_pos);
         if info.y == 2u {
-            out.a = 1.0 - mask_pixel.a;
-        } else {
-            out.a = mask_pixel.a;
+            out.a *= (1.0 - mask_pixel.a);
+        } else if info.y == 1u {
+            out.a *= mask_pixel.a;
         }
     }
     // if (mask_info.z != 0u) {

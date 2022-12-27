@@ -61,9 +61,7 @@ impl Lens<Transform> for TransformLens {
     fn lerp(&mut self, target: &mut Transform, ratio: f32) {
         let frame = self.frames * ratio;
         let value = self.data.value(frame);
-        let zindex = target.translation.z;
         *target = Transform::from_matrix(value);
-        target.translation.z = zindex;
         target.translation.x += self.mask_offset.x;
     }
 }
