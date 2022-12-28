@@ -13,19 +13,17 @@ use std::borrow::Cow;
 use std::io::Write;
 use std::time::Duration;
 
-use bevy::app::{
-    AppExit, Plugin, PluginGroupBuilder, ScheduleRunnerPlugin, ScheduleRunnerSettings,
-};
+use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
-use bevy::render::camera::{RenderTarget, Viewport};
+use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
-use bevy::render::view::{RenderLayers, VisibilityPlugin};
+use bevy::render::view::RenderLayers;
 use bevy::utils::HashMap;
-use bevy::window::{ModifiesWindows, WindowSettings};
+use bevy::window::ModifiesWindows;
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
@@ -53,16 +51,22 @@ pub struct LottieComp {
     lottie: Lottie,
 }
 
-pub struct Capturing(bool);
-
 #[derive(Component)]
 struct LottieShapeComp(StyledShape);
 
 #[derive(Component)]
 struct LayerId(TimelineItemId);
 
+#[derive(Resource)]
+struct LottieGlobals {
+    lottie: Option<Lottie>,
+    capturing: bool,
+    config: Config,
+}
+
 fn modifies_windows() {}
 
+#[derive(Resource)]
 pub struct LottieAnimationInfo {
     start_frame: f32,
     end_frame: f32,
@@ -130,14 +134,8 @@ pub struct BevyRenderer {
 }
 
 impl BevyRenderer {
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new() -> Self {
         let mut app = App::new();
-        app.insert_resource(WindowDescriptor {
-            width: width as f32,
-            height: height as f32,
-            // resizable: false,
-            ..default()
-        });
 
         BevyRenderer { app }
     }
@@ -157,56 +155,63 @@ impl BevyRenderer {
 
 impl Renderer for BevyRenderer {
     fn load_lottie(&mut self, lottie: Lottie, config: Config) {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        DefaultPlugins.build(&mut plugin_group_builder);
-        // Defaulty disable GUI window
-        plugin_group_builder.disable::<WinitPlugin>();
-        // Disable gamepad support
-        plugin_group_builder.disable::<GilrsPlugin>();
-        plugin_group_builder.finish(&mut self.app);
-
+        let width = lottie.model.width as f32;
+        let height = lottie.model.height as f32;
+        let capturing = if let Config::Headless(_) = &config {
+            true
+        } else {
+            false
+        };
+        let default_plugins = DefaultPlugins
+            .build()
+            // Defaulty disable GUI window
+            .disable::<WinitPlugin>()
+            // Disable gamepad support
+            .disable::<GilrsPlugin>()
+            .set(WindowPlugin {
+                window: WindowDescriptor {
+                    width,
+                    height,
+                    // resizable: false,
+                    ..default()
+                },
+                add_primary_window: !capturing,
+                exit_on_all_closed: !capturing,
+                ..default()
+            });
         self.app
             .insert_resource(Msaa { samples: 4 })
-            .insert_resource(Capturing(false))
+            .add_plugins(default_plugins)
             .add_plugin(TweeningPlugin)
-            .add_plugin(VisibilityPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(LottiePlugin)
             .add_system(component_animator_system::<Path>)
             .add_system(component_animator_system::<DrawMode>)
             .add_system(animate_system)
-            .insert_resource(Some(lottie))
             .add_startup_system(setup_system);
 
-        let capture = match &config {
-            Config::Window(window_conf) => {
-                #[cfg(feature = "bevy_egui")]
-                if window_conf.show_controls {
-                    self.app
-                        .add_plugin(bevy_egui::EguiPlugin)
-                        .add_system(system::controls_system);
-                }
-                #[cfg(feature = "bevy-inspector-egui")]
-                if window_conf.show_debug {
-                    self.app
-                        .add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
-                }
-                false
+        if let Config::Window(window_conf) = &config {
+            #[cfg(feature = "bevy_egui")]
+            if window_conf.show_controls {
+                self.app
+                    .add_plugin(bevy_egui::EguiPlugin)
+                    .add_system(system::controls_system);
             }
-            Config::Headless(_) => {
-                self.app.insert_resource(WindowSettings {
-                    add_primary_window: false,
-                    exit_on_all_closed: false,
-                    close_when_requested: true,
-                });
-                true
+            #[cfg(feature = "bevy-inspector-egui")]
+            if window_conf.show_debug {
+                self.app
+                    .add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
             }
-        };
+        }
 
-        self.app.insert_resource(config);
+        self.app.insert_resource(LottieGlobals {
+            lottie: Some(lottie),
+            capturing,
+            config,
+        });
 
-        if capture {
+        if capturing {
             let encoder = WebpEncoder::new();
             self.app
                 .add_plugin(ImageCopyPlugin)
@@ -220,7 +225,6 @@ impl Renderer for BevyRenderer {
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                     1.0 / 60.0, //Don't run faster than 60fps
                 )))
-                .insert_resource(Capturing(true))
                 .add_plugin(ScheduleRunnerPlugin)
                 .add_system_to_stage(CoreStage::PostUpdate, save_img);
         } else {
@@ -235,22 +239,19 @@ impl Renderer for BevyRenderer {
 
 fn setup_system(
     mut commands: Commands,
-    mut lottie: ResMut<Option<Lottie>>,
+    mut lottie_globals: ResMut<LottieGlobals>,
     mut image_assets: ResMut<Assets<Image>>,
     mut audio_assets: ResMut<Assets<AudioSource>>,
     mut material_assets: ResMut<Assets<LottieMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     window: Res<Windows>,
-    config: Res<Config>,
-    capturing: Res<Capturing>,
     render_device: Res<RenderDevice>,
 ) {
     let scale = window
         .get_primary()
         .map(|p| p.scale_factor() as f32)
         .unwrap_or(1.0);
-    let mut lottie = lottie.take().unwrap();
-    commands.remove_resource::<Lottie>();
+    let mut lottie = lottie_globals.lottie.take().unwrap();
     let mut camera = Camera2dBundle::default();
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
         lottie.model.width as f32 / 2.0,
@@ -302,12 +303,10 @@ fn setup_system(
         )),
         ..default()
     };
-    commands
-        .spawn_bundle(mask_camera)
-        .insert(RenderLayers::layer(1));
+    commands.spawn(mask_camera).insert(RenderLayers::layer(1));
 
-    if capturing.0 {
-        let target = if let Config::Headless(headless) = &*config {
+    if lottie_globals.capturing {
+        let target = if let Config::Headless(headless) = &lottie_globals.config {
             headless.target
         } else {
             Target::Default
@@ -361,15 +360,13 @@ fn setup_system(
         if target == Target::Default {
             camera.camera.target = RenderTarget::Image(render_target_image_handle.clone());
         }
-        commands.spawn().insert(ImageCopier::new(
+        commands.spawn(ImageCopier::new(
             render_target_image_handle,
             cpu_image_handle.clone(),
             size,
             &render_device,
         ));
-        commands
-            .spawn()
-            .insert(ImageToSave(cpu_image_handle.clone()));
+        commands.spawn(ImageToSave(cpu_image_handle.clone()));
     }
 
     commands.spawn_bundle(camera);
@@ -388,8 +385,7 @@ fn setup_system(
     };
 
     let root_entity = commands
-        .spawn()
-        .insert_bundle(VisibilityBundle::default())
+        .spawn(VisibilityBundle::default())
         .insert_bundle(TransformBundle::default())
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
@@ -475,11 +471,11 @@ fn animate_system(
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
     mut info: ResMut<LottieAnimationInfo>,
-    capturing: Res<Capturing>,
+    lottie: Res<LottieGlobals>,
     audio: Res<Audio>,
     time: Res<Time>,
 ) {
-    let capturing = capturing.0;
+    let capturing = lottie.capturing;
     if info.paused {
         for (mut a, _) in transform_animation.iter_mut() {
             a.state = AnimatorState::Paused;
@@ -494,26 +490,26 @@ fn animate_system(
     let current_frame = info.current_time * info.frame_rate;
 
     for (mut a, tracker) in transform_animation.iter_mut() {
-        let total = a.tweenable().unwrap().duration().as_secs_f32();
+        let total = a.tweenable().duration().as_secs_f32();
         if total == 0.0 {
-            a.set_progress(1.0);
+            a.tweenable_mut().set_progress(1.0);
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            a.set_progress(secs / total);
+            a.tweenable_mut().set_progress(secs / total);
         } else {
             a.state = AnimatorState::Paused
         }
     }
 
     for (mut a, tracker) in path_animation.iter_mut() {
-        let total = a.tweenable().unwrap().duration().as_secs_f32();
+        let total = a.tweenable().duration().as_secs_f32();
         if total == 0.0 {
-            a.set_progress(1.0);
+            a.tweenable_mut().set_progress(1.0);
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            a.set_progress(secs / total);
+            a.tweenable_mut().set_progress(secs / total);
         } else {
             a.state = AnimatorState::Paused
         }
@@ -523,8 +519,8 @@ fn animate_system(
         if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            let total = a.tweenable().unwrap().duration().as_secs_f32();
-            a.set_progress(secs / total);
+            let total = a.tweenable().duration().as_secs_f32();
+            a.tweenable_mut().set_progress(secs / total);
         } else {
             a.state = AnimatorState::Paused
         }

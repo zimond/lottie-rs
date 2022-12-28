@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::{Entity, Image, Transform};
 use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
 use bevy::render::view::RenderLayers;
-use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween, TweeningType};
+use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween};
 use lottie_core::prelude::*;
 use lottie_core::{Transform as LottieTransform, *};
 use lyon::math::Angle;
@@ -34,7 +34,7 @@ pub struct BevyStagedLayer<'a> {
 
 impl<'a> BevyStagedLayer<'a> {
     pub fn spawn(mut self, commands: &mut Commands) -> Result<Entity, TextureError> {
-        let mut c = commands.spawn();
+        let mut c = commands.spawn(());
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
         if self.layer.is_mask {
@@ -54,11 +54,9 @@ impl<'a> BevyStagedLayer<'a> {
                 let shapes = shapes.shapes();
                 let count = shapes.shape_count() as f32 + 1.0;
                 for (zindex, shape) in shapes.enumerate() {
-                    if let Some(entity) = self.spawn_shape(
-                        (zindex as f32 + 1.0) / count + self.layer.zindex as f32,
-                        shape,
-                        c.commands(),
-                    ) {
+                    if let Some(entity) =
+                        self.spawn_shape((zindex as f32 + 1.0) / count, shape, c.commands())
+                    {
                         log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
                     }
@@ -102,7 +100,9 @@ impl<'a> BevyStagedLayer<'a> {
             local: initial_transform,
             global: Default::default(),
         });
-        if let Some(animator) = self.transform_animator(&self.layer.transform) {
+        if let Some(animator) =
+            self.transform_animator(&self.layer.transform, initial_transform.translation.z)
+        {
             c.insert(animator);
         }
 
@@ -164,9 +164,10 @@ impl<'a> BevyStagedLayer<'a> {
         }
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
-        transform.translation.z = -1.0 * zindex;
+        let zindex = -1.0 * zindex;
+        transform.translation.z = zindex;
 
-        let mut c = commands.spawn();
+        let mut c = commands.spawn(());
 
         if self.layer.is_mask {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
@@ -188,7 +189,7 @@ impl<'a> BevyStagedLayer<'a> {
                 );
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                if let Some(animator) = self.transform_animator(&shape.transform) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -199,7 +200,7 @@ impl<'a> BevyStagedLayer<'a> {
                 initial_pos = star.position.initial_value();
                 star.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
-                if let Some(animator) = self.transform_animator(&shape.transform) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -210,7 +211,7 @@ impl<'a> BevyStagedLayer<'a> {
                 initial_pos = rect.position.initial_value();
                 rect.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
-                if let Some(animator) = self.transform_animator(&shape.transform) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -223,7 +224,7 @@ impl<'a> BevyStagedLayer<'a> {
                 beziers.to_path(0.0, &mut builder);
                 c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                if let Some(animator) = self.transform_animator(&shape.transform) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -274,7 +275,11 @@ impl<'a> BevyStagedLayer<'a> {
         Some(c.id())
     }
 
-    fn transform_animator(&self, transform: &LottieTransform) -> Option<Animator<Transform>> {
+    fn transform_animator(
+        &self,
+        transform: &LottieTransform,
+        zindex: f32,
+    ) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
         let mask_offset = if self.layer.is_mask {
@@ -285,6 +290,7 @@ impl<'a> BevyStagedLayer<'a> {
         if transform.is_animated() {
             tweens.push(transform.tween(frame_rate, |data, _| TransformLens {
                 data,
+                zindex,
                 frames: 0.0,
                 mask_offset,
             }));
@@ -322,7 +328,6 @@ impl<'a> BevyStagedLayer<'a> {
             let secs = opacity_lens.frames as f32 / self.layer.frame_rate as f32;
             let tween = Tween::new(
                 EaseMethod::Linear,
-                TweeningType::Once,
                 Duration::from_secs_f32(secs),
                 opacity_lens,
             );

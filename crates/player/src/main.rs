@@ -22,7 +22,7 @@ fn main() {
     let args = Args::parse();
     let f = fs::File::open(&args.input).unwrap();
     let lottie = Lottie::from_reader(f).unwrap();
-    let mut renderer = BevyRenderer::new(lottie.model.width, lottie.model.height);
+    let mut renderer = BevyRenderer::new();
     let config = if args.headless {
         Config::Headless(HeadlessConfig {
             target: Target::Default,

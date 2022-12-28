@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::prelude::Transform;
-use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween, TweeningType};
+use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use lottie_core::{KeyFrame, Transform as LottieTransform};
@@ -73,7 +73,6 @@ where
                         intersection[0].2 .1 as f32
                     }
                 })),
-                TweeningType::Once,
                 Duration::from_secs_f32(secs),
                 producer(start, end),
             );
@@ -94,12 +93,7 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         let secs = frames as f32 / frame_rate as f32;
         let mut transform = producer(self.clone(), self.clone());
         transform.frames = frames;
-        let tween = Tween::new(
-            EaseMethod::Linear,
-            TweeningType::Once,
-            Duration::from_secs_f32(secs),
-            transform,
-        );
+        let tween = Tween::new(EaseMethod::Linear, Duration::from_secs_f32(secs), transform);
         Sequence::from_single(tween)
     }
 }

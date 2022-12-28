@@ -128,7 +128,7 @@ impl Timeline {
 
                                 assets.push(LayerInfo {
                                     layer: asset_layer,
-                                    zindex: (index as f32 + 1.0) * step + zindex,
+                                    zindex: (index as f32 + 1.0) * step,
                                     child_index_window: step,
                                     target_ref: TargetRef::Asset(r.ref_id.clone()),
                                     parent: None,

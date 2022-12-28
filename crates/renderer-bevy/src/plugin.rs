@@ -95,14 +95,20 @@ impl StrokeVertexConstructor<Vertex> for VertexConstructor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub struct BuildShapes;
 
+#[derive(Resource, Deref, DerefMut)]
+pub struct FillTessRes(FillTessellator);
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct StrokeTessRes(StrokeTessellator);
+
 pub struct LottiePlugin;
 
 impl Plugin for LottiePlugin {
     fn build(&self, app: &mut App) {
         let fill_tess = FillTessellator::new();
         let stroke_tess = StrokeTessellator::new();
-        app.insert_resource(fill_tess)
-            .insert_resource(stroke_tess)
+        app.insert_resource(FillTessRes(fill_tess))
+            .insert_resource(StrokeTessRes(stroke_tess))
             .add_plugin(Material2dPlugin::<LottieMaterial>::default())
             .add_system_to_stage(CoreStage::PostUpdate, mesh_shapes_system.label(BuildShapes));
     }
@@ -113,8 +119,8 @@ impl Plugin for LottiePlugin {
 #[allow(clippy::type_complexity)]
 fn mesh_shapes_system(
     mut meshes: ResMut<Assets<Mesh>>,
-    mut fill_tess: ResMut<FillTessellator>,
-    mut stroke_tess: ResMut<StrokeTessellator>,
+    mut fill_tess: ResMut<FillTessRes>,
+    mut stroke_tess: ResMut<StrokeTessRes>,
     mut query: Query<(&DrawMode, &Path, &mut Mesh2dHandle), Or<(Changed<Path>, Changed<DrawMode>)>>,
 ) {
     for (tess_mode, path, mut mesh) in query.iter_mut() {
@@ -132,12 +138,7 @@ fn mesh_shapes_system(
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // lyon takes &FillOptions
-fn fill(
-    tess: &mut ResMut<FillTessellator>,
-    path: &LyonPath,
-    mode: &Fill,
-    buffers: &mut VertexBuffers,
-) {
+fn fill(tess: &mut ResMut<FillTessRes>, path: &LyonPath, mode: &Fill, buffers: &mut VertexBuffers) {
     if let Err(e) = tess.tessellate_path(
         path,
         &mode.options,
@@ -152,7 +153,7 @@ fn fill(
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // lyon takes &StrokeOptions
 fn stroke(
-    tess: &mut ResMut<StrokeTessellator>,
+    tess: &mut ResMut<StrokeTessRes>,
     path: &LyonPath,
     mode: &Stroke,
     buffers: &mut VertexBuffers,

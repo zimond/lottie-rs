@@ -54,6 +54,7 @@ impl Lens<DrawMode> for StrokeWidthLens {
 pub struct TransformLens {
     pub(crate) data: LottieTransform,
     pub(crate) frames: f32,
+    pub(crate) zindex: f32,
     pub(crate) mask_offset: Vec2,
 }
 
@@ -62,6 +63,7 @@ impl Lens<Transform> for TransformLens {
         let frame = self.frames * ratio;
         let value = self.data.value(frame);
         *target = Transform::from_matrix(value);
+        target.translation.z = self.zindex;
         target.translation.x += self.mask_offset.x;
     }
 }

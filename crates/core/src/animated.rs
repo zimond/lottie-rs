@@ -83,8 +83,14 @@ impl AnimatedExt for Transform {
                 let len = position.keyframes.len() - 1;
                 let mut frame = position.keyframes[0].start_frame.max(frame);
                 frame = position.keyframes[len].start_frame.min(frame);
-                if let Some(keyframe) = position.keyframes.iter().find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame) {
-                    angle = (keyframe.end_value - keyframe.start_value).angle_from_x_axis().to_degrees();
+                if let Some(keyframe) = position
+                    .keyframes
+                    .iter()
+                    .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
+                {
+                    angle = (keyframe.end_value - keyframe.start_value)
+                        .angle_from_x_axis()
+                        .to_degrees();
                 }
             }
         }
