@@ -157,25 +157,6 @@ impl BevyRenderer {
 
 impl Renderer for BevyRenderer {
     fn load_lottie(&mut self, lottie: Lottie, config: Config) {
-        let capture = match &config {
-            Config::Window(window_conf) => {
-                #[cfg(feature = "bevy_egui")]
-                if window_conf.show_controls {
-                    self.app
-                        .add_plugin(bevy_egui::EguiPlugin)
-                        .add_system(system::controls_system);
-                }
-                false
-            }
-            Config::Headless(_) => {
-                self.app.insert_resource(WindowSettings {
-                    add_primary_window: false,
-                    exit_on_all_closed: false,
-                    close_when_requested: true,
-                });
-                true
-            }
-        };
         let mut plugin_group_builder = PluginGroupBuilder::default();
         DefaultPlugins.build(&mut plugin_group_builder);
         // Defaulty disable GUI window
@@ -196,8 +177,35 @@ impl Renderer for BevyRenderer {
             .add_system(component_animator_system::<DrawMode>)
             .add_system(animate_system)
             .insert_resource(Some(lottie))
-            .add_startup_system(setup_system)
-            .insert_resource(config);
+            .add_startup_system(setup_system);
+
+        let capture = match &config {
+            Config::Window(window_conf) => {
+                #[cfg(feature = "bevy_egui")]
+                if window_conf.show_controls {
+                    self.app
+                        .add_plugin(bevy_egui::EguiPlugin)
+                        .add_system(system::controls_system);
+                }
+                #[cfg(feature = "bevy-inspector-egui")]
+                if window_conf.show_debug {
+                    self.app
+                        .add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
+                }
+                false
+            }
+            Config::Headless(_) => {
+                self.app.insert_resource(WindowSettings {
+                    add_primary_window: false,
+                    exit_on_all_closed: false,
+                    close_when_requested: true,
+                });
+                true
+            }
+        };
+
+        self.app.insert_resource(config);
+
         if capture {
             let encoder = WebpEncoder::new();
             self.app

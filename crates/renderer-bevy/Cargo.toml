@@ -19,6 +19,8 @@ lottie-core = { path = "../core" }
 lyon = "0.17.10"
 futures-intrusive = "0.4.0"
 pollster = "0.2.5"
+bevy-inspector-egui = { version = "0.13.0", optional = true }
 
 [features]
-default = ["bevy_egui"]
+default = ["egui"]
+egui = ["bevy_egui", "bevy-inspector-egui"]
