@@ -1,6 +1,6 @@
 use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
-use lottie_core::prelude::{OpacityHierarchy, PathExt, TransformHierarchy};
+use lottie_core::prelude::{OpacityHierarchy, PathExt};
 use lottie_core::{Animated, AnimatedExt, Bezier, Transform as LottieTransform};
 use lyon::path::path::Builder;
 
