@@ -18,7 +18,6 @@ goes to original owners/creators of the files.
 The default player implementation uses [Bevy](https://github.com/bevyengine/bevy) to render the animation.
 
 ```bash
-cd crates/player
 cargo r --release -- --input ../../fixtures/ui/drink.json
 ```
 
@@ -30,9 +29,10 @@ Exporting animation headlessly is also supported, aiming to render animations on
 `webp` exporting for test purpose.
 
 ```bash
-cd crates/player
-cargo r --release -- --input ../../fixtures/ui/drink.json --headless
+cargo r --release -- --input fixtures/ui/drink.json --headless
 ```
+
+A `webp` file with the same name as input JSON will be generated.
 
 # Font Loading
 

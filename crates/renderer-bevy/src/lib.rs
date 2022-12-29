@@ -551,8 +551,9 @@ fn animate_system(
 }
 
 fn save_img(
-    info: Res<LottieAnimationInfo>,
     image_to_save: Query<&ImageToSave>,
+    info: Res<LottieAnimationInfo>,
+    lottie: Res<LottieGlobals>,
     mut images: ResMut<Assets<Image>>,
     mut encoder: NonSendMut<WebpEncoder>,
     mut exit: EventWriter<AppExit>,
@@ -577,9 +578,11 @@ fn save_img(
     if timestamp >= end_time && !encoder.finished() {
         let encoder = encoder.finish();
         let data = encoder.finalize((end_time * 1000.0) as i32).unwrap();
-        let mut f = std::fs::File::create("result.webp").unwrap();
-        f.write_all(&data).unwrap();
-        drop(f);
+        if let Config::Headless(HeadlessConfig { filename, .. }) = &lottie.config {
+            let mut f = std::fs::File::create(&format!("{filename}.webp")).unwrap();
+            f.write_all(&data).unwrap();
+            drop(f);
+        }
         exit.send(AppExit);
         return;
     }

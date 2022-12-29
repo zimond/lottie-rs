@@ -13,6 +13,7 @@ pub enum Target {
 
 pub struct HeadlessConfig {
     pub target: Target,
+    pub filename: String,
 }
 
 pub enum Config {
