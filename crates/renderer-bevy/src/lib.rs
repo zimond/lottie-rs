@@ -369,7 +369,7 @@ fn setup_system(
         commands.spawn(ImageToSave(cpu_image_handle.clone()));
     }
 
-    commands.spawn_bundle(camera);
+    commands.spawn(camera);
 
     lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
@@ -386,7 +386,7 @@ fn setup_system(
 
     let root_entity = commands
         .spawn(VisibilityBundle::default())
-        .insert_bundle(TransformBundle::default())
+        .insert(TransformBundle::default())
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     let mut mask_index = 0_u32;

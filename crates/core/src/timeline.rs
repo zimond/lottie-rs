@@ -221,12 +221,32 @@ impl Timeline {
                 }
             }
         }
+        timeline.fix_zindex();
         timeline.build_opacity_hierarchy();
         timeline.build_frame_hierarchy();
         timeline.build_mask_hierarchy();
 
         // dbg!(&timeline);
         Ok(timeline)
+    }
+
+    /// Lottie's parenting does not share zindex, so we have to fix it to align
+    /// to the usual transformation hierarchy logic in almost every renderer
+    fn fix_zindex(&mut self) {
+        let ids = self.store.keys().collect::<Vec<_>>();
+        let mut zindex_map = HashMap::new();
+        for id in ids {
+            let mut layer = self.store.get(id);
+            let mut zindex = layer.map(|l| l.zindex).unwrap_or(0.0);
+            while let Some(l) = layer {
+                zindex -= l.zindex;
+                layer = l.parent.and_then(|id| self.store.get(id));
+            }
+            zindex_map.insert(id, zindex);
+        }
+        for (id, zindex) in zindex_map {
+            self.store.get_mut(id).unwrap().zindex += zindex;
+        }
     }
 
     fn transform_hierarchy(&self, id: Id) -> Option<TransformHierarchy> {

@@ -34,7 +34,14 @@ pub struct BevyStagedLayer<'a> {
 
 impl<'a> BevyStagedLayer<'a> {
     pub fn spawn(mut self, commands: &mut Commands) -> Result<Entity, TextureError> {
-        let mut c = commands.spawn(());
+        let name = self
+            .layer
+            .name
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or("Layer")
+            .to_string();
+        let mut c = commands.spawn(Name::new(name));
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
         if self.layer.is_mask {
@@ -82,7 +89,7 @@ impl<'a> BevyStagedLayer<'a> {
                         true,
                     )?;
                     let handle = self.image_assets.add(image);
-                    c.insert_bundle(SpriteBundle {
+                    c.insert(SpriteBundle {
                         texture: handle,
                         ..Default::default()
                     });
@@ -96,7 +103,7 @@ impl<'a> BevyStagedLayer<'a> {
             }
             RenderableContent::Group => {}
         }
-        c.insert_bundle(TransformBundle {
+        c.insert(TransformBundle {
             local: initial_transform,
             global: Default::default(),
         });
@@ -112,7 +119,7 @@ impl<'a> BevyStagedLayer<'a> {
 
         let id = c.id();
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
-        c.insert_bundle(VisibilityBundle::default());
+        c.insert(VisibilityBundle::default());
         Ok(id)
     }
 
@@ -167,7 +174,14 @@ impl<'a> BevyStagedLayer<'a> {
         let zindex = -1.0 * zindex;
         transform.translation.z = zindex;
 
-        let mut c = commands.spawn(());
+        let name = shape
+            .shape
+            .name
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or("Shape")
+            .to_string();
+        let mut c = commands.spawn(Name::new(name));
 
         if self.layer.is_mask {
             c.insert(MaskMarker).insert(RenderLayers::from_layers(&[1]));
@@ -187,7 +201,7 @@ impl<'a> BevyStagedLayer<'a> {
                     Angle::zero(),
                     Winding::Positive,
                 );
-                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
+                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
 
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
@@ -199,7 +213,7 @@ impl<'a> BevyStagedLayer<'a> {
             Shape::PolyStar(star) => {
                 initial_pos = star.position.initial_value();
                 star.to_path(0.0, &mut builder);
-                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
+                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
@@ -210,7 +224,7 @@ impl<'a> BevyStagedLayer<'a> {
             Shape::Rectangle(rect) => {
                 initial_pos = rect.position.initial_value();
                 rect.to_path(0.0, &mut builder);
-                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
+                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);
                 }
@@ -222,7 +236,7 @@ impl<'a> BevyStagedLayer<'a> {
                 let beziers = d.initial_value();
 
                 beziers.to_path(0.0, &mut builder);
-                c.insert_bundle(ShapeBundle::new(builder.build(), draw_mode, transform));
+                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
 
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
                     c.insert(animator);

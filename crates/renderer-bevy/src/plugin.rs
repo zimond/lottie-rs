@@ -110,7 +110,12 @@ impl Plugin for LottiePlugin {
         app.insert_resource(FillTessRes(fill_tess))
             .insert_resource(StrokeTessRes(stroke_tess))
             .add_plugin(Material2dPlugin::<LottieMaterial>::default())
-            .add_system_to_stage(CoreStage::PostUpdate, mesh_shapes_system.label(BuildShapes));
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                mesh_shapes_system
+                    .label(BuildShapes)
+                    .after(bevy::transform::TransformSystem::TransformPropagate),
+            );
     }
 }
 

@@ -1,5 +1,5 @@
 use bevy::math::Vec2;
-use bevy::prelude::{Color, Handle, Image, UVec2, UVec4, Vec4};
+use bevy::prelude::{Color, Handle, Image, UVec4, Vec4};
 use bevy::reflect::TypeUuid;
 use bevy::render::mesh::MeshVertexBufferLayout;
 use bevy::render::render_resource::{

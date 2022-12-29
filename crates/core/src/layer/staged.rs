@@ -26,6 +26,7 @@ pub enum TargetRef {
 pub struct StagedLayer {
     /// Unique Id across the model
     pub id: Id,
+    pub name: Option<String>,
     /// Content that could be rendered, including media, shapes and groups
     pub content: RenderableContent,
     pub target: TargetRef,
@@ -87,6 +88,7 @@ impl StagedLayer {
         transform.auto_orient = layer.auto_orient;
         Ok(StagedLayer {
             id: Id::default(),
+            name: layer.name.clone(),
             content,
             zindex: 0.0,
             target: TargetRef::Layer(0),
