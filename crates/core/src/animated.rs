@@ -104,8 +104,15 @@ impl AnimatedExt for Transform {
             .as_ref()
             .map(|a| a.value(frame))
             .unwrap_or_default();
-        let scale = self.scale.value(frame) / 100.0;
+        let mut scale = self.scale.value(frame) / 100.0;
         let rotation = self.rotation.value(frame) + angle;
+        // Some lottie file has scale = 0, which is invalid
+        if scale.x == 0.0 {
+            scale.x = f32::EPSILON;
+        }
+        if scale.y == 0.0 {
+            scale.y = f32::EPSILON;
+        }
         mat4(anchor, position, scale, rotation)
     }
 

@@ -414,8 +414,7 @@ fn setup_system(
     }
 
     // TODO: No idea why zindexing partially not working.
-    let layers = lottie.timeline().items().collect::<Vec<_>>();
-    for layer in layers.into_iter().rev() {
+    for layer in lottie.timeline().items() {
         let entity = if !layer.is_mask {
             let entity = BevyStagedLayer {
                 layer,
