@@ -205,6 +205,7 @@ impl Renderer for BevyRenderer {
             }
         }
 
+        let frame_rate = lottie.model.frame_rate as f64;
         self.app.insert_resource(LottieGlobals {
             lottie: Some(lottie),
             capturing,
@@ -223,7 +224,7 @@ impl Renderer for BevyRenderer {
                     modifies_windows.label(ModifiesWindows),
                 )
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-                    1.0 / 60.0, //Don't run faster than 60fps
+                    1.0 / frame_rate,
                 )))
                 .add_plugin(ScheduleRunnerPlugin)
                 .add_system_to_stage(CoreStage::PostUpdate, save_img);
@@ -493,11 +494,12 @@ fn animate_system(
     for (mut a, tracker) in transform_animation.iter_mut() {
         let total = a.tweenable().duration().as_secs_f32();
         if total == 0.0 {
-            a.tweenable_mut().set_progress(1.0);
+            a.tweenable_mut()
+                .set_elapsed(Duration::from_secs_f32(total));
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            a.tweenable_mut().set_progress(secs / total);
+            a.tweenable_mut().set_elapsed(Duration::from_secs_f32(secs));
         } else {
             a.state = AnimatorState::Paused
         }
@@ -506,11 +508,12 @@ fn animate_system(
     for (mut a, tracker) in path_animation.iter_mut() {
         let total = a.tweenable().duration().as_secs_f32();
         if total == 0.0 {
-            a.tweenable_mut().set_progress(1.0);
+            a.tweenable_mut()
+                .set_elapsed(Duration::from_secs_f32(total));
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            a.tweenable_mut().set_progress(secs / total);
+            a.tweenable_mut().set_elapsed(Duration::from_secs_f32(secs));
         } else {
             a.state = AnimatorState::Paused
         }
@@ -520,8 +523,7 @@ fn animate_system(
         if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
             let secs = frame / tracker.frame_rate();
-            let total = a.tweenable().duration().as_secs_f32();
-            a.tweenable_mut().set_progress(secs / total);
+            a.tweenable_mut().set_elapsed(Duration::from_secs_f32(secs));
         } else {
             a.state = AnimatorState::Paused
         }

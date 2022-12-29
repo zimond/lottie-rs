@@ -26,7 +26,7 @@ There are some lottie files for demonstration purpose under `fixtures/ui`
 # Headless runner
 
 Exporting animation headlessly is also supported, aiming to render animations on a server. Currently we support
-`webp` exporting for test purpose.
+`webp` exporting for testing purpose.
 
 ```bash
 cargo r --release -- --input fixtures/ui/drink.json --headless
