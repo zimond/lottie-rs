@@ -32,7 +32,7 @@ where
         F: Fn(Self::Key, Self::Key) -> L,
     {
         let mut seq = Sequence::with_capacity(self.len() + 1);
-        if self[0].start_frame.is_sign_positive() {
+        if self[0].start_frame > 0.0 {
             seq = seq.then(Delay::new(Duration::from_secs_f32(
                 self[0].start_frame / (frame_rate as f32),
             )));
