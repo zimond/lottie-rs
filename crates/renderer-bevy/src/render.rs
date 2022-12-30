@@ -96,10 +96,12 @@ impl<'a> BevyStagedLayer<'a> {
                         1.0,
                     );
                     let handle = self.image_assets.add(image);
-                    c.insert(SpriteBundle {
+                    let mut bundle = SpriteBundle {
                         texture: handle,
                         ..Default::default()
-                    });
+                    };
+                    bundle.sprite.flip_x = true;
+                    c.insert(bundle);
                 } else if mime.mime_type().starts_with("audio") {
                     let source = AudioSource {
                         bytes: media.content.as_slice().into(),
