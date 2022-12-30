@@ -45,7 +45,12 @@ pub struct StagedLayer {
 }
 
 impl StagedLayer {
-    pub fn new(layer: Layer, model: &Model, fontdb: &FontDB) -> Result<Self, Error> {
+    pub fn new(
+        layer: Layer,
+        model: &Model,
+        fontdb: &FontDB,
+        root_path: &str,
+    ) -> Result<Self, Error> {
         let content = match layer.content {
             LayerContent::Shape(shape_group) => RenderableContent::Shape(shape_group),
             LayerContent::PreCompositionRef(_)
@@ -81,7 +86,9 @@ impl StagedLayer {
                     },
                 ],
             }),
-            LayerContent::Media(media) => RenderableContent::Media(Media::new(media, None)?),
+            LayerContent::Media(media) => {
+                RenderableContent::Media(Media::new(media, Some(root_path))?)
+            }
             _ => todo!(),
         };
         let mut transform = layer.transform.unwrap_or_default();

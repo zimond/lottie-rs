@@ -23,6 +23,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
     let path = Path::new(&args.input);
+    let mut root_path = path.to_path_buf();
+    root_path.pop();
     let mut filename = path
         .file_prefix()
         .and_then(|name| name.to_str())
@@ -31,8 +33,9 @@ fn main() {
     if filename.is_empty() {
         filename = "output".to_string();
     }
+    let root_path = &*root_path.to_string_lossy();
     let f = fs::File::open(path).unwrap();
-    let lottie = Lottie::from_reader(f).unwrap();
+    let lottie = Lottie::from_reader(f, root_path).unwrap();
     let mut renderer = BevyRenderer::new();
     let config = if args.headless {
         Config::Headless(HeadlessConfig {

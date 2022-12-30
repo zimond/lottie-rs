@@ -74,7 +74,7 @@ impl Timeline {
         self.store.get(id)
     }
 
-    pub(crate) fn new(model: &Model, fontdb: &FontDB) -> Result<Self, Error> {
+    pub(crate) fn new(model: &Model, fontdb: &FontDB, root_path: &str) -> Result<Self, Error> {
         let mut timeline = Timeline {
             start_frame: 0.0,
             end_frame: 0.0,
@@ -169,7 +169,7 @@ impl Timeline {
             }
 
             let matte_mode = layer.matte_mode;
-            let mut staged = StagedLayer::new(layer, model, fontdb)?;
+            let mut staged = StagedLayer::new(layer, model, fontdb, root_path)?;
             staged.target = target_ref;
             staged.parent = parent;
             staged.zindex = zindex;

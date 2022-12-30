@@ -1,5 +1,6 @@
 use lottie_model::Media as LottieMedia;
 use std::io::Read;
+use std::path::PathBuf;
 use url::{ParseError, Url};
 
 use crate::Error;
@@ -12,7 +13,7 @@ pub struct Media {
 }
 
 impl Media {
-    pub fn new(media: LottieMedia, host: Option<String>) -> Result<Self, Error> {
+    pub fn new(media: LottieMedia, host: Option<&str>) -> Result<Self, Error> {
         // NOTE: by design `embedded` should have control over whether the image file is
         // base64 or not. But many lottie files simply do not take care so we
         // ignore it here.
@@ -20,7 +21,11 @@ impl Media {
             let content = media.filename.splitn(2, ",").nth(1).unwrap_or("");
             base64::decode(content)?
         } else {
-            let path = media.path();
+            let mut path = media.path();
+            if !path.exists() {
+                path = PathBuf::from(host.unwrap_or("")).join(path);
+            }
+
             // For non-wasm32 target, try to load the file locally
             if path.exists() {
                 let mut file = std::fs::File::open(path)?;
