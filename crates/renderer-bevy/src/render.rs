@@ -88,6 +88,13 @@ impl<'a> BevyStagedLayer<'a> {
                         CompressedImageFormats::NONE,
                         true,
                     )?;
+                    // If the media has dimensions set, scale the image
+                    let size = image.size();
+                    initial_transform.scale = Vec3::new(
+                        media.width as f32 / size.x,
+                        media.height as f32 / size.y,
+                        1.0,
+                    );
                     let handle = self.image_assets.add(image);
                     c.insert(SpriteBundle {
                         texture: handle,
