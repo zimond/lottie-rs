@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::io::Read;
+use std::ops::Deref;
 
-use fontkit::{Font, FontKey, FontKit, Width};
+use fontkit::{Font, FontKey, FontKit};
 use lottie_model::{Font as LottieFont, FontPathOrigin, Model};
 
 use crate::Error;
@@ -44,16 +45,24 @@ impl FontDB {
         Ok(())
     }
 
-    pub fn font(&self, font: &LottieFont) -> Option<&Font> {
+    pub fn font(&self, font: &LottieFont) -> Option<impl Deref<Target = Font> + '_> {
         match font.origin {
             // This is not an html player. So we treat script/css urls as local obtained fonts
             // TODO: could this be a thing in WASM target?
             FontPathOrigin::Local | FontPathOrigin::ScriptUrl | FontPathOrigin::CssUrl => self
                 .fontkit
-                .query(&FontKey::new(font.name.clone(), 400, false, Width::from(5))),
+                .query(&FontKey::new_with_family(font.name.clone()))
+                .or_else(|| {
+                    self.fontkit
+                        .query(&FontKey::new_with_family(font.family.clone()))
+                }),
             // TODO: What if font from url is *.ttc and font.name points to one font in the
             // collection? Could this be possible?
             FontPathOrigin::FontUrl => self.fontkit.query(self.font_map.get(&font.name)?.first()?),
         }
+    }
+
+    pub fn fontkit(&self) -> &FontKit {
+        &self.fontkit
     }
 }

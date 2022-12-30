@@ -9,7 +9,7 @@ glam = "0.22.0"
 lyon_path = "0.17.7"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
-fontkit = "0.3.0-beta.0" #{ path = "../../../font-toolkit" }
+fontkit = "0.3.0-beta.2" #{ path = "../../../font-toolkit" }
 ureq = "2.4.0"
 base64 = "0.13.0"
 url = "2.2.2"
