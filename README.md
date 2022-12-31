@@ -1,5 +1,6 @@
 # lottie-rs
-A Lottie file toolkit written in Rust.
+
+A [Lottie](https://github.com/airbnb/lottie-web) file toolkit written in Rust. Lottie is a JSON format exported with [Bodymovin](https://github.com/airbnb/lottie-web) plugin from [Adobe After Effects](http://www.adobe.com/products/aftereffects.html) describing animations. This crate aims to parse, analyze and render this animation format with multiple renderers.
 
 
 # Samples
@@ -7,11 +8,11 @@ A Lottie file toolkit written in Rust.
 The following samples are gathered from lottiefiles.com community and lottiefiles.github.io. Credits
 goes to original owners/creators of the files.
 
-| **Name** | **Preview** |
-|----------|-------------|
-| Confetti | <img src="fixtures/results/confetti.webp" width="200"> |
+| **Name**       | **Preview**                                                  |
+| -------------- | ------------------------------------------------------------ |
+| Confetti       | <img src="fixtures/results/confetti.webp" width="200">       |
 | Techno Penguin | <img src="fixtures/results/techno_penguin.webp" width="200"> |
-| Nyan Cat | <img src="fixtures/results/nyan_cat.webp" width="200"> |
+| Nyan Cat       | <img src="fixtures/results/nyan_cat.webp" width="200">       |
 
 # Try it out
 
