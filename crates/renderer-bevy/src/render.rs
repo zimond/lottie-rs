@@ -348,7 +348,8 @@ impl<'a> BevyStagedLayer<'a> {
                 fill_opacity: shape.fill.opacity().clone(),
                 stroke_opacity: shape.stroke.as_ref().map(|s| s.opacity().clone()),
             };
-            let secs = opacity_lens.frames as f32 / self.layer.frame_rate as f32;
+            let secs =
+                (opacity_lens.frames as f32 / self.layer.frame_rate as f32).max(f32::EPSILON);
             let tween = Tween::new(
                 EaseMethod::Linear,
                 Duration::from_secs_f32(secs),

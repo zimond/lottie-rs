@@ -13,6 +13,7 @@ impl RenderableContent {
     ) -> Result<Self, Error> {
         let mut path_frames = vec![];
         let mut fill_frames = vec![];
+        let mut transform_positions = Animated::default();
         let mut fill_opacity_frames = vec![];
         for keyframe in &text.data.keyframes {
             let doc = &keyframe.start_value;
@@ -94,6 +95,23 @@ impl RenderableContent {
                 easing_in: keyframe.easing_in.clone(),
             });
 
+            let start_shift_x = match doc.justify {
+                TextJustify::Left => 0.0,
+                TextJustify::Center => -adv / 2.0,
+                TextJustify::Right => -adv,
+                _ => 0.0, // TODO: support other TextJustify options
+            };
+            let start_shift_y = -doc.baseline_shift;
+
+            transform_positions.keyframes.push(KeyFrame {
+                start_value: Vector2D::new(start_shift_x, start_shift_y),
+                end_value: Vector2D::new(start_shift_x, start_shift_y),
+                start_frame: keyframe.start_frame,
+                end_frame: keyframe.end_frame,
+                easing_out: keyframe.easing_out.clone(),
+                easing_in: keyframe.easing_in.clone(),
+            });
+
             let rgb = Rgb::new_u8(doc.fill_color.r, doc.fill_color.g, doc.fill_color.b);
             fill_frames.push(KeyFrame {
                 start_value: rgb,
@@ -113,6 +131,11 @@ impl RenderableContent {
                 easing_in: keyframe.easing_in.clone(),
             })
         }
+
+        transform_positions.animated = transform_positions.keyframes.len() > 1;
+
+        let mut transform = Transform::default();
+        transform.position = Some(transform_positions);
         Ok(RenderableContent::Shape(ShapeGroup {
             shapes: vec![
                 ShapeLayer {
@@ -143,7 +166,7 @@ impl RenderableContent {
                 ShapeLayer {
                     name: None,
                     hidden: false,
-                    shape: Shape::Transform(Transform::default()),
+                    shape: Shape::Transform(transform),
                 },
             ],
         }))

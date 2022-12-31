@@ -73,7 +73,7 @@ where
                         intersection[0].2 .1 as f32
                     }
                 })),
-                Duration::from_secs_f32(secs),
+                Duration::from_secs_f32(secs.max(f32::EPSILON)),
                 producer(start, end),
             );
             seq = seq.then(t);
@@ -93,7 +93,11 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         let secs = frames as f32 / frame_rate as f32;
         let mut transform = producer(self.clone(), self.clone());
         transform.frames = frames;
-        let tween = Tween::new(EaseMethod::Linear, Duration::from_secs_f32(secs), transform);
+        let tween = Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(secs.max(f32::EPSILON)),
+            transform,
+        );
         Sequence::from_single(tween)
     }
 }

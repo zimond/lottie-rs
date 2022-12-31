@@ -997,7 +997,9 @@ pub struct TextDocument {
     #[serde(rename = "lh", default)]
     line_height: Option<f32>,
     #[serde(rename = "j", default)]
-    justify: TextJustify,
+    pub justify: TextJustify,
+    #[serde(rename = "ls", default)]
+    pub baseline_shift: f32,
     // TODO:
     #[serde(default)]
     sz: Vec<f32>,
@@ -1017,6 +1019,7 @@ impl Default for TextDocument {
             stroke_width: 0.0,
             stroke_above_fill: false,
             line_height: None,
+            baseline_shift: 0.0,
             value: String::new(),
             justify: TextJustify::Left,
             sz: vec![],
