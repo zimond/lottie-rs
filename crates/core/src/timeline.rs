@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 use lottie_model::{Animated, Asset, Layer, LayerContent, MatteMode, Model, Shape};
@@ -84,6 +84,7 @@ impl Timeline {
         };
         let default_parent_map: Rc<RefCell<HashMap<u32, Id>>> = Rc::default();
         let default_standby_map: Rc<RefCell<HashMap<u32, Vec<Id>>>> = Rc::default();
+        let mut force_zindex_ids = HashSet::new();
         let mut layers = model
             .layers
             .iter()
@@ -125,10 +126,10 @@ impl Timeline {
                                 Rc::default();
                             for (index, asset_layer) in asset.layers.iter().enumerate() {
                                 let asset_layer = asset_layer.clone();
-
+                                let zindex = index as f32 * step;
                                 assets.push(LayerInfo {
                                     layer: asset_layer,
-                                    zindex: (index as f32 + 1.0) * step,
+                                    zindex,
                                     child_index_window: step,
                                     target_ref: TargetRef::Asset(r.ref_id.clone()),
                                     parent: None,
@@ -153,8 +154,8 @@ impl Timeline {
                             );
                             assets.push(LayerInfo {
                                 layer,
-                                zindex: zindex + 0.5,
-                                child_index_window: 0.5,
+                                zindex: child_index_window / 2.0,
+                                child_index_window: child_index_window / 2.0,
                                 target_ref: TargetRef::Asset(i.ref_id.clone()),
                                 parent: None,
                                 parent_map: Default::default(),
@@ -201,6 +202,7 @@ impl Timeline {
             if let Some(index) = parent_index {
                 if let Some(parent_id) = parent_map.borrow().get(&index) {
                     if let Some(child) = timeline.store.get_mut(id) {
+                        force_zindex_ids.insert(child.id);
                         child.parent = Some(*parent_id);
                     }
                 } else {
@@ -216,12 +218,13 @@ impl Timeline {
                     .flatten()
                 {
                     if let Some(child) = timeline.store.get_mut(child_id) {
+                        force_zindex_ids.insert(child.id);
                         child.parent = Some(id);
                     }
                 }
             }
         }
-        timeline.fix_zindex();
+        timeline.fix_zindex(force_zindex_ids);
         timeline.build_opacity_hierarchy();
         timeline.build_frame_hierarchy();
         timeline.build_mask_hierarchy();
@@ -232,10 +235,13 @@ impl Timeline {
 
     /// Lottie's parenting does not share zindex, so we have to fix it to align
     /// to the usual transformation hierarchy logic in almost every renderer
-    fn fix_zindex(&mut self) {
+    fn fix_zindex(&mut self, force_zindex_ids: HashSet<Id>) {
         let ids = self.store.keys().collect::<Vec<_>>();
         let mut zindex_map = HashMap::new();
         for id in ids {
+            if !force_zindex_ids.contains(&id) {
+                continue;
+            }
             let mut layer = self.store.get(id);
             let mut zindex = layer.map(|l| l.zindex).unwrap_or(0.0);
             while let Some(l) = layer {

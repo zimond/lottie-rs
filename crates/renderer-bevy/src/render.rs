@@ -62,7 +62,7 @@ impl<'a> BevyStagedLayer<'a> {
                 let count = shapes.shape_count() as f32 + 1.0;
                 for (zindex, shape) in shapes.enumerate() {
                     if let Some(entity) =
-                        self.spawn_shape((zindex as f32 + 1.0) / count, shape, c.commands())
+                        self.spawn_shape(zindex as f32 / count, shape, c.commands())
                     {
                         log::trace!("layer {:?} get a child {:?}", c.id(), entity);
                         c.add_child(entity);
