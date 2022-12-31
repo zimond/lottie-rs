@@ -621,7 +621,9 @@ pub enum TextShape {
     Smooth = 6,
 }
 
-#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[derive(
+    serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy, PartialEq,
+)]
 #[repr(u8)]
 pub enum MatteMode {
     Normal = 0,

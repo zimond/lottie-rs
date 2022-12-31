@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-use lottie_model::{Animated, Asset, Layer, LayerContent, Model, Shape};
+use lottie_model::{Animated, Asset, Layer, LayerContent, MatteMode, Model, Shape};
 use slotmap::SlotMap;
 
 use crate::font::FontDB;
@@ -177,8 +177,8 @@ impl Timeline {
             staged.frame_transform.time_remapping = time_remapping;
             staged.frame_transform.frame_rate = default_frame_rate;
 
-            if let Some(id) = previous {
-                if let Some(mode) = matte_mode {
+            if let (Some(id), Some(mode)) = (previous, matte_mode) {
+                if mode != MatteMode::Normal {
                     timeline.store.get_mut(id).unwrap().is_mask = true;
                     staged
                         .mask_hierarchy
