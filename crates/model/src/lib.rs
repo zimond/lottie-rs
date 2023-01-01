@@ -906,52 +906,66 @@ pub struct Bezier {
 #[derive(Deserialize, Debug, Clone)]
 pub struct TextAnimationData {
     #[serde(rename = "a")]
-    properties: Vec<TextAnimationProperty>,
+    ranges: Vec<TextSelectorOrProperty>,
     #[serde(rename = "d")]
-    pub data: TextData,
+    pub document: TextData,
     #[serde(rename = "m")]
-    options: TextMoreOptions,
+    options: TextAlignmentOptions,
     #[serde(rename = "p")]
-    masked_path: MaskedPath,
+    follow_path: TextFollowPath,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum TextAnimationProperty {
-    Data(TextAnimationDataProperty),
-    Selector(TextAnimationSelector),
+pub enum TextSelectorOrProperty {
+    Data(TextStyle),
+    Selector(TextSelector),
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct TextAnimationDataProperty {
-    stroke_width: Animated<f32>,
-    stroke_color: Animated<Rgb>,
-    stroke_hue: Animated<f32>,
-    stroke_saturation: Animated<f32>,
-    stroke_brightness: Animated<f32>,
-    stroke_opacity: Animated<f32>,
-    fill_color: Animated<Rgb>,
-    fill_hue: Animated<f32>,
-    fill_saturation: Animated<f32>,
-    fill_brightness: Animated<f32>,
-    tracking: Animated<f32>,
-    blur: Animated<f32>,
-    line_spacing: Animated<f32>,
-    transform: Transform,
+pub struct TextStyle {
+    #[serde(rename = "sw", default)]
+    stroke_width: Option<Animated<f32>>,
+    #[serde(rename = "sc", default)]
+    stroke_color: Option<Animated<Rgb>>,
+    #[serde(rename = "sh", default)]
+    stroke_hue: Option<Animated<f32>>,
+    #[serde(rename = "ss", default)]
+    stroke_saturation: Option<Animated<f32>>,
+    #[serde(rename = "sb", default)]
+    stroke_brightness: Option<Animated<f32>>,
+    #[serde(rename = "so", default)]
+    stroke_opacity: Option<Animated<f32>>,
+    #[serde(rename = "fc", default)]
+    fill_color: Option<Animated<Rgb>>,
+    #[serde(rename = "fh", default)]
+    fill_hue: Option<Animated<f32>>,
+    #[serde(rename = "fs", default)]
+    fill_saturation: Option<Animated<f32>>,
+    #[serde(rename = "fb", default)]
+    fill_brightness: Option<Animated<f32>>,
+    #[serde(rename = "t", default)]
+    letter_spacing: Option<Animated<f32>>,
+    #[serde(rename = "bl", default)]
+    blur: Option<Animated<f32>>,
+    #[serde(rename = "ls", default)]
+    line_spacing: Option<Animated<f32>>,
+    #[serde(flatten)]
+    transform: Option<Transform>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct TextAnimationSelector {
+pub struct TextSelector {
     #[serde(rename = "nm", default)]
     name: Option<String>,
     #[serde(rename = "a", default)]
-    transform: Option<Transform>,
+    transform: Option<TextStyle>,
     #[serde(rename = "s")]
-    selector: TextSelectorProperty,
+    selector: TextRangeSelector,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct TextSelectorProperty {
+pub struct TextRangeSelector {
     #[serde(rename = "t", deserialize_with = "bool_from_int")]
     expressible: bool,
     #[serde(rename = "xe")]
@@ -991,10 +1005,10 @@ pub struct TextData {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TextMoreOptions {}
+pub struct TextAlignmentOptions {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MaskedPath {}
+pub struct TextFollowPath {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TextDocument {

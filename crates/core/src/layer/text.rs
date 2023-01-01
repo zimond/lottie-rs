@@ -15,7 +15,7 @@ impl RenderableContent {
         let mut fill_frames = vec![];
         let mut transform_positions = Animated::default();
         let mut fill_opacity_frames = vec![];
-        for keyframe in &text.data.keyframes {
+        for keyframe in &text.document.keyframes {
             let doc = &keyframe.start_value;
             let font = model
                 .font(&doc.font_name)
