@@ -87,6 +87,8 @@ pub struct Layer {
     pub content: LayerContent,
     #[serde(rename = "tt", default)]
     pub matte_mode: Option<MatteMode>,
+    #[serde(rename = "bm", default)]
+    pub blend_mode: Option<BlendMode>,
 }
 
 impl Layer {
@@ -113,6 +115,7 @@ impl Layer {
             transform: None,
             content,
             matte_mode: None,
+            blend_mode: None,
         }
     }
 }
@@ -631,6 +634,31 @@ pub enum MatteMode {
     InvertedAlpha = 2,
     Luma = 3,
     InvertedLuma = 4,
+}
+
+#[derive(
+    serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy, PartialEq,
+)]
+#[repr(u8)]
+pub enum BlendMode {
+    Normal = 0,
+    Multiply,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HighLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
+    Add,
+    HardMix,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

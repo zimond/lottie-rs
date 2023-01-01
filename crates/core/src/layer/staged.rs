@@ -42,6 +42,7 @@ pub struct StagedLayer {
     /// Mask info of this layer
     pub is_mask: bool,
     pub mask_hierarchy: MaskHierarchy,
+    pub blend_mode: BlendMode,
 }
 
 impl StagedLayer {
@@ -109,6 +110,7 @@ impl StagedLayer {
             frame_transform_hierarchy: FrameTransformHierarchy::default(),
             is_mask: false,
             mask_hierarchy: MaskHierarchy::default(),
+            blend_mode: layer.blend_mode.unwrap_or(BlendMode::Normal),
         })
     }
 }

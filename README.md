@@ -35,6 +35,13 @@ cargo r --release -- --input fixtures/ui/drink.json --headless
 
 A `webp` file with the same name as input JSON will be generated.
 
+# Feature Incompletion Notice
+
+Due to limitation of webGPU, some features are not supported and listed below.
+
+- Blend mode: this involves complex texture exchanging and is really hard
+
+
 # Font Loading
 
 This library uses [font-toolkit](https://github.com/alibaba/font-toolkit) to manage/load/use fonts, which
