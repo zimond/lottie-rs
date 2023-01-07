@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{Entity, Image, Transform};
 use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
 use bevy::render::view::RenderLayers;
@@ -58,16 +59,7 @@ impl<'a> BevyStagedLayer<'a> {
         );
         match &self.layer.content {
             RenderableContent::Shape(shapes) => {
-                let shapes = shapes.shapes();
-                let count = shapes.shape_count() as f32 + 1.0;
-                for (zindex, shape) in shapes.enumerate() {
-                    if let Some(entity) =
-                        self.spawn_shape(zindex as f32 / count, shape, c.commands())
-                    {
-                        log::trace!("layer {:?} get a child {:?}", c.id(), entity);
-                        c.add_child(entity);
-                    }
-                }
+                self.spawn_shapes(&shapes, self.layer.zindex as f32, &mut c);
             }
             RenderableContent::Media(media) => {
                 let mime = infer::get(&media.content).unwrap();
@@ -130,6 +122,41 @@ impl<'a> BevyStagedLayer<'a> {
         c.insert(FrameTracker(self.layer.frame_transform_hierarchy.clone()));
         c.insert(VisibilityBundle::default());
         Ok(id)
+    }
+
+    fn spawn_shapes(&mut self, group: &ShapeGroup, zindex: f32, c: &mut EntityCommands) {
+        let shapes = group.styled_shapes();
+        let count = shapes.shape_count() as f32 + 1.0;
+        let zindex_window = zindex - (zindex * 10.0).floor() / 10.0;
+        let step = zindex_window / count;
+        for (index, shape) in shapes.enumerate() {
+            let zindex = index as f32 * step;
+            let id = match shape.shape.shape {
+                Shape::Group { shapes } => {
+                    // spawn a new group
+                    let mut group = c.commands().spawn(Name::new(
+                        shape.shape.name.unwrap_or_else(|| String::from("Group")),
+                    ));
+                    group.insert(VisibilityBundle::default());
+
+                    let mut transform = Transform::from_matrix(shape.transform.value(0.0));
+                    let zindex = -1.0 * zindex;
+                    transform.translation.z = zindex;
+                    group.insert(TransformBundle::from_transform(transform));
+                    if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                        group.insert(animator);
+                    }
+                    let new_group = ShapeGroup { shapes };
+                    self.spawn_shapes(&new_group, zindex, &mut group);
+                    Some(group.id())
+                }
+                _ => self.spawn_shape(zindex, shape, c.commands()),
+            };
+            if let Some(id) = id {
+                log::trace!("layer {:?} get a child {:?}", c.id(), id);
+                c.add_child(id);
+            }
+        }
     }
 
     fn spawn_shape(

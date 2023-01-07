@@ -5,24 +5,25 @@ use lyon_path::path::Builder;
 
 use crate::AnimatedExt;
 
-pub struct ShapeIter {
+pub struct StyledShapeIter {
     shapes: Vec<ShapeLayer>,
     shape_index: usize,
     stroke_index: usize,
 }
 
-impl ShapeIter {
+impl StyledShapeIter {
     pub fn shape_count(&self) -> usize {
         self.shapes.len()
     }
 }
 
-impl<'a> Iterator for ShapeIter {
+impl<'a> Iterator for StyledShapeIter {
     type Item = StyledShape;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.shape_index < self.shapes.len()
             && !self.shapes[self.shape_index as usize].shape.is_shape()
+            && !self.shapes[self.shape_index as usize].shape.is_group()
         {
             self.shape_index += 1;
             self.stroke_index = self.shape_index;
@@ -79,7 +80,10 @@ impl<'a> Iterator for ShapeIter {
             self.stroke_index = self.shape_index as usize;
             return self.next();
         }
-        if fill.is_none() && stroke.is_none() {
+        if fill.is_none()
+            && stroke.is_none()
+            && !self.shapes[self.shape_index as usize].shape.is_group()
+        {
             self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
             return self.next();
@@ -99,32 +103,18 @@ impl<'a> Iterator for ShapeIter {
     }
 }
 
-pub trait ShapeIterator {
-    fn shapes(&self) -> ShapeIter;
+pub trait StyledShapeIterator {
+    fn styled_shapes(&self) -> StyledShapeIter;
 }
 
-impl ShapeIterator for ShapeGroup {
-    fn shapes(&self) -> ShapeIter {
-        let shapes = flatten(&self.shapes);
-        ShapeIter {
+impl StyledShapeIterator for ShapeGroup {
+    fn styled_shapes(&self) -> StyledShapeIter {
+        StyledShapeIter {
             shape_index: 0,
             stroke_index: 0,
-            shapes,
+            shapes: self.shapes.clone(),
         }
     }
-}
-
-fn flatten(shapes: &Vec<ShapeLayer>) -> Vec<ShapeLayer> {
-    shapes
-        .iter()
-        .flat_map(|shape| {
-            if let Shape::Group { shapes } = &shape.shape {
-                flatten(shapes).into_iter()
-            } else {
-                vec![shape.clone()].into_iter()
-            }
-        })
-        .collect()
 }
 
 pub enum AnyFill {
@@ -187,6 +177,7 @@ pub struct StyledShape {
 pub trait ShapeExt {
     fn is_style(&self) -> bool;
     fn is_shape(&self) -> bool;
+    fn is_group(&self) -> bool;
 }
 
 impl ShapeExt for Shape {
@@ -206,6 +197,13 @@ impl ShapeExt for Shape {
             | Shape::Ellipse { .. }
             | Shape::PolyStar { .. }
             | Shape::Path { .. } => true,
+            _ => false,
+        }
+    }
+
+    fn is_group(&self) -> bool {
+        match &self {
+            Shape::Group { .. } => true,
             _ => false,
         }
     }

@@ -18,7 +18,7 @@ mod timeline;
 pub mod prelude {
     pub use crate::layer::frame::*;
     pub use crate::layer::hierarchy::*;
-    pub use crate::layer::shape::{AnyFill, AnyStroke, PathExt, ShapeIterator, StyledShape};
+    pub use crate::layer::shape::{AnyFill, AnyStroke, PathExt, StyledShape, StyledShapeIterator};
     pub use crate::layer::staged::{RenderableContent, StagedLayer};
     pub use crate::timeline::{Id, TimelineAction};
 }

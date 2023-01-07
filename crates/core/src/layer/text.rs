@@ -67,20 +67,22 @@ impl<'a> TextDocumentParser<'a> {
             fill_opacity: opacity,
         };
         // parse font data
-        let metrics = font.measure(&doc.value)?;
-        let span = Span {
-            font_key: font.key(),
-            letter_spacing: 0.0,
-            line_height: None,
-            size: doc.size,
-            broke_from_prev: false,
-            metrics,
-            swallow_leading_space: false,
-            additional: styles,
-        };
         let mut area = Area::new();
-        let line = Line::new(span);
-        area.lines.push(line);
+        for line in doc.value.split('\r') {
+            let metrics = font.measure(&line)?;
+            let span = Span {
+                font_key: font.key(),
+                letter_spacing: 0.0,
+                line_height: None,
+                size: doc.size,
+                broke_from_prev: false,
+                metrics,
+                swallow_leading_space: false,
+                additional: styles.clone(),
+            };
+            let line = Line::new(span);
+            area.lines.push(line);
+        }
 
         Ok(TextDocumentParser {
             model,
@@ -101,14 +103,21 @@ impl<'a> TextDocumentParser<'a> {
         let doc = &self.keyframe.start_value;
 
         let mut result = vec![];
+        let align_factor = match doc.justify {
+            TextJustify::Left => 0.0,
+            TextJustify::Center => -0.5,
+            TextJustify::Right => -1.0,
+            _ => 0.0, // TODO: support other TextJustify options
+        };
+        let start_shift_y = -doc.baseline_shift;
+        let mut line_y = 0.0;
         for line in &self.area.lines {
+            let mut adv = line.width() * align_factor;
             for span in &line.spans {
                 let factor = span.size / units;
                 let mut all_beziers = vec![];
-                let mut adv = 0.0;
 
                 // styles
-
                 let fill = self
                     .keyframe
                     .alter_value(span.additional.fill, span.additional.fill);
@@ -192,7 +201,7 @@ impl<'a> TextDocumentParser<'a> {
                     adv += length;
                 }
 
-                let glyphs = all_beziers
+                let mut glyphs = all_beziers
                     .into_iter()
                     .map(|data| {
                         let GlyphData {
@@ -234,42 +243,33 @@ impl<'a> TextDocumentParser<'a> {
                         }
                     })
                     .collect::<Vec<_>>();
-                let glyphs = ShapeLayer {
-                    name: None,
-                    hidden: false,
-                    shape: Shape::Group { shapes: glyphs },
-                };
 
-                let start_shift_x = match doc.justify {
-                    TextJustify::Left => 0.0,
-                    TextJustify::Center => -adv / 2.0,
-                    TextJustify::Right => -adv,
-                    _ => 0.0, // TODO: support other TextJustify options
-                };
-                let start_shift_y = -doc.baseline_shift;
-                let shift = Vector2D::new(start_shift_x, start_shift_y);
+                let shift = Vector2D::new(0.0, start_shift_y + line_y);
                 let transform_position = self.keyframe.alter_value(shift, shift);
-
                 let mut transform = Transform::default();
                 transform.position = Some(Animated {
                     animated: false,
                     keyframes: vec![transform_position],
                 });
-                result.push(ShapeLayer {
+
+                glyphs.push(ShapeLayer {
                     name: None,
                     hidden: false,
-                    shape: Shape::Group {
-                        shapes: vec![
-                            glyphs,
-                            ShapeLayer {
-                                name: None,
-                                hidden: false,
-                                shape: Shape::Transform(transform),
-                            },
-                        ],
-                    },
+                    shape: Shape::Transform(transform),
+                });
+                let line_values = line
+                    .spans()
+                    .iter()
+                    .map(|span| span.metrics.value().to_string())
+                    .collect::<Vec<_>>();
+                let line_value = line_values.join("");
+                result.push(ShapeLayer {
+                    name: Some(line_value),
+                    hidden: false,
+                    shape: Shape::Group { shapes: glyphs },
                 });
             }
+            line_y += line.height();
         }
         Ok(ShapeLayer {
             name: None,
