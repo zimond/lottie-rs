@@ -13,9 +13,8 @@ use std::borrow::Cow;
 use std::io::Write;
 use std::time::Duration;
 
-use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin, ScheduleRunnerSettings};
+use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
-use bevy::ecs::schedule::IntoSystemSet;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
@@ -142,8 +141,8 @@ impl BevyRenderer {
         self.app.add_plugin(plugin);
     }
 
-    pub fn add_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) {
-        self.app.add_system(system);
+    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) {
+        self.app.add_systems(Update, system);
     }
 
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
@@ -189,10 +188,10 @@ impl Renderer for BevyRenderer {
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugin(LottiePlugin)
-            .add_system(component_animator_system::<Path>)
-            .add_system(component_animator_system::<DrawMode>)
-            .add_system(animate_system)
-            .add_startup_system(setup_system);
+            .add_systems(Update, component_animator_system::<Path>)
+            .add_systems(Update, component_animator_system::<DrawMode>)
+            .add_systems(Update, animate_system)
+            .add_systems(Startup, setup_system);
 
         if let Config::Window(window_conf) = &config {
             #[cfg(feature = "bevy_egui")]
@@ -221,11 +220,10 @@ impl Renderer for BevyRenderer {
                 .add_plugin(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
-                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+                .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
-                )))
-                .add_plugin(ScheduleRunnerPlugin)
-                .add_system(save_img.in_base_set(CoreSet::PostUpdate));
+                )));
+            // .add_systems(Update, save_img.in_base_set(CoreSet::PostUpdate));
         } else {
             self.app.add_plugin(WinitPlugin);
         }
@@ -246,10 +244,11 @@ fn setup_system(
     window: Query<&Window, With<PrimaryWindow>>,
     render_device: Res<RenderDevice>,
 ) {
-    let Ok(primary) = window.get_single() else {
-        return;
+    let scale = if let Ok(primary) = window.get_single() {
+        primary.scale_factor() as f32
+    } else {
+        1.0
     };
-    let scale = primary.scale_factor() as f32;
     let mut lottie = lottie_globals.lottie.take().unwrap();
     let mut camera = Camera2dBundle::default();
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(

@@ -9,18 +9,18 @@ flo_curves = "0.6.1"
 log = "0.4.17"
 ordered-float = "3.0.0"
 infer = "0.9.0"
-bevy_egui = { version = "0.20.3", optional = true }
-bevy = { version = "0.10.1", features = ["bevy_audio", "mp3", "flac", "wav"] }
-wgpu = "0.15.1"
+# bevy_egui = { version = "0.20.3", optional = true }
+bevy = { version = "0.11.0-dev", features = ["bevy_audio", "mp3", "flac", "wav"], git = "https://github.com/bevyengine/bevy" }
+wgpu = "0.16.0"
 image = { version = "0.24.2", default-features = false, features = [ "png" ] }
 webp-animation = "0.6.0"
-bevy_tweening = { git = "https://github.com/zimond/bevy_tweening", rev = "2f7dc49" }
+bevy_tweening = { git = "https://github.com/zimond/bevy_tweening", rev = "4379a10" }
 lottie-core = { path = "../core" }
 lyon = "0.17.10"
 futures-intrusive = "0.4.0"
 pollster = "0.2.5"
-bevy-inspector-egui = { version = "0.18.3", optional = true }
+# bevy-inspector-egui = { version = "0.18.3", optional = true }
 
 [features]
-default = ["egui"]
-egui = ["bevy_egui", "bevy-inspector-egui"]
+default = []
+# egui = ["bevy_egui", "bevy-inspector-egui"]

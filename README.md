@@ -16,6 +16,7 @@ goes to original owners/creators of the files.
 # Try it out
 
 The default player implementation uses [Bevy](https://github.com/bevyengine/bevy) to render the animation.
+Currently we only support bevy main branch (`0.11.0-dev`), requiring the screenshot API & webGPU support.
 
 ```bash
 cargo r --release -- --input ../../fixtures/ui/drink.json

@@ -7,7 +7,7 @@ use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::{NodeRunError, RenderGraph, RenderGraphContext};
 use bevy::render::render_resource::Buffer;
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
-use bevy::render::{render_graph, Extract, RenderApp, RenderSet};
+use bevy::render::{render_graph, Extract, RenderApp};
 use pollster::FutureExt;
 use wgpu::{
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer,
@@ -108,12 +108,8 @@ impl render_graph::Node for ImageCopyDriver {
                     buffer: &image_copier.buffer,
                     layout: ImageDataLayout {
                         offset: 0,
-                        bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32).unwrap(),
-                        ),
-                        rows_per_image: Some(
-                            std::num::NonZeroU32::new(texture_extent.height).unwrap(),
-                        ),
+                        bytes_per_row: Some(padded_bytes_per_row as u32),
+                        rows_per_image: Some(texture_extent.height),
                     },
                 },
                 texture_extent,
@@ -166,9 +162,11 @@ pub struct ImageCopyPlugin;
 
 impl Plugin for ImageCopyPlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.add_system(receive_images).sub_app_mut(RenderApp);
+        let render_app = app
+            .add_systems(Update, receive_images)
+            .sub_app_mut(RenderApp);
 
-        render_app.add_system(image_copy_extract.in_set(RenderSet::ExtractCommands));
+        render_app.add_systems(ExtractSchedule, image_copy_extract);
 
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
