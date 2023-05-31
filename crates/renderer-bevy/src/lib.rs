@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
-use bevy::ecs::schedule::IntoSystemDescriptor;
+use bevy::ecs::schedule::IntoSystemSet;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
@@ -23,7 +23,7 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::RenderLayers;
 use bevy::utils::HashMap;
-use bevy::window::ModifiesWindows;
+use bevy::window::{ExitCondition, PrimaryWindow};
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
@@ -63,8 +63,6 @@ struct LottieGlobals {
     capturing: bool,
     config: Config,
 }
-
-fn modifies_windows() {}
 
 #[derive(Resource)]
 pub struct LottieAnimationInfo {
@@ -144,7 +142,7 @@ impl BevyRenderer {
         self.app.add_plugin(plugin);
     }
 
-    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) {
+    pub fn add_system<M>(&mut self, system: impl IntoSystemAppConfig<M>) {
         self.app.add_system(system);
     }
 
@@ -169,18 +167,23 @@ impl Renderer for BevyRenderer {
             // Disable gamepad support
             .disable::<GilrsPlugin>()
             .set(WindowPlugin {
-                window: WindowDescriptor {
-                    width,
-                    height,
-                    // resizable: false,
-                    ..default()
+                primary_window: if capturing {
+                    None
+                } else {
+                    Some(Window {
+                        resolution: (width, height).into(),
+                        ..default()
+                    })
                 },
-                add_primary_window: !capturing,
-                exit_on_all_closed: !capturing,
-                ..default()
+                close_when_requested: true,
+                exit_condition: if capturing {
+                    ExitCondition::DontExit
+                } else {
+                    ExitCondition::OnAllClosed
+                },
             });
         self.app
-            .insert_resource(Msaa { samples: 4 })
+            .insert_resource(Msaa::Sample4)
             .add_plugins(default_plugins)
             .add_plugin(TweeningPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -201,7 +204,7 @@ impl Renderer for BevyRenderer {
             #[cfg(feature = "bevy-inspector-egui")]
             if window_conf.show_debug {
                 self.app
-                    .add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
+                    .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
             }
         }
 
@@ -218,16 +221,11 @@ impl Renderer for BevyRenderer {
                 .add_plugin(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
-                .add_system_to_stage(
-                    CoreStage::PostUpdate,
-                    // Bevy hard-coded this so use an empty function to prevent warnings
-                    modifies_windows.label(ModifiesWindows),
-                )
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
                 )))
                 .add_plugin(ScheduleRunnerPlugin)
-                .add_system_to_stage(CoreStage::PostUpdate, save_img);
+                .add_system(save_img.in_base_set(CoreSet::PostUpdate));
         } else {
             self.app.add_plugin(WinitPlugin);
         }
@@ -245,13 +243,13 @@ fn setup_system(
     mut audio_assets: ResMut<Assets<AudioSource>>,
     mut material_assets: ResMut<Assets<LottieMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    window: Res<Windows>,
+    window: Query<&Window, With<PrimaryWindow>>,
     render_device: Res<RenderDevice>,
 ) {
-    let scale = window
-        .get_primary()
-        .map(|p| p.scale_factor() as f32)
-        .unwrap_or(1.0);
+    let Ok(primary) = window.get_single() else {
+        return;
+    };
+    let scale = primary.scale_factor() as f32;
     let mut lottie = lottie_globals.lottie.take().unwrap();
     let mut camera = Camera2dBundle::default();
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
@@ -283,6 +281,7 @@ fn setup_system(
                 | TextureUsages::COPY_DST
                 | TextureUsages::COPY_SRC
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..default()
     };
@@ -294,7 +293,7 @@ fn setup_system(
         },
         camera: Camera {
             target: RenderTarget::Image(mask_texture_handle.clone()),
-            priority: -1,
+            order: -1,
             ..default()
         },
         transform: Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
@@ -331,6 +330,7 @@ fn setup_system(
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
             },
             ..Default::default()
         };
@@ -349,6 +349,7 @@ fn setup_system(
                         | TextureUsages::COPY_DST
                         | TextureUsages::COPY_SRC
                         | TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
                 },
                 ..Default::default()
             };
@@ -538,7 +539,11 @@ fn animate_system(
                 audio.play(handle.clone());
             }
         }
-        visibility.is_visible = visible;
+        *visibility = if visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 
     let current_time = info.current_time + delta;

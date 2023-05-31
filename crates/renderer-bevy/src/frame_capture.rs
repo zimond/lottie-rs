@@ -7,7 +7,7 @@ use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::{NodeRunError, RenderGraph, RenderGraphContext};
 use bevy::render::render_resource::Buffer;
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
-use bevy::render::{render_graph, Extract, RenderApp, RenderStage};
+use bevy::render::{render_graph, Extract, RenderApp, RenderSet};
 use pollster::FutureExt;
 use wgpu::{
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer,
@@ -90,7 +90,7 @@ impl render_graph::Node for ImageCopyDriver {
             let src_image = gpu_images.get(&image_copier.src_image).unwrap();
 
             let mut encoder = render_context
-                .render_device
+                .render_device()
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
             let padded_bytes_per_row =
@@ -168,15 +168,13 @@ impl Plugin for ImageCopyPlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.add_system(receive_images).sub_app_mut(RenderApp);
 
-        render_app.add_system_to_stage(RenderStage::Extract, image_copy_extract);
+        render_app.add_system(image_copy_extract.in_set(RenderSet::ExtractCommands));
 
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
         graph.add_node(IMAGE_COPY, ImageCopyDriver::default());
 
-        graph
-            .add_node_edge(IMAGE_COPY, bevy::render::main_graph::node::CAMERA_DRIVER)
-            .unwrap();
+        graph.add_node_edge(IMAGE_COPY, bevy::render::main_graph::node::CAMERA_DRIVER)
     }
 }
 

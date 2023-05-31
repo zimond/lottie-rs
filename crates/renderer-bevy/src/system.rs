@@ -1,14 +1,11 @@
 use bevy::prelude::ResMut;
 #[cfg(feature = "bevy_egui")]
-use bevy_egui::{egui, EguiContext};
+use bevy_egui::{egui, EguiContexts};
 
 use crate::LottieAnimationInfo;
 
 #[cfg(feature = "bevy_egui")]
-pub(crate) fn controls_system(
-    mut egui_ctx: ResMut<EguiContext>,
-    mut info: ResMut<LottieAnimationInfo>,
-) {
+pub(crate) fn controls_system(mut egui_ctx: EguiContexts, mut info: ResMut<LottieAnimationInfo>) {
     let value = info.progress();
     let progress = egui::ProgressBar::new(value);
     let button_text = if info.paused() { "▶" } else { "⏸" };

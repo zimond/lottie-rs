@@ -92,7 +92,7 @@ impl StrokeVertexConstructor<Vertex> for VertexConstructor {
 
 /// [`SystemLabel`] for the system that builds the meshes for newly-added
 /// or changed shapes. Resides in [`PostUpdate`](CoreStage::PostUpdate).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct BuildShapes;
 
 #[derive(Resource, Deref, DerefMut)]
@@ -110,11 +110,11 @@ impl Plugin for LottiePlugin {
         app.insert_resource(FillTessRes(fill_tess))
             .insert_resource(StrokeTessRes(stroke_tess))
             .add_plugin(Material2dPlugin::<LottieMaterial>::default())
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_system(
                 mesh_shapes_system
-                    .label(BuildShapes)
-                    .after(bevy::transform::TransformSystem::TransformPropagate),
+                    .in_set(BuildShapes)
+                    .after(bevy::transform::TransformSystem::TransformPropagate)
+                    .in_base_set(CoreSet::PostUpdate),
             );
     }
 }

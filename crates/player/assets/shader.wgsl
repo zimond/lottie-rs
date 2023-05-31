@@ -70,7 +70,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 // https://dawn.googlesource.com/tint/+/refs/heads/chromium/4846/test/benchmark/skinned-shadowed-pbr-fragment.wgsl.expected.wgsl
-let GAMMA = 2.200000048;
+const GAMMA = 2.200000048;
 
 fn linearTosRGB(color: vec3<f32>) -> vec3<f32> {
     let INV_GAMMA = (1.0 / GAMMA);

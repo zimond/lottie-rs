@@ -61,7 +61,7 @@ impl Material2d for LottieMaterial {
 
         if key.bind_group_data.use_gradient {
             let fragment = descriptor.fragment.as_mut().unwrap();
-            fragment.shader_defs.push("USE_GRADIENT".to_string());
+            fragment.shader_defs.push("USE_GRADIENT".into());
         }
         Ok(())
     }

@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 flo_curves = "0.6.1"
-glam = "0.22.0"
+glam = "0.23.0"
 lyon_path = "0.17.7"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
