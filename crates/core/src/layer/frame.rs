@@ -25,7 +25,7 @@ impl FrameTransform {
             let f = animated.value(frame - self.frame_offset);
             f * self.frame_rate
         } else {
-            frame
+            frame - self.frame_offset
         }
     }
 }

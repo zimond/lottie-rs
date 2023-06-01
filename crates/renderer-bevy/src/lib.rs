@@ -539,7 +539,7 @@ fn animate_system(
             }
         }
         *visibility = if visible {
-            Visibility::Visible
+            Visibility::Inherited
         } else {
             Visibility::Hidden
         };
