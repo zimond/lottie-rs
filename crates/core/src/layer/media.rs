@@ -1,3 +1,5 @@
+use base64::engine::{self, general_purpose};
+use base64::{alphabet, Engine as _};
 use lottie_model::Media as LottieMedia;
 use std::io::Read;
 use std::path::PathBuf;
@@ -17,11 +19,15 @@ impl Media {
         // NOTE: by design `embedded` should have control over whether the image file is
         // base64 or not. But many lottie files simply do not take care so we
         // ignore it here.
-        let content = if media.filename.starts_with("data:") {
-            let content = media.filename.splitn(2, ",").nth(1).unwrap_or("");
-            base64::decode(content)?
+        let mut url = match Url::parse(&media.pwd) {
+            Ok(url) => url.join(&media.filename),
+            Err(_) => Url::parse(&media.filename),
+        }?;
+        let content = if url.scheme() == "data" {
+            let content = url.path().splitn(2, ",").nth(1).unwrap_or("");
+            general_purpose::STANDARD.decode(content)?
         } else {
-            let mut path = media.path();
+            let mut path = PathBuf::from(url.as_str());
             if !path.exists() {
                 path = PathBuf::from(host.unwrap_or("")).join(path);
             }
@@ -33,22 +39,9 @@ impl Media {
                 file.read_to_end(&mut result)?;
                 result
             } else {
-                let path = path.as_os_str().to_str().unwrap_or("");
-                let url = path.parse::<Url>();
-                let no_host = url
-                    .as_ref()
-                    .map(|url| !url.has_host())
-                    .unwrap_or_else(|e| *e == ParseError::RelativeUrlWithoutBase);
-                let url = if no_host {
-                    if let Some(host) = host {
-                        let url = host.parse::<Url>()?;
-                        url.join(&path)?
-                    } else {
-                        url?
-                    }
-                } else {
-                    url?
-                };
+                if !url.has_host() {
+                    url.set_host(host)?;
+                }
                 let url = url.as_str();
                 let response = ureq::get(url).call()?;
                 let len: usize = response

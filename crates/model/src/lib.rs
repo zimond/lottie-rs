@@ -839,7 +839,7 @@ impl Asset {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Media {
     #[serde(rename = "u", default)]
-    pwd: String,
+    pub pwd: String,
     #[serde(rename = "p")]
     pub filename: String,
     #[serde(
@@ -856,12 +856,6 @@ pub struct Media {
     pub width: Option<u32>,
     #[serde(rename = "h", default)]
     pub height: Option<u32>,
-}
-
-impl Media {
-    pub fn path(&self) -> PathBuf {
-        PathBuf::from(&self.pwd).join(&self.filename)
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

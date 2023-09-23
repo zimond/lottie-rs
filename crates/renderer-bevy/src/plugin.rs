@@ -109,7 +109,7 @@ impl Plugin for LottiePlugin {
         let stroke_tess = StrokeTessellator::new();
         app.insert_resource(FillTessRes(fill_tess))
             .insert_resource(StrokeTessRes(stroke_tess))
-            .add_plugin(Material2dPlugin::<LottieMaterial>::default())
+            .add_plugins(Material2dPlugin::<LottieMaterial>::default())
             .add_systems(
                 PostUpdate,
                 mesh_shapes_system

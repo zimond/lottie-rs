@@ -138,7 +138,7 @@ impl BevyRenderer {
     }
 
     pub fn add_plugin(&mut self, plugin: impl Plugin) {
-        self.app.add_plugin(plugin);
+        self.app.add_plugins(plugin);
     }
 
     pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) {
@@ -217,15 +217,15 @@ impl Renderer for BevyRenderer {
         if capturing {
             let encoder = WebpEncoder::new();
             self.app
-                .add_plugin(ImageCopyPlugin)
+                .add_plugins(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
                 .insert_non_send_resource(encoder)
-                .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
                 )))
                 .add_systems(PostUpdate, save_img);
         } else {
-            self.app.add_plugin(WinitPlugin);
+            self.app.add_plugins(WinitPlugin);
         }
     }
 
