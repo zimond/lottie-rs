@@ -184,10 +184,10 @@ impl Renderer for BevyRenderer {
         self.app
             .insert_resource(Msaa::Sample4)
             .add_plugins(default_plugins)
-            .add_plugin(TweeningPlugin)
+            .add_plugins(TweeningPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
-            .add_plugin(LottiePlugin)
+            .add_plugins(LottiePlugin)
             .add_systems(Update, component_animator_system::<Path>)
             .add_systems(Update, component_animator_system::<DrawMode>)
             .add_systems(Update, animate_system)
@@ -222,8 +222,8 @@ impl Renderer for BevyRenderer {
                 .insert_non_send_resource(encoder)
                 .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
-                )));
-            // .add_systems(Update, save_img.in_base_set(CoreSet::PostUpdate));
+                )))
+                .add_systems(PostUpdate, save_img);
         } else {
             self.app.add_plugin(WinitPlugin);
         }
@@ -472,9 +472,9 @@ fn animate_system(
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
+    audio: Query<&AudioSink>,
     mut info: ResMut<LottieAnimationInfo>,
     lottie: Res<LottieGlobals>,
-    audio: Res<Audio>,
     time: Res<Time>,
 ) {
     let capturing = lottie.capturing;
@@ -512,7 +512,7 @@ fn animate_system(
                 .set_elapsed(Duration::from_secs_f32(total));
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
-            let secs = frame / tracker.frame_rate();
+            let secs = (frame / tracker.frame_rate()).max(0.0);
             a.tweenable_mut().set_elapsed(Duration::from_secs_f32(secs));
         } else {
             a.state = AnimatorState::Paused
@@ -535,7 +535,9 @@ fn animate_system(
         let visible = tracker.value(current_frame).is_some();
         if let Some(handle) = audio_handle {
             if !computed_visibility.is_visible() && visible {
-                audio.play(handle.clone());
+                if let Ok(sink) = audio.get_single() {
+                    sink.play();
+                }
             }
         }
         *visibility = if visible {

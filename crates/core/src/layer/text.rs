@@ -147,43 +147,51 @@ impl<'a> TextDocumentParser<'a> {
                     let mut beziers = vec![];
                     let mut last_pt = Vector2D::new(0.0, 0.0);
                     let length = c.metrics.advanced_x as f32 * factor + c.kerning as f32 * factor;
-                    for segment in glyph.path.iter() {
+                    let segments = glyph.path.finish();
+                    let segments = segments
+                        .as_ref()
+                        .map(|p| p.segments())
+                        .into_iter()
+                        .flatten();
+                    for segment in segments {
                         match segment {
-                            PathSegment::MoveTo { x, y } => {
+                            PathSegment::MoveTo(p) => {
                                 if !bezier.verticies.is_empty() {
                                     let mut old = std::mem::replace(&mut bezier, Bezier::default());
                                     old.out_tangent.push(Vector2D::new(0.0, 0.0));
                                     beziers.push(old);
                                 }
                                 bezier.in_tangent.push(Vector2D::new(0.0, 0.0));
-                                last_pt = Vector2D::new(*x as f32, -*y as f32) * factor;
+                                last_pt = Vector2D::new(p.x, -p.y) * factor;
                                 bezier.verticies.push(last_pt);
                             }
-                            PathSegment::LineTo { x, y } => {
-                                let pt = Vector2D::new(*x as f32, -*y as f32) * factor;
+                            PathSegment::LineTo(p) => {
+                                let pt = Vector2D::new(p.x, -p.y) * factor;
                                 bezier.out_tangent.push(Vector2D::new(0.0, 0.0));
                                 bezier.in_tangent.push(Vector2D::new(0.0, 0.0));
                                 bezier.verticies.push(pt);
                                 last_pt = pt;
                             }
-                            PathSegment::CurveTo {
-                                x1,
-                                y1,
-                                x2,
-                                y2,
-                                x,
-                                y,
-                            } => {
-                                let pt1 = Vector2D::new(*x1 as f32, -*y1 as f32) * factor;
-                                let pt2 = Vector2D::new(*x2 as f32, -*y2 as f32) * factor;
-                                let pt = Vector2D::new(*x as f32, -*y as f32) * factor;
+                            PathSegment::CubicTo(p1, p2, p) => {
+                                let pt1 = Vector2D::new(p1.x, -p1.y) * factor;
+                                let pt2 = Vector2D::new(p2.x, -p2.y) * factor;
+                                let pt = Vector2D::new(p.x, -p.y) * factor;
 
                                 bezier.out_tangent.push(pt1 - last_pt);
                                 bezier.in_tangent.push(pt2 - pt);
                                 bezier.verticies.push(pt);
                                 last_pt = pt;
                             }
-                            PathSegment::ClosePath => {
+                            PathSegment::QuadTo(p1, p) => {
+                                let pt1 = Vector2D::new(p1.x, -p1.y) * factor;
+                                let pt = Vector2D::new(p.x, -p.y) * factor;
+
+                                bezier.out_tangent.push(pt1 - last_pt);
+                                bezier.in_tangent.push(pt1 - pt);
+                                bezier.verticies.push(pt);
+                                last_pt = pt;
+                            }
+                            PathSegment::Close => {
                                 bezier.closed = true;
                             }
                         }

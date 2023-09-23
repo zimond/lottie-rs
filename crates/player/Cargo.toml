@@ -10,7 +10,7 @@ version = "0.1.0"
 
 [dependencies.clap]
 features = ["derive"]
-version = "3.2.5"
+version = "4.4.4"
 
 [dependencies.lottie-core]
 path = "../core"

@@ -1,5 +1,5 @@
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_types
+#import bevy_sprite::mesh2d_types Mesh2d
 #import bevy_sprite::mesh2d_view_bindings
 
 struct GradientStop {
@@ -39,7 +39,7 @@ var<uniform> gradient: GradientInfo;
 var<uniform> mesh: Mesh2d;
 
 // NOTE: Bindings must come before functions that use them!
-#import bevy_sprite::mesh2d_functions
+#import bevy_sprite::mesh2d_functions mesh2d_position_local_to_clip
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {

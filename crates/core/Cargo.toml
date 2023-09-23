@@ -4,19 +4,19 @@ name = "lottie-core"
 version = "0.1.0"
 
 [dependencies]
-flo_curves = "0.6.1"
+flo_curves = "0.7.2"
 glam = "0.24.0"
-lyon_path = "0.17.7"
+lyon_path = "1.0.4"
 slotmap = "1.0.6"
 thiserror = "1.0.30"
-fontkit = "0.3.0-beta.2" #{ path = "../../../font-toolkit" }
-ureq = "2.4.0"
-base64 = "0.13.0"
-url = "2.2.2"
+fontkit = "0.4.5"
+ureq = "2.7.1"
+base64 = "0.21.4"
+url = "2.4.1"
 log = "0.4.17"
 
 [dependencies.lottie-model]
 path = "../model"
 
 [target.'cfg(not(all(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
-dirs = "4.0.0"
+dirs = "5.0.0"
