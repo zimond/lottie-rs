@@ -17,3 +17,7 @@ path = "../core"
 
 [dependencies.lottie-renderer-bevy]
 path = "../renderer-bevy"
+
+[features]
+default = ["debug"]
+debug = ["lottie-renderer-bevy/egui"]

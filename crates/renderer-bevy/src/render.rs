@@ -137,7 +137,11 @@ impl<'a> BevyStagedLayer<'a> {
     fn spawn_shapes(&mut self, group: &ShapeGroup, zindex: f32, c: &mut EntityCommands) {
         let shapes = group.styled_shapes();
         let count = shapes.shape_count() as f32 + 1.0;
-        let zindex_window = zindex - (zindex * 10.0).floor() / 10.0;
+        let mut zindex_window = zindex - (zindex * 10.0).floor() / 10.0;
+        // root layers have a window of exactly 1.0
+        if zindex_window == 0.0 {
+            zindex_window = 1.0;
+        }
         let step = zindex_window / count;
         for (index, shape) in shapes.enumerate() {
             let zindex = index as f32 * step;
