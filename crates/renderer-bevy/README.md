@@ -16,3 +16,12 @@ Bevy is chosen as a renderer because:
   Lottie file editing apps
 - Supports both 2D and 3D
 - Supports lyon, which is a good choice for vectorized graphics rendering on GPU
+
+# Known limitation
+
+## Audio looping
+
+Due to https://github.com/RustAudio/rodio/issues/176 , `Bevy` do not support audio seeking, so audio
+playback when looping animation in this renderer is bugged.
+
+We may try to directly use [Symphonia](https://docs.rs/symphonia/latest/symphonia) to play audio in the future.

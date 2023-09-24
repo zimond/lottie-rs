@@ -466,13 +466,12 @@ fn animate_system(
         Entity,
         &mut Visibility,
         &ComputedVisibility,
-        Option<&Handle<AudioSource>>,
+        Option<(&AudioSink, With<LottieAudio>)>,
         &FrameTracker,
     )>,
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
     mut path_animation: Query<(&mut Animator<Path>, &FrameTracker)>,
     mut draw_mode_animation: Query<(&mut Animator<DrawMode>, &FrameTracker)>,
-    audio: Query<&AudioSink>,
     mut info: ResMut<LottieAnimationInfo>,
     lottie: Res<LottieGlobals>,
     time: Res<Time>,
@@ -529,15 +528,14 @@ fn animate_system(
         }
     }
 
-    for (_, mut visibility, computed_visibility, audio_handle, tracker) in
-        visibility_query.iter_mut()
+    for (_, mut visibility, computed_visibility, audio_sink, tracker) in visibility_query.iter_mut()
     {
         let visible = tracker.value(current_frame).is_some();
-        if let Some(handle) = audio_handle {
+        if let Some(sink) = audio_sink {
             if !computed_visibility.is_visible() && visible {
-                if let Ok(sink) = audio.get_single() {
-                    sink.play();
-                }
+                sink.0.play();
+            } else {
+                sink.0.pause();
             }
         }
         *visibility = if visible {

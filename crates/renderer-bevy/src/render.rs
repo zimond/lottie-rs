@@ -99,7 +99,17 @@ impl<'a> BevyStagedLayer<'a> {
                         bytes: media.content.as_slice().into(),
                     };
                     let handle = self.audio_assets.add(source);
-                    c.insert(handle);
+                    c.insert((
+                        AudioBundle {
+                            source: handle,
+                            settings: PlaybackSettings {
+                                mode: bevy::audio::PlaybackMode::Loop,
+                                paused: true,
+                                ..default()
+                            },
+                        },
+                        LottieAudio,
+                    ));
                 }
             }
             RenderableContent::Group => {}
@@ -396,3 +406,6 @@ impl<'a> BevyStagedLayer<'a> {
 
 #[derive(Component, Deref)]
 pub struct FrameTracker(FrameTransformHierarchy);
+
+#[derive(Component)]
+pub struct LottieAudio;
