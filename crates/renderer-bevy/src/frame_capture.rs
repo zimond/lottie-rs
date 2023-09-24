@@ -64,9 +64,8 @@ impl ImageCopier {
 pub struct ImageCopierVec(Vec<ImageCopier>);
 
 pub fn image_copy_extract(mut commands: Commands, image_copiers: Extract<Query<&ImageCopier>>) {
-    commands.insert_resource(ImageCopierVec(
-        image_copiers.iter().cloned().collect::<Vec<ImageCopier>>(),
-    ));
+    let copiers = image_copiers.iter().cloned().collect::<Vec<ImageCopier>>();
+    commands.insert_resource(ImageCopierVec(copiers));
 }
 
 #[derive(Default)]
@@ -93,8 +92,12 @@ impl render_graph::Node for ImageCopyDriver {
                 .render_device()
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
-            let padded_bytes_per_row =
-                RenderDevice::align_copy_bytes_per_row(src_image.size.x as usize) * 4;
+            let block_dimensions = src_image.texture_format.block_dimensions();
+            let block_size = src_image.texture_format.block_size(None).unwrap();
+
+            let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+                (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
+            );
 
             let texture_extent = Extent3d {
                 width: src_image.size.x as u32,
@@ -146,10 +149,9 @@ pub fn receive_images(
             });
             render_device.poll(wgpu::Maintain::Wait);
             rx.receive().await.unwrap().unwrap();
-            if let Some(mut image) = images.get_mut(&image_copier.dst_image) {
+            if let Some(image) = images.get_mut(&image_copier.dst_image) {
                 image.data = buffer_slice.get_mapped_range().to_vec();
             }
-
             image_copier.buffer.unmap();
         }
         .block_on();
@@ -172,7 +174,7 @@ impl Plugin for ImageCopyPlugin {
 
         graph.add_node(IMAGE_COPY, ImageCopyDriver::default());
 
-        graph.add_node_edge(IMAGE_COPY, bevy::render::main_graph::node::CAMERA_DRIVER)
+        graph.add_node_edge(bevy::render::main_graph::node::CAMERA_DRIVER, IMAGE_COPY)
     }
 }
 

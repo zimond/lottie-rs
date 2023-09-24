@@ -9,7 +9,6 @@ use lottie_core::prelude::*;
 use lottie_core::{Transform as LottieTransform, *};
 use lyon::math::Angle;
 use lyon::path::path::Builder;
-use lyon::path::traits::PathBuilder;
 use lyon::path::Winding;
 
 use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
