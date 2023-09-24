@@ -2,7 +2,7 @@ use crate::Lottie;
 
 pub struct WindowConfig {
     pub show_controls: bool,
-    pub show_debug: bool,
+    pub show_inspector: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]

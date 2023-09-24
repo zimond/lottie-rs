@@ -197,13 +197,13 @@ impl Renderer for BevyRenderer {
             #[cfg(feature = "bevy_egui")]
             if window_conf.show_controls {
                 self.app
-                    .add_plugin(bevy_egui::EguiPlugin)
-                    .add_system(system::controls_system);
+                    .add_plugins(bevy_egui::EguiPlugin)
+                    .add_systems(Update, system::controls_system);
             }
             #[cfg(feature = "bevy-inspector-egui")]
-            if window_conf.show_debug {
+            if window_conf.show_inspector {
                 self.app
-                    .add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+                    .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
             }
         }
 

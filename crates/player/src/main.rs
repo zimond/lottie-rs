@@ -9,10 +9,20 @@ use std::path::Path;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
+    /// Input file, should be a Lottie JSON
     #[clap(short, long)]
     input: String,
+    /// Run in headless mode, a animation file with the same name as the input
+    /// will be generated
     #[clap(long, action)]
     headless: bool,
+    /// Show controls, this options is invalid if `headless` is enabled
+    #[clap(long, action)]
+    controls: bool,
+    /// Show EGUI inspector for debugging, this options is invalid if `headless`
+    /// is enabled
+    #[clap(long, action)]
+    inspector: bool,
 }
 
 // fn axis_system(mut lines: ResMut<DebugLines>) {
@@ -44,8 +54,8 @@ fn main() {
         })
     } else {
         Config::Window(WindowConfig {
-            show_controls: true,
-            show_debug: true,
+            show_controls: args.controls,
+            show_inspector: args.inspector,
         })
     };
     // renderer.add_plugin(DebugLinesPlugin::default());
