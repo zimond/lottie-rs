@@ -34,6 +34,7 @@ use frame_capture::{ImageCopier, ImageCopyPlugin, ImageToSave};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use material::LottieMaterial;
+use ordered_float::OrderedFloat;
 use plugin::LottiePlugin;
 use render::*;
 
@@ -392,11 +393,31 @@ fn setup_system(
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     let mut mask_index = 0_u32;
     let mut mask_registry = HashMap::new();
+    let mut zindexes = lottie
+        .timeline()
+        .items()
+        .map(|layer| OrderedFloat(layer.zindex))
+        .collect::<Vec<_>>();
+    zindexes.sort();
     // First we spawn all mask layers
     for layer in lottie.timeline().items() {
         if layer.is_mask {
+            let prev_zindex = zindexes
+                .iter()
+                .position(|i| *i == OrderedFloat(layer.zindex))
+                .and_then(|pos| {
+                    if pos == 0 {
+                        None
+                    } else {
+                        zindexes.get(pos - 1)
+                    }
+                })
+                .cloned()
+                .unwrap_or(OrderedFloat(-1.0))
+                .0;
             let entity = BevyStagedLayer {
                 layer,
+                zindex_window: layer.zindex - prev_zindex,
                 meshes: &mut meshes,
                 image_assets: &mut image_assets,
                 audio_assets: &mut audio_assets,
@@ -413,11 +434,23 @@ fn setup_system(
             info.entities.insert(layer.id, entity);
         }
     }
-
-    // TODO: No idea why zindexing partially not working.
     for layer in lottie.timeline().items() {
         let entity = if !layer.is_mask {
+            let prev_zindex = zindexes
+                .iter()
+                .position(|i| *i == OrderedFloat(layer.zindex))
+                .and_then(|pos| {
+                    if pos == 0 {
+                        None
+                    } else {
+                        zindexes.get(pos - 1)
+                    }
+                })
+                .cloned()
+                .unwrap_or(OrderedFloat(-1.0))
+                .0;
             let entity = BevyStagedLayer {
+                zindex_window: layer.zindex - prev_zindex,
                 layer,
                 meshes: &mut meshes,
                 image_assets: &mut image_assets,
