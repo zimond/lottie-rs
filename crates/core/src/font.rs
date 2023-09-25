@@ -7,6 +7,8 @@ use lottie_model::{Font as LottieFont, FontPathOrigin, Model};
 
 use crate::Error;
 
+const BUFFER_LIMIT: usize = 10 * 1_024 * 1_024;
+
 pub struct FontDB {
     fontkit: FontKit,
     font_map: HashMap<String, Vec<FontKey>>,
@@ -34,16 +36,10 @@ impl FontDB {
             if let Some(path) = font.path.as_ref() {
                 if font.origin == FontPathOrigin::FontUrl {
                     let response = ureq::get(path).call()?;
-                    let len: usize = response
-                        .header("Content-Length")
-                        .ok_or_else(|| Error::NetworkMissingContentLength(path.clone()))?
-                        .parse()
-                        .map_err(|_| Error::NetworkMalformedContentLength(path.clone()))?;
-
-                    let mut bytes: Vec<u8> = Vec::with_capacity(len);
+                    let mut bytes = vec![];
                     response
                         .into_reader()
-                        .take(len as u64)
+                        .take((BUFFER_LIMIT + 1) as u64)
                         .read_to_end(&mut bytes)?;
                     let keys = self.fontkit.add_font_from_buffer(bytes)?;
                     self.font_map.insert(font.name.clone(), keys);
