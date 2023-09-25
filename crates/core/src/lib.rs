@@ -61,4 +61,8 @@ impl Lottie {
     pub fn timeline(&self) -> &Timeline {
         &self.timeline
     }
+
+    pub fn fontdb(&self) -> &FontDB {
+        &self.fontdb
+    }
 }

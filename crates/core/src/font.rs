@@ -21,6 +21,14 @@ impl FontDB {
     }
 
     pub fn load_fonts_from_model(&mut self, model: &Model) -> Result<(), Error> {
+        // load default font
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut path = std::env::current_dir()?;
+            path.push("assets/FiraMono-Regular.ttf");
+            self.fontkit
+                .search_fonts_from_path(&path.into_os_string().into_string().unwrap_or_default())?;
+        }
         // load remote fonts
         for font in &model.fonts.list {
             if let Some(path) = font.path.as_ref() {
@@ -55,6 +63,11 @@ impl FontDB {
                 .or_else(|| {
                     self.fontkit
                         .query(&FontKey::new_with_family(font.family.clone()))
+                })
+                .or_else(|| {
+                    // default font
+                    self.fontkit
+                        .query(&FontKey::new_with_family("Fira Mono".to_string()))
                 }),
             // TODO: What if font from url is *.ttc and font.name points to one font in the
             // collection? Could this be possible?

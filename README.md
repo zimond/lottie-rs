@@ -46,3 +46,8 @@ Due to limitation of webGPU, some features are not supported and listed below.
 
 This library uses [font-toolkit](https://github.com/alibaba/font-toolkit) to manage/load/use fonts, which
 is also MIT-licensed.
+
+If a font is missing or a system default font is used (e.g. `monospace`), currently `lottie-rs` will
+use [Fira Mono](https://github.com/mozilla/Fira) as the default fallback if running on architecture
+that allows local font loading. For WASM targets, this fallback logic is not present, a matching
+failure will cause the text being skipped.
