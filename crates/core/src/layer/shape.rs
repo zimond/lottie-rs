@@ -1,5 +1,6 @@
 use flo_curves::{BoundingBox, Bounds, Coord2};
 use lottie_model::*;
+use lyon_path::geom::euclid::approxeq::ApproxEq;
 use lyon_path::geom::euclid::vec2;
 use lyon_path::path::Builder;
 
@@ -290,21 +291,33 @@ impl PathExt for Bezier {
     }
 
     fn to_path(&self, frame: f32, builder: &mut Builder) {
-        let mut started = false;
-        let mut prev_c1: Option<Vector2D> = None;
-        for ((p1, c1), c2) in self
+        let mut prev_p: Option<Vector2D>;
+        match self.verticies.first() {
+            Some(p) => {
+                builder.begin(p.to_point());
+                prev_p = Some(*p);
+            }
+            None => return,
+        }
+        for ((p, c1), c2) in self
             .verticies
             .iter()
+            .skip(1)
             .zip(self.out_tangent.iter())
-            .zip(self.in_tangent.iter())
+            .zip(self.in_tangent.iter().skip(1))
         {
-            if !started {
-                builder.begin(p1.to_point());
-                started = true;
-            } else if let Some(pc1) = prev_c1 {
-                builder.cubic_bezier_to(pc1.to_point(), (*p1 + *c2).to_point(), p1.to_point());
+            if let Some(p0) = prev_p {
+                let p1 = p0 + *c1;
+                let p2 = *p + *c2;
+                if p1.approx_eq(&Vector2D::zero()) && p2.approx_eq(&Vector2D::zero()) {
+                    builder.line_to(p.to_point());
+                } else if p1.approx_eq(&p2) {
+                    builder.quadratic_bezier_to(p1.to_point(), p.to_point());
+                } else {
+                    builder.cubic_bezier_to(p1.to_point(), p2.to_point(), p.to_point());
+                }
             }
-            prev_c1 = Some(*p1 + *c1);
+            prev_p = Some(*p);
         }
         if self.closed {
             let index = self.verticies.len() - 1;
