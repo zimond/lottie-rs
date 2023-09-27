@@ -59,7 +59,7 @@ impl<'a> BevyStagedLayer<'a> {
         );
         match &self.layer.content {
             RenderableContent::Shape(shapes) => {
-                self.spawn_shapes(&shapes, self.zindex_window, &mut c);
+                self.spawn_shapes(&shapes, self.zindex_window, None, &mut c);
             }
             RenderableContent::Media(media) => {
                 let mime = infer::get(&media.content).unwrap();
@@ -112,6 +112,9 @@ impl<'a> BevyStagedLayer<'a> {
                     ));
                 }
             }
+            RenderableContent::Text { shape, data } => {
+                self.spawn_shapes(&shape, self.zindex_window, Some(data), &mut c);
+            }
             RenderableContent::Group => {}
         }
         c.insert(TransformBundle {
@@ -134,7 +137,13 @@ impl<'a> BevyStagedLayer<'a> {
         Ok(id)
     }
 
-    fn spawn_shapes(&mut self, group: &ShapeGroup, zindex_window: f32, c: &mut EntityCommands) {
+    fn spawn_shapes(
+        &mut self,
+        group: &ShapeGroup,
+        zindex_window: f32,
+        text: Option<&TextRangeData>,
+        c: &mut EntityCommands,
+    ) {
         let shapes = group.styled_shapes();
         let count = shapes.shape_count() as f32 + 1.0;
         // root layers have a window of exactly 1.0
@@ -157,10 +166,10 @@ impl<'a> BevyStagedLayer<'a> {
                         group.insert(animator);
                     }
                     let new_group = ShapeGroup { shapes };
-                    self.spawn_shapes(&new_group, step, &mut group);
+                    self.spawn_shapes(&new_group, step, text, &mut group);
                     Some(group.id())
                 }
-                _ => self.spawn_shape(zindex, shape, c.commands()),
+                _ => self.spawn_shape(zindex, shape, text, c.commands()),
             };
             if let Some(id) = id {
                 log::trace!("layer {:?} get a child {:?}", c.id(), id);
@@ -173,6 +182,7 @@ impl<'a> BevyStagedLayer<'a> {
         &mut self,
         zindex: f32,
         shape: StyledShape,
+        text: Option<&TextRangeData>,
         commands: &mut Commands,
     ) -> Option<Entity> {
         if shape.shape.hidden {
@@ -307,7 +317,7 @@ impl<'a> BevyStagedLayer<'a> {
                 println!("{:?}", shape.shape.shape);
                 todo!()
             }
-        };
+        }
 
         // register gradient texture if any
         if let AnyFill::Gradient(g) = &shape.fill {

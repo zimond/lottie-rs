@@ -5,6 +5,8 @@ use crate::font::FontDB;
 use crate::prelude::RenderableContent;
 use crate::Error;
 
+use super::staged::TextRangeData;
+
 struct GlyphData {
     c: char,
     beziers: Vec<Bezier>,
@@ -16,16 +18,30 @@ impl RenderableContent {
         text: &TextAnimationData,
         model: &Model,
         fontdb: &FontDB,
-    ) -> Result<Self, Error> {
-        let mut glyph_layers = vec![];
-        for keyframe in &text.document.keyframes {
-            let parser = TextDocumentParser::new(keyframe, &model, fontdb)?;
-            glyph_layers.push(parser.shape_layer()?);
-        }
-
-        Ok(RenderableContent::Shape(ShapeGroup {
-            shapes: glyph_layers,
-        }))
+    ) -> Result<Animated<Self>, Error> {
+        let keyframes = text
+            .document
+            .keyframes
+            .iter()
+            .map(|keyframe| {
+                let parser = TextDocumentParser::new(keyframe, &model, fontdb)?;
+                let shape = ShapeGroup {
+                    shapes: vec![parser.shape_layer()?],
+                };
+                let content = RenderableContent::Text {
+                    shape,
+                    data: TextRangeData {
+                        value: keyframe.start_value.value.clone(),
+                        ranges: text.ranges.clone(),
+                    },
+                };
+                Ok(keyframe.alter_value(content.clone(), content))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(Animated {
+            animated: true,
+            keyframes,
+        })
     }
 }
 

@@ -170,57 +170,64 @@ impl Timeline {
             }
 
             let matte_mode = layer.matte_mode;
-            let mut staged = StagedLayer::new(layer, model, fontdb, root_path)?;
-            staged.target = target_ref;
-            staged.parent = parent;
-            staged.zindex = zindex;
-            staged.frame_rate = default_frame_rate;
-            staged.frame_transform.time_remapping = time_remapping;
-            staged.frame_transform.frame_rate = default_frame_rate;
+            let mut staged = StagedLayer::from_layer(layer, model, fontdb, root_path)?;
+            for staged in &mut staged {
+                staged.target = target_ref.clone();
+                staged.parent = parent;
+                staged.zindex = zindex;
+                staged.frame_rate = default_frame_rate;
+                staged.frame_transform.time_remapping = time_remapping.clone();
+                staged.frame_transform.frame_rate = default_frame_rate;
 
-            if let (Some(id), Some(mode)) = (previous, matte_mode) {
-                if mode != MatteMode::Normal {
-                    timeline.store.get_mut(id).unwrap().is_mask = true;
-                    staged
-                        .mask_hierarchy
-                        .stack
-                        .push(StagedLayerMask { id, mode });
+                if let (Some(id), Some(mode)) = (previous, matte_mode) {
+                    if mode != MatteMode::Normal {
+                        timeline.store.get_mut(id).unwrap().is_mask = true;
+                        staged
+                            .mask_hierarchy
+                            .stack
+                            .push(StagedLayerMask { id, mode });
+                    }
                 }
             }
-
-            let id = timeline.add_item(staged);
-            previous = Some(id);
-            for mut info in assets {
-                info.parent = Some(id);
-                layers.push_back(info);
-            }
-
-            if let Some(ind) = index {
-                parent_map.borrow_mut().insert(ind, id);
-            }
-
-            if let Some(index) = parent_index {
-                if let Some(parent_id) = parent_map.borrow().get(&index) {
-                    if let Some(child) = timeline.store.get_mut(id) {
-                        force_zindex_ids.insert(child.id);
-                        child.parent = Some(*parent_id);
-                    }
-                } else {
-                    standby_map.borrow_mut().entry(index).or_default().push(id);
+            if staged.len() == 1 {
+                // not a text layer
+                let id = timeline.add_item(staged.pop().unwrap());
+                previous = Some(id);
+                for mut info in assets {
+                    info.parent = Some(id);
+                    layers.push_back(info);
                 }
-            }
+                if let Some(ind) = index {
+                    parent_map.borrow_mut().insert(ind, id);
+                }
 
-            if let Some(index) = index {
-                for child_id in standby_map
-                    .borrow_mut()
-                    .remove(&index)
-                    .into_iter()
-                    .flatten()
-                {
-                    if let Some(child) = timeline.store.get_mut(child_id) {
-                        force_zindex_ids.insert(child.id);
-                        child.parent = Some(id);
+                if let Some(index) = parent_index {
+                    if let Some(parent_id) = parent_map.borrow().get(&index) {
+                        if let Some(child) = timeline.store.get_mut(id) {
+                            force_zindex_ids.insert(child.id);
+                            child.parent = Some(*parent_id);
+                        }
+                    } else {
+                        standby_map.borrow_mut().entry(index).or_default().push(id);
                     }
+                }
+
+                if let Some(index) = index {
+                    for child_id in standby_map
+                        .borrow_mut()
+                        .remove(&index)
+                        .into_iter()
+                        .flatten()
+                    {
+                        if let Some(child) = timeline.store.get_mut(child_id) {
+                            force_zindex_ids.insert(child.id);
+                            child.parent = Some(id);
+                        }
+                    }
+                }
+            } else {
+                for staged in staged {
+                    timeline.add_item(staged);
                 }
             }
         }

@@ -900,20 +900,13 @@ pub struct Bezier {
 #[derive(Deserialize, Debug, Clone)]
 pub struct TextAnimationData {
     #[serde(rename = "a")]
-    ranges: Vec<TextSelectorOrProperty>,
+    pub ranges: Vec<TextRange>,
     #[serde(rename = "d")]
     pub document: TextData,
     #[serde(rename = "m")]
     options: TextAlignmentOptions,
     #[serde(rename = "p")]
     follow_path: TextFollowPath,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum TextSelectorOrProperty {
-    Data(TextStyle),
-    Selector(TextSelector),
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -949,13 +942,13 @@ pub struct TextStyle {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct TextSelector {
+pub struct TextRange {
     #[serde(rename = "nm", default)]
     name: Option<String>,
     #[serde(rename = "a", default)]
-    transform: Option<TextStyle>,
+    pub style: Option<TextStyle>,
     #[serde(rename = "s")]
-    selector: TextRangeSelector,
+    pub selector: TextRangeSelector,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -981,9 +974,9 @@ pub struct TextRangeSelector {
     #[serde(rename = "sm", default)]
     selector_smoothness: Option<Animated<f32>>,
     #[serde(rename = "s", default)]
-    start: Option<Animated<f32>>,
+    pub start: Option<Animated<f32>>,
     #[serde(rename = "e", default)]
-    end: Option<Animated<f32>>,
+    pub end: Option<Animated<f32>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
