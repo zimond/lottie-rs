@@ -26,10 +26,21 @@ impl FontDB {
         // load default font
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let mut path = std::env::current_dir()?;
+            let current_exe = std::env::current_exe()?;
+            let mut path = current_exe.clone();
             path.push("assets/FiraMono-Regular.ttf");
-            self.fontkit
-                .search_fonts_from_path(&path.into_os_string().into_string().unwrap_or_default())?;
+
+            while !path.exists() && path.parent().is_some() {
+                path.pop();
+                path.pop();
+                path.pop();
+                path.push("assets/FiraMono-Regular.ttf");
+            }
+            if path.exists() {
+                self.fontkit.search_fonts_from_path(
+                    &path.into_os_string().into_string().unwrap_or_default(),
+                )?;
+            }
         }
         // load remote fonts
         for font in &model.fonts.list {
