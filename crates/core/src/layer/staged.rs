@@ -9,19 +9,9 @@ use super::hierarchy::TransformHierarchy;
 use super::media::Media;
 
 #[derive(Debug, Clone)]
-pub struct TextRangeData {
-    pub ranges: Vec<TextRange>,
-    pub value: String,
-}
-
-#[derive(Debug, Clone)]
 pub enum RenderableContent {
     Media(Media),
     Shape(ShapeGroup),
-    Text {
-        shape: ShapeGroup,
-        data: TextRangeData,
-    },
     Group,
 }
 

@@ -9,6 +9,9 @@ use lottie_core::{KeyFrame, Transform as LottieTransform};
 
 use crate::lens::TransformLens;
 
+/// Produce [`Tweenable`](bevy_tweening::Tweenable) by using a `producer` to
+/// create lens of type `L` from two instances of data of type
+/// `TweenProducer::Key`
 pub(crate) trait TweenProducer<T, L>
 where
     L: Lens<T> + Send + Sync + 'static,
@@ -101,3 +104,14 @@ impl TweenProducer<Transform, TransformLens> for LottieTransform {
         Sequence::from_single(tween)
     }
 }
+
+// impl<L> TweenProducer<Transform, TransformLens> for TextRangeData {
+//     type Key = f32; // frame
+
+//     fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<Transform>
+//     where
+//         F: Fn(Self::Key, Self::Key) -> L,
+//     {
+//         todo!()
+//     }
+// }

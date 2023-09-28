@@ -5,8 +5,6 @@ use crate::font::FontDB;
 use crate::prelude::RenderableContent;
 use crate::Error;
 
-use super::staged::TextRangeData;
-
 struct GlyphData {
     c: char,
     beziers: Vec<Bezier>,
@@ -18,23 +16,17 @@ impl RenderableContent {
         text: &TextAnimationData,
         model: &Model,
         fontdb: &FontDB,
-    ) -> Result<Animated<Self>, Error> {
+    ) -> Result<Animated<RenderableContent>, Error> {
         let keyframes = text
             .document
             .keyframes
             .iter()
             .map(|keyframe| {
-                let parser = TextDocumentParser::new(keyframe, &model, fontdb)?;
-                let shape = ShapeGroup {
-                    shapes: vec![parser.shape_layer()?],
-                };
-                let content = RenderableContent::Text {
-                    shape,
-                    data: TextRangeData {
-                        value: keyframe.start_value.value.clone(),
-                        ranges: text.ranges.clone(),
-                    },
-                };
+                let parser = TextDocumentParser::new(keyframe, &text.ranges, &model, fontdb)?;
+                let shape = parser.shape_layer()?;
+                let content = RenderableContent::Shape(ShapeGroup {
+                    shapes: vec![shape],
+                });
                 Ok(keyframe.alter_value(content.clone(), content))
             })
             .collect::<Result<Vec<_>, Error>>()?;
@@ -57,11 +49,13 @@ struct TextDocumentParser<'a> {
     area: Area<Styles>,
     lottie_font: &'a Font,
     keyframe: &'a KeyFrame<TextDocument>,
+    text_ranges: &'a Vec<TextRange>,
 }
 
 impl<'a> TextDocumentParser<'a> {
     fn new(
         keyframe: &'a KeyFrame<TextDocument>,
+        text_ranges: &'a Vec<TextRange>,
         model: &'a Model,
         fontdb: &'a FontDB,
     ) -> Result<Self, Error> {
@@ -106,6 +100,7 @@ impl<'a> TextDocumentParser<'a> {
             area,
             lottie_font,
             keyframe,
+            text_ranges,
         })
     }
 
@@ -127,6 +122,8 @@ impl<'a> TextDocumentParser<'a> {
         };
         let start_shift_y = -doc.baseline_shift;
         let mut line_y = 0.0;
+        let value = self.area.value_string();
+        let mut char_index = 0;
         for line in &self.area.lines {
             let mut adv = line.width() * align_factor;
             for span in &line.spans {
@@ -239,6 +236,16 @@ impl<'a> TextDocumentParser<'a> {
                             animated: false,
                             keyframes: vec![KeyFrame::from_value(Vector2D::new(offset_x, 0.0))],
                         });
+                        let text_range = if self.text_ranges.is_empty() {
+                            None
+                        } else {
+                            Some(TextRangeInfo {
+                                value: value.clone(),
+                                index: char_index,
+                                ranges: self.text_ranges.clone(),
+                            })
+                        };
+                        char_index += 1;
                         ShapeLayer {
                             name: Some(format!("{}", c)),
                             hidden: false,
@@ -254,6 +261,7 @@ impl<'a> TextDocumentParser<'a> {
                                                     .keyframe
                                                     .alter_value(beziers.clone(), beziers)],
                                             },
+                                            text_range,
                                         },
                                     },
                                     fill_layer.clone(),

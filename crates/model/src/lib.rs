@@ -364,6 +364,13 @@ pub struct ShapeLayer {
     pub shape: Shape,
 }
 
+#[derive(Debug, Clone)]
+pub struct TextRangeInfo {
+    pub value: String,
+    pub index: usize,
+    pub ranges: Vec<TextRange>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "ty")]
 pub enum Shape {
@@ -377,6 +384,8 @@ pub enum Shape {
     Path {
         #[serde(rename = "ks")]
         d: Animated<Vec<Bezier>>,
+        #[serde(skip)]
+        text_range: Option<TextRangeInfo>,
     },
     #[serde(rename = "fl")]
     Fill(Fill),

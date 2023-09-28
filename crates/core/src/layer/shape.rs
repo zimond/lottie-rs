@@ -427,7 +427,7 @@ impl PathExt for Shape {
     fn bbox(&self, frame: f32) -> Rect<f32> {
         match &self {
             Shape::Ellipse(e) => e.bbox(frame),
-            Shape::Path { d } => d.value(frame).bbox(frame),
+            Shape::Path { d, .. } => d.value(frame).bbox(frame),
             Shape::Rectangle(r) => r.bbox(frame),
             _ => unimplemented!(),
         }
