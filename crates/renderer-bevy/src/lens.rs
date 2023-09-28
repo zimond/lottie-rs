@@ -1,7 +1,10 @@
 use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
 use lottie_core::prelude::{OpacityHierarchy, PathExt};
-use lottie_core::{Animated, AnimatedExt, Bezier, Transform as LottieTransform};
+use lottie_core::{
+    Animated, AnimatedExt, Bezier, TextBased, TextRangeInfo, TextRangeSelector,
+    Transform as LottieTransform,
+};
 use lyon::path::path::Builder;
 
 use crate::shape::{DrawMode, Path};
@@ -56,6 +59,7 @@ pub struct TransformLens {
     pub(crate) frames: f32,
     pub(crate) zindex: f32,
     pub(crate) mask_offset: Vec2,
+    pub(crate) text_range: Option<TextRangeInfo>,
 }
 
 impl Lens<Transform> for TransformLens {
@@ -65,6 +69,32 @@ impl Lens<Transform> for TransformLens {
         *target = Transform::from_matrix(value);
         target.translation.z = self.zindex;
         target.translation.x += self.mask_offset.x;
+
+        if let Some(info) = self.text_range.as_ref() {
+            for range in &info.ranges {
+                let appliable = lerp_index_in_text_range(
+                    &range.selector,
+                    frame,
+                    &info.value,
+                    info.index.0,
+                    info.index.1,
+                );
+                if !appliable {
+                    continue;
+                }
+                // TODO: support more selector attributes
+                let styles = match range.style.as_ref() {
+                    Some(s) => s,
+                    None => continue,
+                };
+                let letter_spacing = styles
+                    .letter_spacing
+                    .as_ref()
+                    .map(|l| l.value(frame))
+                    .unwrap_or(0.0);
+                target.translation.x += info.index.1 as f32 * letter_spacing;
+            }
+        }
     }
 }
 
@@ -88,5 +118,33 @@ impl Lens<DrawMode> for OpacityLens {
         if let Some(stroke) = target.stroke.as_mut() {
             stroke.opacity = opacity;
         }
+    }
+}
+
+fn lerp_index_in_text_range(
+    selector: &TextRangeSelector,
+    frame: f32,
+    value: &Vec<Vec<char>>,
+    line: usize,
+    c: usize,
+) -> bool {
+    let start = selector
+        .start
+        .as_ref()
+        .map(|start| start.value(frame))
+        .unwrap_or(0.0)
+        .round() as usize;
+    let end = selector
+        .end
+        .as_ref()
+        .map(|end| end.value(frame))
+        .unwrap_or(std::f32::MAX)
+        .round() as usize;
+    match selector.range_units {
+        TextBased::Characters => {
+            let index = (0..line).map(|i| value[i].len()).sum::<usize>() + c;
+            return index >= start && index < end;
+        }
+        _ => unimplemented!(),
     }
 }

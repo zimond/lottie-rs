@@ -122,9 +122,19 @@ impl<'a> TextDocumentParser<'a> {
         };
         let start_shift_y = -doc.baseline_shift;
         let mut line_y = 0.0;
-        let value = self.area.value_string();
-        let mut char_index = 0;
-        for line in &self.area.lines {
+        let value = self
+            .area
+            .lines
+            .iter()
+            .map(|l| {
+                l.spans
+                    .iter()
+                    .flat_map(|span| span.metrics.positions().iter().map(|p| p.metrics.c))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        for (line_index, line) in self.area.lines.iter().enumerate() {
+            let mut char_index = 0;
             let mut adv = line.width() * align_factor;
             for span in &line.spans {
                 let factor = span.size / units;
@@ -241,7 +251,7 @@ impl<'a> TextDocumentParser<'a> {
                         } else {
                             Some(TextRangeInfo {
                                 value: value.clone(),
-                                index: char_index,
+                                index: (line_index, char_index),
                                 ranges: self.text_ranges.clone(),
                             })
                         };

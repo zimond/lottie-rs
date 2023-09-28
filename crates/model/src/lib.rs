@@ -366,8 +366,8 @@ pub struct ShapeLayer {
 
 #[derive(Debug, Clone)]
 pub struct TextRangeInfo {
-    pub value: String,
-    pub index: usize,
+    pub value: Vec<Vec<char>>,
+    pub index: (usize, usize), // line, char
     pub ranges: Vec<TextRange>,
 }
 
@@ -941,11 +941,11 @@ pub struct TextStyle {
     #[serde(rename = "fb", default)]
     fill_brightness: Option<Animated<f32>>,
     #[serde(rename = "t", default)]
-    letter_spacing: Option<Animated<f32>>,
+    pub letter_spacing: Option<Animated<f32>>,
     #[serde(rename = "bl", default)]
     blur: Option<Animated<f32>>,
     #[serde(rename = "ls", default)]
-    line_spacing: Option<Animated<f32>>,
+    pub line_spacing: Option<Animated<f32>>,
     #[serde(flatten)]
     transform: Option<Transform>,
 }
@@ -979,7 +979,7 @@ pub struct TextRangeSelector {
     #[serde(rename = "o", default)]
     offset: Option<Animated<f32>>,
     #[serde(rename = "r")]
-    range_units: TextBased,
+    pub range_units: TextBased,
     #[serde(rename = "sm", default)]
     selector_smoothness: Option<Animated<f32>>,
     #[serde(rename = "s", default)]

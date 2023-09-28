@@ -1,13 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::prelude::Transform;
 use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
-use lottie_core::{KeyFrame, Transform as LottieTransform};
-
-use crate::lens::TransformLens;
+use lottie_core::KeyFrame;
 
 /// Produce [`Tweenable`](bevy_tweening::Tweenable) by using a `producer` to
 /// create lens of type `L` from two instances of data of type
@@ -84,34 +81,3 @@ where
         seq
     }
 }
-
-impl TweenProducer<Transform, TransformLens> for LottieTransform {
-    type Key = LottieTransform;
-
-    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<Transform>
-    where
-        F: Fn(Self::Key, Self::Key) -> TransformLens,
-    {
-        let frames = self.frames();
-        let secs = frames as f32 / frame_rate as f32;
-        let mut transform = producer(self.clone(), self.clone());
-        transform.frames = frames;
-        let tween = Tween::new(
-            EaseMethod::Linear,
-            Duration::from_secs_f32(secs.max(f32::EPSILON)),
-            transform,
-        );
-        Sequence::from_single(tween)
-    }
-}
-
-// impl<L> TweenProducer<Transform, TransformLens> for TextRangeData {
-//     type Key = f32; // frame
-
-//     fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<Transform>
-//     where
-//         F: Fn(Self::Key, Self::Key) -> L,
-//     {
-//         todo!()
-//     }
-// }

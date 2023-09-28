@@ -119,7 +119,7 @@ impl<'a> BevyStagedLayer<'a> {
             global: Default::default(),
         });
         if let Some(animator) =
-            self.transform_animator(&self.layer.transform, initial_transform.translation.z)
+            self.transform_animator(&self.layer.transform, initial_transform.translation.z, None)
         {
             c.insert(animator);
         }
@@ -153,7 +153,8 @@ impl<'a> BevyStagedLayer<'a> {
                     let zindex = -1.0 * zindex;
                     transform.translation.z = zindex;
                     group.insert(TransformBundle::from_transform(transform));
-                    if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                    if let Some(animator) = self.transform_animator(&shape.transform, zindex, None)
+                    {
                         group.insert(animator);
                     }
                     let new_group = ShapeGroup { shapes };
@@ -249,7 +250,7 @@ impl<'a> BevyStagedLayer<'a> {
                 );
                 c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -260,7 +261,7 @@ impl<'a> BevyStagedLayer<'a> {
                 initial_pos = star.position.initial_value();
                 star.to_path(0.0, &mut builder);
                 c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
-                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -271,20 +272,22 @@ impl<'a> BevyStagedLayer<'a> {
                 initial_pos = rect.position.initial_value();
                 rect.to_path(0.0, &mut builder);
                 c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
-                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
                     c.insert(animator);
                 }
             }
-            Shape::Path { d, .. } => {
+            Shape::Path { d, text_range } => {
                 let beziers = d.initial_value();
 
                 beziers.to_path(0.0, &mut builder);
                 c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
 
-                if let Some(animator) = self.transform_animator(&shape.transform, zindex) {
+                if let Some(animator) =
+                    self.transform_animator(&shape.transform, zindex, text_range.clone())
+                {
                     c.insert(animator);
                 }
                 if let Some(animator) = self.draw_mode_animator(&shape) {
@@ -339,6 +342,7 @@ impl<'a> BevyStagedLayer<'a> {
         &self,
         transform: &LottieTransform,
         zindex: f32,
+        text_range: Option<TextRangeInfo>,
     ) -> Option<Animator<Transform>> {
         let mut tweens = vec![];
         let frame_rate = self.layer.frame_rate;
@@ -347,13 +351,25 @@ impl<'a> BevyStagedLayer<'a> {
         } else {
             Vec2::ZERO
         };
-        if transform.is_animated() {
-            tweens.push(transform.tween(frame_rate, |data, _| TransformLens {
-                data,
+        if transform.is_animated() || text_range.is_some() {
+            let mut frames = transform.frames();
+            if text_range.is_some() {
+                frames = frames.max(self.layer.end_frame);
+            }
+            let secs = frames as f32 / frame_rate as f32;
+            let transform = TransformLens {
+                data: transform.clone(),
                 zindex,
-                frames: 0.0,
+                frames,
                 mask_offset,
-            }));
+                text_range: text_range.clone(),
+            };
+            let tween = Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(secs.max(f32::EPSILON)),
+                transform,
+            );
+            tweens.push(Sequence::from_single(tween));
         }
         if !tweens.is_empty() {
             let tracks = Tracks::new(tweens);
