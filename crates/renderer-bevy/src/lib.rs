@@ -1,16 +1,6 @@
-mod frame_capture;
-// mod gradient;
-mod lens;
-mod material;
-mod plugin;
-mod render;
-mod shape;
-mod system;
-mod tween;
-mod utils;
-
 use std::borrow::Cow;
-use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin};
@@ -26,25 +16,35 @@ use bevy::window::{ExitCondition, PrimaryWindow};
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
-use frame_capture::{ImageCopier, ImageCopyPlugin, ImageToSave};
 // use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
 // FrameCapturePlugin, TargetBuffer, };
+pub use bevy;
+use bevy::prelude::Transform;
+use bevy::render::texture::{BevyDefault, Image};
+use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
+use shape::{DrawMode, Path};
+use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureUsages};
+
+mod frame_capture;
+// mod gradient;
+mod lens;
+mod material;
+mod plugin;
+mod render;
+mod shape;
+mod system;
+mod tween;
+mod utils;
+
+use frame_capture::{ImageCopier, ImageCopyPlugin, ImageToSave};
 use material::LottieMaterial;
 use ordered_float::OrderedFloat;
 use plugin::LottiePlugin;
 use render::*;
-
-use bevy::prelude::Transform;
-use bevy::render::texture::{BevyDefault, Image};
-use shape::{DrawMode, Path};
-use webp_animation::Encoder;
-
-pub use bevy;
-use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureUsages};
 
 #[derive(Component)]
 pub struct LottieComp {
@@ -95,47 +95,47 @@ impl LottieAnimationInfo {
     }
 }
 
-struct WebpEncoder {
-    encoder: Encoder,
-    width: u32,
-    height: u32,
+#[derive(Resource)]
+struct FrameSender {
+    sender: UnboundedSender<FrameData>,
+    closed: Arc<AtomicBool>,
 }
 
-impl WebpEncoder {
-    pub fn new() -> Self {
-        WebpEncoder {
-            encoder: Encoder::new((1, 1)).unwrap(),
-            width: 1,
-            height: 1,
-        }
+impl FrameSender {
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.encoder = Encoder::new((width, height)).unwrap();
-        self.width = width;
-        self.height = height;
+    fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+        self.sender.close_channel();
     }
+}
 
-    pub fn finish(&mut self) -> Encoder {
-        self.width = 0;
-        self.height = 0;
-        std::mem::replace(&mut self.encoder, Encoder::new((1, 1)).unwrap())
-    }
-
-    pub fn finished(&self) -> bool {
-        self.width == 0
-    }
+pub struct FrameData {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub timestamp: i32,
 }
 
 pub struct BevyRenderer {
     app: App,
+    frame_sender: UnboundedSender<FrameData>,
 }
 
 impl BevyRenderer {
-    pub fn new() -> Self {
-        let mut app = App::new();
+    pub fn new() -> (Self, UnboundedReceiver<FrameData>) {
+        let app = App::new();
+        let (sender, receiver) = unbounded();
 
-        BevyRenderer { app }
+        (
+            BevyRenderer {
+                app,
+                frame_sender: sender,
+            },
+            receiver,
+        )
     }
 
     pub fn add_plugin(&mut self, plugin: impl Plugin) {
@@ -216,11 +216,13 @@ impl Renderer for BevyRenderer {
         });
 
         if capturing {
-            let encoder = WebpEncoder::new();
             self.app
                 .add_plugins(ImageCopyPlugin)
                 .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
-                .insert_non_send_resource(encoder)
+                .insert_resource(FrameSender {
+                    sender: self.frame_sender.clone(),
+                    closed: Arc::default(),
+                })
                 .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
                 )))
@@ -592,9 +594,8 @@ fn animate_system(
 fn save_img(
     image_to_save: Query<&ImageToSave>,
     info: Res<LottieAnimationInfo>,
-    lottie: Res<LottieGlobals>,
     mut images: ResMut<Assets<Image>>,
-    mut encoder: NonSendMut<WebpEncoder>,
+    image_sender: Res<FrameSender>,
     mut exit: EventWriter<AppExit>,
     // mut event_writer: EventWriter<FrameCaptureEvent>,
 ) {
@@ -602,7 +603,7 @@ fn save_img(
     let delta = 1.0 / info.frame_rate;
     let mut timestamp = info.current_time - delta;
     if info.finished_once {
-        if !encoder.finished() {
+        if !image_sender.is_closed() {
             timestamp += info.end_frame / info.frame_rate;
         } else {
             return;
@@ -614,23 +615,14 @@ fn save_img(
         return;
     }
     let end_time = info.end_frame / info.frame_rate;
-    if timestamp >= end_time && !encoder.finished() {
-        let encoder = encoder.finish();
-        let data = encoder.finalize((end_time * 1000.0) as i32).unwrap();
-        if let Config::Headless(HeadlessConfig { filename, .. }) = &lottie.config {
-            let mut f = std::fs::File::create(&format!("{filename}.webp")).unwrap();
-            f.write_all(&data).unwrap();
-            drop(f);
-        }
+    if timestamp >= end_time && !image_sender.is_closed() {
+        image_sender.close();
         exit.send(AppExit);
         return;
     }
     for capture in image_to_save.iter() {
         let image = images.get_mut(capture).unwrap();
         let (width, height) = (image.size().x as u32, image.size().y as u32);
-        if encoder.width != width || encoder.height != height {
-            encoder.resize(width, height);
-        }
         let data = &mut image.data;
         if data.is_empty() {
             continue;
@@ -652,9 +644,14 @@ fn save_img(
         } else {
             Cow::Borrowed(data)
         };
-        encoder
-            .encoder
-            .add_frame(&data, (timestamp * 1000.0) as i32)
+        image_sender
+            .sender
+            .unbounded_send(FrameData {
+                data: data.into_owned(),
+                width,
+                height,
+                timestamp: (timestamp * 1000.0) as i32,
+            })
             .unwrap();
     }
 }
