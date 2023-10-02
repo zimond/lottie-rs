@@ -328,7 +328,7 @@ fn setup_system(
                 label: Some("cpu image"),
                 size,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
+                format: TextureFormat::bevy_default(),
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
@@ -344,7 +344,7 @@ fn setup_system(
                     label: Some("render target image"),
                     size,
                     dimension: TextureDimension::D2,
-                    format: TextureFormat::Bgra8UnormSrgb,
+                    format: TextureFormat::bevy_default(),
                     mip_level_count: 1,
                     sample_count: 1,
                     usage: TextureUsages::TEXTURE_BINDING
@@ -627,16 +627,17 @@ fn save_img(
         if data.is_empty() {
             continue;
         }
-        // bgra -> rgba
-        for pixel in data.chunks_exact_mut(4) {
-            pixel.swap(0, 2);
-        }
         let unpadded_len = (width * height) as usize * 4;
         let data = if data.len() != unpadded_len {
             // Has padding
-            let len = data.len();
+            let padded_width = width * 4
+                + (wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+                    - (width * 4 % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT));
             let mut result = Vec::with_capacity(unpadded_len);
-            for chunk in data.chunks_exact_mut(len / height as usize) {
+            for chunk in data
+                .chunks_exact_mut(padded_width as usize)
+                .take(height as usize)
+            {
                 result.extend_from_slice(&chunk[..(unpadded_len / height as usize)]);
             }
             assert_eq!(unpadded_len, result.len());
