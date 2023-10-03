@@ -21,7 +21,9 @@ bevy-inspector-egui = { version = "0.19", optional = true }
 futures = "0.3.28"
 
 [dev-dependencies]
+png = "0.17.10"
 rstest = "0.18.2"
+smol = "1.3.0"
 
 [features]
 default = []

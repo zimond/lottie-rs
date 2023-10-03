@@ -226,7 +226,7 @@ impl Renderer for BevyRenderer {
                 .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
                     1.0 / frame_rate,
                 )))
-                .add_systems(PostUpdate, save_img);
+                .add_systems(Last, save_img);
         } else {
             self.app.add_plugins(WinitPlugin);
         }
@@ -523,6 +523,15 @@ fn animate_system(
     } else {
         time.delta_seconds()
     };
+    if info.current_time >= info.end_frame / info.frame_rate {
+        info.finished_once = true;
+        if capturing {
+            info.current_time += delta;
+            return;
+        } else {
+            info.current_time = 0.0;
+        }
+    }
     let current_frame = info.current_time * info.frame_rate;
 
     for (mut a, tracker) in transform_animation.iter_mut() {
@@ -580,15 +589,7 @@ fn animate_system(
         };
     }
 
-    let current_time = info.current_time + delta;
-    let total_time = info.end_frame / info.frame_rate;
-    let current_time = current_time - (current_time / total_time).floor() * total_time;
-    if current_time < info.current_time {
-        info.current_time = 0.0;
-        info.finished_once = true;
-    }
-
-    info.current_time = current_time;
+    info.current_time += delta;
 }
 
 fn save_img(
@@ -597,29 +598,21 @@ fn save_img(
     mut images: ResMut<Assets<Image>>,
     image_sender: Res<FrameSender>,
     mut exit: EventWriter<AppExit>,
-    // mut event_writer: EventWriter<FrameCaptureEvent>,
 ) {
-    // Capture has 1 frame latency
+    // Capture has 3 frames latency
     let delta = 1.0 / info.frame_rate;
-    let mut timestamp = info.current_time - delta;
-    if info.finished_once {
+    let timestamp = info.current_time - 3.0 * delta;
+    if timestamp <= 0.0 {
+        return;
+    } else if info.finished_once && timestamp * info.frame_rate >= info.end_frame {
         if !image_sender.is_closed() {
-            timestamp += info.end_frame / info.frame_rate;
-        } else {
+            image_sender.close();
+            exit.send(AppExit);
             return;
         }
-    }
-    // Skip first frame
-    timestamp -= 2.0 * delta;
-    if timestamp < 0.0 {
         return;
     }
-    let end_time = info.end_frame / info.frame_rate;
-    if timestamp >= end_time && !image_sender.is_closed() {
-        image_sender.close();
-        exit.send(AppExit);
-        return;
-    }
+    log::trace!("capturing frame at timestamp {}", timestamp - delta);
     for capture in image_to_save.iter() {
         let image = images.get_mut(capture).unwrap();
         let (width, height) = (image.size().x as u32, image.size().y as u32);

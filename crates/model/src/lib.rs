@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 pub use euclid::default::Rect;
 pub use euclid::rect;
 use serde::{Deserialize, Serialize};
