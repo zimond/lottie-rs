@@ -25,20 +25,26 @@ fn check_fixture(
     let filename = path.file_stem().unwrap();
     let mut path = path.clone();
     path.pop();
-    path.push(&format!("{}.png", filename.to_str().unwrap_or_default()));
-    let decoder = png::Decoder::new(File::open(&path)?);
-    let mut reader = decoder.read_info().unwrap();
-    // Allocate the output buffer.
-    let mut buf = vec![0; reader.output_buffer_size()];
-    // Read the next frame. An APNG might contain multiple frames.
-    let info = reader.next_frame(&mut buf).unwrap();
-    // Grab the bytes of the image.
-    let bytes = &buf[..info.buffer_size()];
-    let correct = bytes.to_vec();
+    path.push(filename.to_str().unwrap_or_default());
+    let mut checked_frames = glob::glob(&format!("{}_*.png", path.to_str().unwrap_or_default()))
+        .unwrap()
+        .filter_map(|entry| {
+            let path = entry.ok()?;
+            let path = path.to_str()?.split('/').last()?;
+            let index = path.split(&['_', '.']).skip(1).next().unwrap_or_default();
+            let index = index.parse::<u32>().ok()?;
+            Some(index)
+        })
+        .collect::<Vec<_>>();
+    checked_frames.sort();
     smol::block_on(async {
         smol::pin!(frame_stream);
         let mut i = 0;
         while let Some(frame) = frame_stream.next().await {
+            if !checked_frames.contains(&i) {
+                i += 1;
+                continue;
+            }
             let mut p = path.clone();
             p.pop();
             p.push(&format!(
@@ -46,28 +52,30 @@ fn check_fixture(
                 filename.to_str().unwrap_or_default(),
                 i
             ));
+
+            let decoder = png::Decoder::new(File::open(&p).unwrap());
+            let mut reader = decoder.read_info().unwrap();
+            // Allocate the output buffer.
+            let mut buf = vec![0; reader.output_buffer_size()];
+            // Read the next frame. An APNG might contain multiple frames.
+            let info = reader.next_frame(&mut buf).unwrap();
+            // Grab the bytes of the image.
+            let bytes = &buf[..info.buffer_size()];
+            let correct = bytes.to_vec();
+
             i += 1;
-            let f = File::create(&p).unwrap();
-            let w = BufWriter::new(f);
-            let mut encoder = png::Encoder::new(w, frame.width, frame.height);
-            encoder.set_color(png::ColorType::Rgba);
-            encoder.set_depth(png::BitDepth::Eight);
-            encoder.set_source_gamma(png::ScaledFloat::from_scaled(45455)); // 1.0 / 2.2, scaled by 100000
-            encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
-            let source_chromaticities = png::SourceChromaticities::new(
-                // Using unscaled instantiation here
-                (0.31270, 0.32900),
-                (0.64000, 0.33000),
-                (0.30000, 0.60000),
-                (0.15000, 0.06000),
-            );
-            encoder.set_source_chromaticities(source_chromaticities);
-            encoder
-                .write_header()
-                .unwrap()
-                .write_image_data(&frame.data)
-                .unwrap();
-            // assert_eq!(correct, frame.data);
+            // let f = File::create(&p).unwrap();
+            // let w = BufWriter::new(f);
+            // let mut encoder = png::Encoder::new(w, frame.width,
+            // frame.height);
+            // encoder.set_color(png::ColorType::Rgba);
+            // encoder.set_depth(png::BitDepth::Eight);
+            // encoder
+            //     .write_header()
+            //     .unwrap()
+            //     .write_image_data(&frame.data)
+            //     .unwrap();
+            assert_eq!(correct, frame.data);
         }
     });
     Ok(())

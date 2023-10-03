@@ -1,3 +1,4 @@
+use bevy::asset::AssetPath;
 use bevy::math::Vec2;
 use bevy::prelude::{Color, Handle, Image, UVec4, Vec4};
 use bevy::reflect::{TypePath, TypeUuid};
@@ -30,11 +31,31 @@ pub struct LottieMaterial {
 
 impl Material2d for LottieMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shader.wgsl".into()
+        let current_exe = std::env::current_exe().unwrap();
+        let mut path = current_exe.clone();
+        path.push("assets/shader.wgsl");
+
+        while !path.exists() && path.parent().is_some() {
+            path.pop();
+            path.pop();
+            path.pop();
+            path.push("assets/shader.wgsl");
+        }
+        AssetPath::from(path).into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        "shader.wgsl".into()
+        let current_exe = std::env::current_exe().unwrap();
+        let mut path = current_exe.clone();
+        path.push("assets/shader.wgsl");
+
+        while !path.exists() && path.parent().is_some() {
+            path.pop();
+            path.pop();
+            path.pop();
+            path.push("assets/shader.wgsl");
+        }
+        AssetPath::from(path).into()
     }
 
     fn specialize(
