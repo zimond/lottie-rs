@@ -8,7 +8,7 @@ use bevy::render::render_graph::{NodeRunError, RenderGraph, RenderGraphContext};
 use bevy::render::render_resource::Buffer;
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
 use bevy::render::{render_graph, Extract, RenderApp};
-use pollster::FutureExt;
+use event_listener::Event;
 use wgpu::{
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer,
     ImageDataLayout,
@@ -17,9 +17,10 @@ use wgpu::{
 #[derive(Clone, Component)]
 pub struct ImageCopier {
     buffer: Buffer,
-    enabled: Arc<AtomicBool>,
+    unmapped: Arc<AtomicBool>,
     src_image: Handle<Image>,
     dst_image: Handle<Image>,
+    unmap_event: Arc<Event>,
 }
 
 impl ImageCopier {
@@ -43,20 +44,9 @@ impl ImageCopier {
             buffer: cpu_buffer,
             src_image,
             dst_image,
-            enabled: Arc::new(AtomicBool::new(true)),
+            unmap_event: Arc::new(Event::new()),
+            unmapped: Arc::new(AtomicBool::new(true)),
         }
-    }
-
-    pub fn enable(&self) {
-        self.enabled.store(true, Ordering::Relaxed)
-    }
-
-    pub fn disable(&self) {
-        self.enabled.store(false, Ordering::Relaxed)
-    }
-
-    pub fn enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
     }
 }
 
@@ -82,10 +72,6 @@ impl render_graph::Node for ImageCopyDriver {
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
 
         for image_copier in image_copiers.iter() {
-            if !image_copier.enabled() {
-                continue;
-            }
-
             let src_image = gpu_images.get(&image_copier.src_image).unwrap();
 
             let mut encoder = render_context
@@ -119,6 +105,12 @@ impl render_graph::Node for ImageCopyDriver {
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
+            if !image_copier.unmapped.load(Ordering::SeqCst) {
+                let mut listener = image_copier.unmap_event.listen();
+                if !image_copier.unmapped.load(Ordering::SeqCst) {
+                    listener.as_mut().wait();
+                }
+            }
             render_queue.submit(std::iter::once(encoder.finish()));
         }
 
@@ -132,18 +124,16 @@ pub fn receive_images(
     render_device: Res<RenderDevice>,
 ) {
     for image_copier in image_copiers.iter() {
-        if !image_copier.enabled() {
-            continue;
-        }
         // Derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
         // We need to scope the mapping variables so that we can
         // unmap the buffer
-        async {
+        futures::executor::block_on(async {
             let buffer_slice = image_copier.buffer.slice(..);
 
             // NOTE: We have to create the mapping THEN device.poll() before await
             // the future. Otherwise the application will freeze.
             let (tx, rx) = futures::channel::oneshot::channel();
+            image_copier.unmapped.store(false, Ordering::SeqCst);
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 tx.send(result).unwrap();
             });
@@ -153,8 +143,9 @@ pub fn receive_images(
                 image.data = buffer_slice.get_mapped_range().to_vec();
             }
             image_copier.buffer.unmap();
-        }
-        .block_on();
+            image_copier.unmapped.store(true, Ordering::SeqCst);
+            image_copier.unmap_event.notify(u32::MAX);
+        });
     }
 }
 

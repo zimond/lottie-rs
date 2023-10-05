@@ -16,9 +16,9 @@ image = { version = "0.24.2", default-features = false, features = ["png"] }
 bevy_tweening = { git = "https://github.com/zimond/bevy_tweening", rev = "5f95a73" }
 lottie-core = { path = "../core" }
 lyon = "1.0.1"
-pollster = "0.3.0"
 bevy-inspector-egui = { version = "0.19", optional = true }
 futures = "0.3.28"
+event-listener = "3.0.0"
 
 [dev-dependencies]
 glob = "0.3.0"
