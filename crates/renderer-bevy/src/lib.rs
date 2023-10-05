@@ -254,6 +254,7 @@ fn setup_system(
     };
     let mut lottie = lottie_globals.lottie.take().unwrap();
     let mut camera = Camera2dBundle::default();
+    camera.camera_2d.clear_color = ClearColorConfig::Custom(Color::NONE);
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
         lottie.model.width as f32 / 2.0,
         lottie.model.height as f32 / 2.0,
