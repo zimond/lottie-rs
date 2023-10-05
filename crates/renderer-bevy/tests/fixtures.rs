@@ -19,6 +19,7 @@ fn check_fixture(
         Config::Headless(HeadlessConfig {
             target: lottie_core::Target::Default,
             filename: String::from("test.webp"),
+            frame: None,
         }),
     );
     renderer.render();
@@ -64,17 +65,7 @@ fn check_fixture(
             let correct = bytes.to_vec();
 
             i += 1;
-            // let f = File::create(&p).unwrap();
-            // let w = BufWriter::new(f);
-            // let mut encoder = png::Encoder::new(w, frame.width,
-            // frame.height);
-            // encoder.set_color(png::ColorType::Rgba);
-            // encoder.set_depth(png::BitDepth::Eight);
-            // encoder
-            //     .write_header()
-            //     .unwrap()
-            //     .write_image_data(&frame.data)
-            //     .unwrap();
+
             assert_eq!(correct, frame.data);
         }
     });

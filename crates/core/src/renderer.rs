@@ -14,6 +14,7 @@ pub enum Target {
 pub struct HeadlessConfig {
     pub target: Target,
     pub filename: String,
+    pub frame: Option<u32>,
 }
 
 pub enum Config {

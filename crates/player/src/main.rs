@@ -1,6 +1,6 @@
 #![feature(path_file_prefix)]
-use std::fs;
-use std::io::Write;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 // use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
@@ -22,6 +22,8 @@ struct Args {
     /// will be generated
     #[clap(long, action)]
     headless: bool,
+    #[clap(long)]
+    frame: Option<u32>,
     /// Show controls, this options is invalid if `headless` is enabled
     #[clap(long, action)]
     controls: bool,
@@ -53,12 +55,12 @@ fn main() -> Result<(), Error> {
     let f = fs::File::open(path).unwrap();
     let lottie = Lottie::from_reader(f, root_path).unwrap();
     let final_timestamp = (lottie.model.end_frame / lottie.model.frame_rate * 1000.0) as i32;
-    let mut encoder = Encoder::new((lottie.model.width, lottie.model.height))?;
     let (mut renderer, frame_stream) = BevyRenderer::new();
     let config = if args.headless {
         Config::Headless(HeadlessConfig {
             target: Target::Default,
             filename,
+            frame: args.frame,
         })
     } else {
         Config::Window(WindowConfig {
@@ -71,22 +73,50 @@ fn main() -> Result<(), Error> {
     } else {
         None
     };
+    let target_frame = if let Config::Headless(HeadlessConfig { frame, .. }) = &config {
+        frame.clone()
+    } else {
+        None
+    };
+
+    let mut encoder = Encoder::new((lottie.model.width, lottie.model.height))?;
     smol::block_on::<Result<_, Error>>(async {
         // renderer.add_plugin(DebugLinesPlugin::default());
         // renderer.add_system(axis_system);
         renderer.load_lottie(lottie, config);
         renderer.render();
         pin!(frame_stream);
+        let mut i = 0;
         while let Some(frame) = frame_stream.next().await {
-            encoder.add_frame(&frame.data, frame.timestamp)?;
+            if let (Some(target), Some(filename)) = (target_frame, filename.as_ref()) {
+                if target == i {
+                    let f = File::create(&format!("{}_{}.png", filename, i))?;
+                    let w = BufWriter::new(f);
+                    let mut encoder = png::Encoder::new(w, frame.width, frame.height);
+                    encoder.set_color(png::ColorType::Rgba);
+                    encoder.set_depth(png::BitDepth::Eight);
+                    encoder
+                        .write_header()
+                        .unwrap()
+                        .write_image_data(&frame.data)
+                        .unwrap();
+                    break;
+                } else {
+                    i += 1;
+                }
+            } else {
+                encoder.add_frame(&frame.data, frame.timestamp)?;
+            }
         }
         Ok(())
     })?;
-    let data = encoder.finalize(final_timestamp)?;
-    if let Some(filename) = filename {
-        let mut f = std::fs::File::create(&format!("{filename}.webp"))?;
-        f.write_all(&data)?;
-        drop(f);
+    if target_frame.is_none() {
+        let data = encoder.finalize(final_timestamp)?;
+        if let Some(filename) = filename {
+            let mut f = std::fs::File::create(&format!("{filename}.webp"))?;
+            f.write_all(&data)?;
+            drop(f);
+        }
     }
     Ok(())
 }
