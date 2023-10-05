@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::io::BufWriter;
 use std::path::PathBuf;
 
 use lottie_core::{Config, Error, HeadlessConfig, Lottie, Renderer};

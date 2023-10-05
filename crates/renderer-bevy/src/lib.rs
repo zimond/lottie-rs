@@ -602,7 +602,7 @@ fn save_img(
 ) {
     // Capture has 3 frames latency
     let delta = 1.0 / info.frame_rate;
-    let timestamp = info.current_time - 3.0 * delta;
+    let timestamp = info.current_time - 4.0 * delta;
     if timestamp <= 0.0 {
         return;
     } else if info.finished_once && timestamp * info.frame_rate >= info.end_frame {
