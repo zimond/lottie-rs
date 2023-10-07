@@ -110,13 +110,16 @@ impl Lens<DrawMode> for OpacityLens {
         let frame = self.frames as f32 * ratio;
         let value = self.opacity.value(frame);
         let fill_opacity = self.fill_opacity.value(frame) / 100.0;
-        let opacity = frame * fill_opacity;
 
         if let Some(fill) = target.fill.as_mut() {
-            fill.opacity = opacity;
+            fill.opacity = value * fill_opacity;
         }
         if let Some(stroke) = target.stroke.as_mut() {
-            stroke.opacity = opacity;
+            if let Some(stroke_opacity) =
+                self.stroke_opacity.as_ref().map(|s| s.value(frame) / 100.0)
+            {
+                stroke.opacity = value * stroke_opacity;
+            }
         }
     }
 }

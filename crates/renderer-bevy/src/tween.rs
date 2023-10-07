@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween};
+use bevy_tweening::{EaseMethod, Lens, Sequence, Tween};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use lottie_core::KeyFrame;
