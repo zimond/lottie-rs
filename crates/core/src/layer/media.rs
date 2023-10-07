@@ -1,9 +1,9 @@
-use base64::engine::{self, general_purpose};
-use base64::{alphabet, Engine as _};
+use base64::engine::general_purpose;
+use base64::Engine as _;
 use lottie_model::Media as LottieMedia;
 use std::io::Read;
 use std::path::PathBuf;
-use url::{ParseError, Url};
+use url::Url;
 
 use crate::Error;
 

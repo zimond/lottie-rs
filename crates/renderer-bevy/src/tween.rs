@@ -32,11 +32,6 @@ where
         F: Fn(Self::Key, Self::Key) -> L,
     {
         let mut seq = Sequence::with_capacity(self.len() + 1);
-        if self[0].start_frame > 0.0 {
-            seq = seq.then(Delay::new(Duration::from_secs_f32(
-                self[0].start_frame / (frame_rate as f32),
-            )));
-        }
         for k in self.iter() {
             let start = k.start_value.clone();
             let end = k.end_value.clone();
