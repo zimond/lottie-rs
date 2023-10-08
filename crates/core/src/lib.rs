@@ -3,6 +3,7 @@ use std::io::Read;
 pub use animated::*;
 pub use error::Error;
 use font::FontDB;
+pub use fontkit::tiny_skia_path;
 use fontkit::FontKit;
 pub use lottie_model::*;
 pub use renderer::*;
