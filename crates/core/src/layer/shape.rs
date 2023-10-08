@@ -339,9 +339,18 @@ impl PathExt for PolyStar {
         let num_points = self.points.value(frame) as u32 * 2;
         let mut long_flag = false;
         let outer_rad = self.outer_radius.value(frame);
-        let inner_rad = self.inner_radius.value(frame);
+        let inner_rad = self
+            .inner_radius
+            .as_ref()
+            .map(|s| s.value(frame))
+            .unwrap_or(0.0);
         let outer_round = self.outer_roundness.value(frame) / 100.0;
-        let inner_round = self.inner_roundness.value(frame) / 100.0;
+        let inner_round = self
+            .inner_roundness
+            .as_ref()
+            .map(|s| s.value(frame))
+            .unwrap_or(0.0)
+            / 100.0;
         let outer: Vector2D = vec2(outer_rad, outer_round);
         let inner = vec2(inner_rad, inner_round);
         let mut current_ang = (self.rotation.value(frame) - 90.0) * PI / 180.0;
@@ -357,6 +366,11 @@ impl PathExt for PolyStar {
         builder.begin(p.to_point() + cp);
         current_ang += angle_per_point * angle_dir;
         for _ in 0..num_points {
+            if !long_flag && self.star_type == PolyStarType::Polygon {
+                current_ang += angle_per_point;
+                long_flag = !long_flag;
+                continue;
+            }
             let (cp1_info, cp2_info) = if long_flag {
                 (inner, outer)
             } else {

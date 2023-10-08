@@ -465,7 +465,9 @@ pub enum Shape {
     },
 }
 
-#[derive(serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy)]
+#[derive(
+    serde_repr::Serialize_repr, serde_repr::Deserialize_repr, Debug, Clone, Copy, PartialEq,
+)]
 #[repr(u8)]
 pub enum PolyStarType {
     Star = 1,
@@ -813,10 +815,10 @@ pub struct PolyStar {
     pub outer_radius: Animated<f32>,
     #[serde(rename = "os")]
     pub outer_roundness: Animated<f32>,
-    #[serde(rename = "ir")]
-    pub inner_radius: Animated<f32>,
+    #[serde(rename = "ir", default)]
+    pub inner_radius: Option<Animated<f32>>,
     #[serde(rename = "is")]
-    pub inner_roundness: Animated<f32>,
+    pub inner_roundness: Option<Animated<f32>>,
     #[serde(rename = "r")]
     pub rotation: Animated<f32>,
     #[serde(rename = "pt")]
