@@ -10,7 +10,7 @@ pub(crate) fn controls_system(mut egui_ctx: EguiContexts, mut info: ResMut<Lotti
     let progress = egui::ProgressBar::new(value);
     let button_text = if info.paused() { "▶" } else { "⏸" };
     let button = egui::Button::new(button_text);
-    let secs = egui::Label::new(format!("{:.2}", info.current_time()));
+    let secs = egui::Label::new(format!("{:.2}", info.frame_rate * info.current_time));
     egui::TopBottomPanel::bottom("slider_panel").show(egui_ctx.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
             ui.add(secs);

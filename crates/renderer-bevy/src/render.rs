@@ -157,7 +157,18 @@ impl<'a> BevyStagedLayer<'a> {
                     {
                         group.insert(animator);
                     }
-                    let new_group = ShapeGroup { shapes };
+                    let mut new_group = ShapeGroup { shapes };
+                    // if current group has a trim, add this trim to shapes list, so it will be
+                    // applied correctly
+                    if !shape.trims.is_empty() {
+                        for trim in &shape.trims {
+                            new_group.shapes.push(ShapeLayer {
+                                name: None,
+                                hidden: false,
+                                shape: Shape::Trim(trim.trim.clone()),
+                            })
+                        }
+                    }
                     self.spawn_shapes(&new_group, step, &mut group);
                     Some(group.id())
                 }
@@ -295,10 +306,17 @@ impl<'a> BevyStagedLayer<'a> {
                 }
 
                 // Add bezier tween
-                if d.is_animated() {
-                    let tween = d
-                        .keyframes
-                        .tween(self.layer.frame_rate, |start, end| PathLens { start, end });
+                if d.is_animated() || !shape.trims.is_empty() {
+                    let tween = d.keyframes.tween(
+                        self.layer.end_frame,
+                        self.layer.frame_rate,
+                        |start, end| PathLens {
+                            start,
+                            end,
+                            frames: self.layer.end_frame,
+                            trims: shape.trims.clone(),
+                        },
+                    );
                     let animator = Animator::new(tween).with_state(AnimatorState::Paused);
                     c.insert(animator);
                 }
@@ -384,12 +402,11 @@ impl<'a> BevyStagedLayer<'a> {
         let frame_rate = self.layer.frame_rate;
         if let Some(stroke) = shape.stroke.as_ref() {
             if stroke.width().is_animated() {
-                tweens.push(
-                    stroke
-                        .width()
-                        .keyframes
-                        .tween(frame_rate, |start, end| StrokeWidthLens { start, end }),
-                );
+                tweens.push(stroke.width().keyframes.tween(
+                    self.layer.end_frame,
+                    frame_rate,
+                    |start, end| StrokeWidthLens { start, end },
+                ));
             }
         }
 

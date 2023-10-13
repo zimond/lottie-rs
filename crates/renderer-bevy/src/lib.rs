@@ -517,6 +517,12 @@ fn animate_system(
         for (mut a, _) in transform_animation.iter_mut() {
             a.state = AnimatorState::Paused;
         }
+        for (mut a, _) in path_animation.iter_mut() {
+            a.state = AnimatorState::Paused;
+        }
+        for (mut a, _) in draw_mode_animation.iter_mut() {
+            a.state = AnimatorState::Paused;
+        }
         return;
     }
     let delta = if capturing {

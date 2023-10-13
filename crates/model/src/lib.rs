@@ -413,16 +413,7 @@ pub enum Shape {
         transform: RepeaterTransform,
     },
     #[serde(rename = "tm")]
-    Trim {
-        #[serde(rename = "s")]
-        start: Animated<f32>,
-        #[serde(rename = "e")]
-        end: Animated<f32>,
-        #[serde(rename = "o")]
-        offset: Animated<f32>,
-        #[serde(rename = "m")]
-        multiple_shape: TrimMultipleShape,
-    },
+    Trim(Trim),
     #[serde(rename = "rd")]
     RoundedCorners {
         #[serde(rename = "r")]
@@ -668,6 +659,18 @@ pub enum BlendMode {
     Luminosity,
     Add,
     HardMix,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Trim {
+    #[serde(rename = "s")]
+    pub start: Animated<f32>,
+    #[serde(rename = "e")]
+    pub end: Animated<f32>,
+    #[serde(rename = "o")]
+    pub offset: Animated<f32>,
+    #[serde(rename = "m")]
+    pub multiple_shape: TrimMultipleShape,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

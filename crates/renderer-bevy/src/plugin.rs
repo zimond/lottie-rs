@@ -225,7 +225,10 @@ fn stroke_path(path: &LyonPath, opt: &StrokeOptions) -> LyonPath {
             }
         }
     }
-    let ts_path = ts_path_builder.finish().unwrap();
+    let ts_path = match ts_path_builder.finish() {
+        Some(p) => p,
+        None => return LyonPath::default(),
+    };
     let ts_path = ts_path
         .stroke(
             &ts::Stroke {

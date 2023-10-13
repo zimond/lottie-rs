@@ -94,12 +94,29 @@ impl<'a> Iterator for StyledShapeIter {
             self.shape_index += 1;
             self.stroke_index = self.shape_index as usize;
         }
+        // collect trim info
+        let mut trims = vec![];
+        for (_index, shape) in self.shapes.iter().rev().enumerate() {
+            if let Shape::Trim(trim) = &shape.shape {
+                match trim.multiple_shape {
+                    TrimMultipleShape::Individually => trims.push(TrimInfo {
+                        trim: trim.clone(),
+                        shapes: vec![shape.shape.clone()],
+                    }),
+                    TrimMultipleShape::Simultaneously => {
+                        // TODO: implement this
+                        continue;
+                    }
+                }
+            }
+        }
         Some(StyledShape {
             shape,
             styles: vec![],
             stroke,
             fill,
             transform,
+            trims,
         })
     }
 }
@@ -167,12 +184,19 @@ impl AnyStroke {
     }
 }
 
+#[derive(Clone)]
+pub struct TrimInfo {
+    pub trim: Trim,
+    pub shapes: Vec<Shape>,
+}
+
 pub struct StyledShape {
     pub shape: ShapeLayer,
     pub fill: AnyFill,
     pub stroke: Option<AnyStroke>,
     pub transform: Transform,
     pub styles: Vec<ShapeLayer>,
+    pub trims: Vec<TrimInfo>,
 }
 
 pub trait ShapeExt {

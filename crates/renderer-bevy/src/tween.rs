@@ -15,7 +15,7 @@ where
     T: 'static,
 {
     type Key;
-    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<T>
+    fn tween<F>(&self, end_frame: f32, frame_rate: f32, producer: F) -> Sequence<T>
     where
         F: Fn(Self::Key, Self::Key) -> L;
 }
@@ -27,7 +27,7 @@ where
     V: Clone,
 {
     type Key = V;
-    fn tween<F>(&self, frame_rate: f32, producer: F) -> Sequence<T>
+    fn tween<F>(&self, end_frame: f32, frame_rate: f32, producer: F) -> Sequence<T>
     where
         F: Fn(Self::Key, Self::Key) -> L,
     {
@@ -37,7 +37,12 @@ where
             let end = k.end_value.clone();
             let ease_out = k.easing_out.clone().unwrap_or_default();
             let ease_in = k.easing_in.clone().unwrap_or_default();
-            let frames = k.end_frame - k.start_frame;
+            let end_frame = if k.end_frame <= 0.0 {
+                end_frame
+            } else {
+                k.end_frame
+            };
+            let frames = end_frame - k.start_frame;
             if frames <= 0.0 {
                 continue;
             }
