@@ -333,7 +333,7 @@ impl PathExt for Bezier {
             if let Some(p0) = prev_p {
                 let p1 = p0 + *c1;
                 let p2 = *p + *c2;
-                if p1.approx_eq(&Vector2D::zero()) && p2.approx_eq(&Vector2D::zero()) {
+                if c1.approx_eq(&Vector2D::zero()) && c2.approx_eq(&Vector2D::zero()) {
                     builder.line_to(p.to_point());
                 } else if p1.approx_eq(&p2) {
                     builder.quadratic_bezier_to(p1.to_point(), p.to_point());
