@@ -229,27 +229,29 @@ fn stroke_path(path: &LyonPath, opt: &StrokeOptions) -> LyonPath {
         Some(p) => p,
         None => return LyonPath::default(),
     };
-    let ts_path = ts_path
-        .stroke(
-            &ts::Stroke {
-                width: opt.line_width,
-                miter_limit: opt.miter_limit,
-                line_cap: match opt.start_cap {
-                    LineCap::Butt => ts::LineCap::Butt,
-                    LineCap::Round => ts::LineCap::Round,
-                    LineCap::Square => ts::LineCap::Square,
-                },
-                line_join: match opt.line_join {
-                    LineJoin::Miter => ts::LineJoin::Miter,
-                    LineJoin::MiterClip => ts::LineJoin::MiterClip,
-                    LineJoin::Round => ts::LineJoin::Round,
-                    LineJoin::Bevel => ts::LineJoin::Bevel,
-                },
-                dash: None,
+    let ts_path = ts_path.stroke(
+        &ts::Stroke {
+            width: opt.line_width,
+            miter_limit: opt.miter_limit,
+            line_cap: match opt.start_cap {
+                LineCap::Butt => ts::LineCap::Butt,
+                LineCap::Round => ts::LineCap::Round,
+                LineCap::Square => ts::LineCap::Square,
             },
-            1.0,
-        )
-        .unwrap();
+            line_join: match opt.line_join {
+                LineJoin::Miter => ts::LineJoin::Miter,
+                LineJoin::MiterClip => ts::LineJoin::MiterClip,
+                LineJoin::Round => ts::LineJoin::Round,
+                LineJoin::Bevel => ts::LineJoin::Bevel,
+            },
+            dash: None,
+        },
+        1.0,
+    );
+    let ts_path = match ts_path {
+        Some(p) => p,
+        None => return LyonPath::default(),
+    };
     let mut b = LyonPath::svg_builder();
     for seg in ts_path.segments() {
         match seg {
