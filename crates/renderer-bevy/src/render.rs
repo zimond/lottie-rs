@@ -310,10 +310,11 @@ impl<'a> BevyStagedLayer<'a> {
                     let tween = d.keyframes.tween(
                         self.layer.end_frame,
                         self.layer.frame_rate,
-                        |start, end| PathLens {
+                        |start, end, start_frame, end_frame| PathLens {
                             start,
                             end,
-                            frames: self.layer.end_frame,
+                            start_frame,
+                            end_frame,
                             trims: shape.trims.clone(),
                         },
                     );
@@ -405,7 +406,7 @@ impl<'a> BevyStagedLayer<'a> {
                 tweens.push(stroke.width().keyframes.tween(
                     self.layer.end_frame,
                     frame_rate,
-                    |start, end| StrokeWidthLens { start, end },
+                    |start, end, _, _| StrokeWidthLens { start, end },
                 ));
             }
         }

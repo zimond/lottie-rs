@@ -14,15 +14,16 @@ use lyon::path::Path as LyonPath;
 use crate::shape::{DrawMode, Path};
 
 pub struct PathLens {
-    pub(crate) frames: f32,
     pub(crate) start: Vec<Bezier>,
     pub(crate) end: Vec<Bezier>,
     pub(crate) trims: Vec<TrimInfo>,
+    pub(crate) start_frame: f32,
+    pub(crate) end_frame: f32,
 }
 
 impl Lens<Path> for PathLens {
     fn lerp(&mut self, target: &mut Path, ratio: f32) {
-        let frame = self.frames * ratio;
+        let frame = (self.end_frame - self.start_frame) * ratio + self.start_frame;
         let mut builder = Builder::new();
         let beziers = self
             .start
