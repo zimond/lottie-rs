@@ -4,7 +4,17 @@ use crate::prelude::Id;
 
 #[derive(Default, Debug, Clone)]
 pub struct TransformHierarchy {
+    // FIXME: from parenting, which breaks opacity hierarchy
     pub(crate) stack: Vec<Transform>,
+}
+
+impl TransformHierarchy {
+    pub fn scale_x(&self, frame: f32) -> f32 {
+        self.stack
+            .iter()
+            .map(|t| t.value(frame).x_axis.x)
+            .fold(1.0, |current, i| current * i)
+    }
 }
 
 pub struct OpacityHierarchy {
@@ -17,7 +27,9 @@ impl<'a> From<&'a TransformHierarchy> for OpacityHierarchy {
             stack: t
                 .stack
                 .iter()
-                .map(|transform| transform.opacity.clone())
+                .next()
+                .map(|t| t.opacity.clone())
+                .into_iter()
                 .collect(),
         }
     }

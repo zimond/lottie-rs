@@ -45,7 +45,8 @@ impl<'a> BevyStagedLayer<'a> {
         let mut initial_transform = Transform::from_matrix(self.layer.transform.value(0.0));
         initial_transform.translation.z = self.layer.zindex as f32 * -1.0;
         if self.layer.is_mask {
-            initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x;
+            initial_transform.translation.x += (*self.mask_index as f32) * self.model_size.x
+                / self.layer.transform_hierarchy.scale_x(0.0);
             self.mask_registry.insert(self.layer.id, *self.mask_index);
         }
 
