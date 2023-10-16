@@ -1,8 +1,9 @@
 use crate::model::*;
-use flo_curves::{BoundingBox, Bounds, Coord2};
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use lyon_path::geom::euclid::vec2;
+use lyon_path::math::Angle;
 use lyon_path::path::{Builder, Path};
+use lyon_path::Winding;
 
 pub struct StyledShapeIter {
     shapes: Vec<ShapeLayer>,
@@ -226,74 +227,26 @@ impl Shape {
     }
 }
 
-pub trait PathExt {
-    fn bbox(&self, frame: f32) -> Rect<f32>;
+/// Allows a shape to generate a [Path](lyon_path::Path) at a certain `frame`
+pub trait PathFactory {
     fn path(&self, frame: f32) -> Path;
-    fn move_origin(&mut self, x: f32, y: f32);
-    fn to_beziers(&self) -> Animated<Vec<Bezier>>;
 }
 
-impl PathExt for Ellipse {
-    fn bbox(&self, frame: f32) -> Rect<f32> {
-        let s = self.size.value(frame);
-        let p = self.position.value(frame) - s / 2.0;
-        Rect::new(p.to_point(), s.to_size())
-    }
-
+impl PathFactory for Ellipse {
     fn path(&self, frame: f32) -> Path {
-        todo!()
-    }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        todo!()
-    }
-
-    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
-        todo!()
+        let size = self.size.value(frame);
+        let position = self.position.value(frame);
+        let mut builder = Builder::new();
+        let winding = match self.direction {
+            ShapeDirection::Clockwise => Winding::Positive,
+            ShapeDirection::CounterClockwise => Winding::Negative,
+        };
+        builder.add_ellipse(position.to_point(), size, Angle::zero(), winding);
+        builder.build()
     }
 }
 
-impl PathExt for Vec<Bezier> {
-    fn bbox(&self, frame: f32) -> Rect<f32> {
-        self.iter()
-            .map(|b| {
-                let bbox = (0..(b.verticies.len() - 1))
-                    .map(|i| {
-                        let w1 = Coord2(b.verticies[i].x as f64, b.verticies[i].y as f64);
-                        let w2 = Coord2(
-                            b.out_tangent[i].x as f64 + b.verticies[i].x as f64,
-                            b.out_tangent[i].y as f64 + b.verticies[i].y as f64,
-                        );
-                        let w3 = Coord2(
-                            b.in_tangent[i].x as f64 + b.verticies[i + 1].x as f64,
-                            b.in_tangent[i].y as f64 + b.verticies[i + 1].y as f64,
-                        );
-                        let w4 = Coord2(b.verticies[i + 1].x as f64, b.verticies[i + 1].y as f64);
-                        flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
-                    })
-                    .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))
-                    .unwrap();
-                rect(
-                    bbox.min().0,
-                    bbox.min().1,
-                    bbox.max().0 - bbox.min().0,
-                    bbox.max().1 - bbox.min().1,
-                )
-                .cast()
-            })
-            .reduce(|acc, item| acc.union(&item))
-            .unwrap()
-    }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        for b in self.iter_mut() {
-            for p1 in &mut b.verticies {
-                p1.x += x;
-                p1.y += y;
-            }
-        }
-    }
-
+impl PathFactory for Vec<Bezier> {
     fn path(&self, frame: f32) -> Path {
         let mut builder = Builder::new();
         for b in self.iter() {
@@ -337,13 +290,9 @@ impl PathExt for Vec<Bezier> {
         }
         builder.build()
     }
-
-    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
-        todo!()
-    }
 }
 
-impl PathExt for PolyStar {
+impl PathFactory for PolyStar {
     fn path(&self, frame: f32) -> Path {
         let mut builder = Builder::new();
         const PI: f32 = std::f32::consts::PI;
@@ -412,25 +361,9 @@ impl PathExt for PolyStar {
         builder.end(true);
         builder.build()
     }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        todo!()
-    }
-
-    fn bbox(&self, frame: f32) -> Rect<f32> {
-        todo!()
-    }
-
-    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
-        todo!()
-    }
 }
 
-impl PathExt for Rectangle {
-    fn bbox(&self, frame: f32) -> Rect<f32> {
-        todo!()
-    }
-
+impl PathFactory for Rectangle {
     fn path(&self, frame: f32) -> Path {
         let mut builder = Builder::new();
         let center = self.position.value(frame).to_point();
@@ -451,35 +384,10 @@ impl PathExt for Rectangle {
         builder.end(true);
         builder.build()
     }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        todo!()
-    }
-
-    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
-        todo!()
-    }
 }
 
-impl PathExt for Shape {
-    fn bbox(&self, frame: f32) -> Rect<f32> {
-        match &self {
-            Shape::Ellipse(e) => e.bbox(frame),
-            Shape::Path { d, .. } => d.value(frame).bbox(frame),
-            Shape::Rectangle(r) => r.bbox(frame),
-            _ => unimplemented!(),
-        }
-    }
-
+impl PathFactory for Shape {
     fn path(&self, frame: f32) -> Path {
-        todo!()
-    }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        todo!()
-    }
-
-    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
         todo!()
     }
 }

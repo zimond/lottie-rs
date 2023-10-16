@@ -1,13 +1,12 @@
 use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
 use lottie_core::prelude::{
-    Animated, Bezier, OpacityHierarchy, PathExt, TextBased, TextRangeInfo, TextRangeSelector,
+    Animated, Bezier, OpacityHierarchy, PathFactory, TextBased, TextRangeInfo, TextRangeSelector,
     Transform as LottieTransform, TrimInfo,
 };
 use lyon::algorithms::measure::PathMeasurements;
 use lyon::algorithms::measure::SampleType::Normalized;
 use lyon::geom::euclid::approxeq::ApproxEq;
-use lyon::path::path::Builder;
 use lyon::path::Path as LyonPath;
 
 use crate::shape::{DrawMode, Path};
@@ -188,5 +187,18 @@ fn lerp_index_in_text_range(
             return index >= start && index < end;
         }
         _ => unimplemented!(),
+    }
+}
+
+pub struct PathFactoryLens {
+    pub(crate) start_frame: f32,
+    pub(crate) end_frame: f32,
+    pub(crate) factory: Box<dyn PathFactory + Send + Sync>,
+}
+
+impl Lens<Path> for PathFactoryLens {
+    fn lerp(&mut self, target: &mut Path, ratio: f32) {
+        let frame = (self.end_frame - self.start_frame) * ratio + self.start_frame;
+        *target = Path(self.factory.path(frame));
     }
 }

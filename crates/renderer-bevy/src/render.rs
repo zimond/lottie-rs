@@ -10,7 +10,7 @@ use lyon::math::Angle;
 use lyon::path::path::Builder;
 use lyon::path::Winding;
 
-use crate::lens::{OpacityLens, PathLens, StrokeWidthLens, TransformLens};
+use crate::lens::{OpacityLens, PathFactoryLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::*;
 use crate::plugin::MaskMarker;
 use crate::shape::ShapeBundle;
@@ -266,6 +266,9 @@ impl<'a> BevyStagedLayer<'a> {
                 if let Some(animator) = self.draw_mode_animator(&shape) {
                     c.insert(animator);
                 }
+                if let Some(animator) = self.path_animator(ellipse.clone()) {
+                    c.insert(animator);
+                }
             }
             Shape::PolyStar(star) => {
                 initial_pos = star.position.initial_value();
@@ -433,6 +436,23 @@ impl<'a> BevyStagedLayer<'a> {
         } else {
             None
         }
+    }
+
+    fn path_animator(
+        &self,
+        factory: impl PathFactory + Send + Sync + 'static,
+    ) -> Option<Animator<Path>> {
+        let frames = self.layer.end_frame - self.layer.start_frame;
+        let secs = frames / self.layer.frame_rate;
+        Some(Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(secs),
+            PathFactoryLens {
+                start_frame: self.layer.start_frame,
+                end_frame: self.layer.end_frame,
+                factory: Box::new(factory),
+            },
+        )))
     }
 }
 

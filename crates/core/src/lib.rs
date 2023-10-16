@@ -21,7 +21,7 @@ pub mod prelude {
     pub use crate::layer::frame::*;
     pub use crate::layer::hierarchy::*;
     pub use crate::layer::shape::{
-        AnyFill, AnyStroke, PathExt, StyledShape, StyledShapeIterator, TrimInfo,
+        AnyFill, AnyStroke, PathFactory, StyledShape, StyledShapeIterator, TrimInfo,
     };
     pub use crate::layer::staged::{RenderableContent, StagedLayer};
     pub use crate::model::*;
