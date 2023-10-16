@@ -230,11 +230,12 @@ impl Shape {
 /// Allows a shape to generate a [Path](lyon_path::Path) at a certain `frame`
 pub trait PathFactory {
     fn path(&self, frame: f32) -> Path;
+    fn is_animated(&self) -> bool;
 }
 
 impl PathFactory for Ellipse {
     fn path(&self, frame: f32) -> Path {
-        let size = self.size.value(frame);
+        let size = self.size.value(frame) / 2.0;
         let position = self.position.value(frame);
         let mut builder = Builder::new();
         let winding = match self.direction {
@@ -243,6 +244,10 @@ impl PathFactory for Ellipse {
         };
         builder.add_ellipse(position.to_point(), size, Angle::zero(), winding);
         builder.build()
+    }
+
+    fn is_animated(&self) -> bool {
+        self.size.is_animated() || self.position.is_animated()
     }
 }
 
@@ -289,6 +294,10 @@ impl PathFactory for Vec<Bezier> {
             builder.end(b.closed);
         }
         builder.build()
+    }
+
+    fn is_animated(&self) -> bool {
+        false
     }
 }
 
@@ -361,6 +370,11 @@ impl PathFactory for PolyStar {
         builder.end(true);
         builder.build()
     }
+
+    fn is_animated(&self) -> bool {
+        // FIXME:
+        false
+    }
 }
 
 impl PathFactory for Rectangle {
@@ -384,10 +398,8 @@ impl PathFactory for Rectangle {
         builder.end(true);
         builder.build()
     }
-}
 
-impl PathFactory for Shape {
-    fn path(&self, frame: f32) -> Path {
-        todo!()
+    fn is_animated(&self) -> bool {
+        self.position.is_animated() || self.radius.is_animated() || self.size.is_animated()
     }
 }

@@ -245,20 +245,10 @@ impl<'a> BevyStagedLayer<'a> {
         }
 
         let mut initial_pos = Vector2D::new(0.0, 0.0);
-        let mut builder = Builder::new();
-
         match &shape.shape.shape {
             Shape::Ellipse(ellipse) => {
-                let Ellipse { size, position, .. } = ellipse;
-                let initial_size = size.initial_value() / 2.0;
-                initial_pos = position.initial_value();
-                builder.add_ellipse(
-                    initial_pos.to_point(),
-                    initial_size,
-                    Angle::zero(),
-                    Winding::Positive,
-                );
-                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
+                let path = ellipse.path(0.0);
+                c.insert(ShapeBundle::new(path, draw_mode, transform));
 
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
@@ -295,7 +285,7 @@ impl<'a> BevyStagedLayer<'a> {
             Shape::Path { d, text_range } => {
                 let beziers = d.initial_value();
                 let path = beziers.path(0.0);
-                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
+                c.insert(ShapeBundle::new(path, draw_mode, transform));
 
                 if let Some(animator) =
                     self.transform_animator(&shape.transform, zindex, text_range.clone())
@@ -442,6 +432,9 @@ impl<'a> BevyStagedLayer<'a> {
         &self,
         factory: impl PathFactory + Send + Sync + 'static,
     ) -> Option<Animator<Path>> {
+        if !factory.is_animated() {
+            return None;
+        }
         let frames = self.layer.end_frame - self.layer.start_frame;
         let secs = frames / self.layer.frame_rate;
         Some(Animator::new(Tween::new(
