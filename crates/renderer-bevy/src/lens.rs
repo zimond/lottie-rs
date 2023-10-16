@@ -23,7 +23,6 @@ pub struct PathLens {
 impl Lens<Path> for PathLens {
     fn lerp(&mut self, target: &mut Path, ratio: f32) {
         let frame = (self.end_frame - self.start_frame) * ratio + self.start_frame;
-        let mut builder = Builder::new();
         let beziers = self
             .start
             .iter()
@@ -41,8 +40,7 @@ impl Lens<Path> for PathLens {
                 result
             })
             .collect::<Vec<_>>();
-        beziers.to_path(0.0, &mut builder);
-        let path = builder.build();
+        let path = beziers.path(0.0);
         let mut start = 0.0f32;
         let mut end = 1.0f32;
         for trim in &self.trims {

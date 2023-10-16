@@ -2,7 +2,7 @@ use crate::model::*;
 use flo_curves::{BoundingBox, Bounds, Coord2};
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use lyon_path::geom::euclid::vec2;
-use lyon_path::path::Builder;
+use lyon_path::path::{Builder, Path};
 
 pub struct StyledShapeIter {
     shapes: Vec<ShapeLayer>,
@@ -197,14 +197,8 @@ pub struct StyledShape {
     pub trims: Vec<TrimInfo>,
 }
 
-pub trait ShapeExt {
-    fn is_style(&self) -> bool;
-    fn is_shape(&self) -> bool;
-    fn is_group(&self) -> bool;
-}
-
-impl ShapeExt for Shape {
-    fn is_style(&self) -> bool {
+impl Shape {
+    pub fn is_style(&self) -> bool {
         match &self {
             Shape::Fill { .. }
             | Shape::Stroke { .. }
@@ -214,7 +208,7 @@ impl ShapeExt for Shape {
         }
     }
 
-    fn is_shape(&self) -> bool {
+    pub fn is_shape(&self) -> bool {
         match &self {
             Shape::Rectangle { .. }
             | Shape::Ellipse { .. }
@@ -224,7 +218,7 @@ impl ShapeExt for Shape {
         }
     }
 
-    fn is_group(&self) -> bool {
+    pub fn is_group(&self) -> bool {
         match &self {
             Shape::Group { .. } => true,
             _ => false,
@@ -234,8 +228,9 @@ impl ShapeExt for Shape {
 
 pub trait PathExt {
     fn bbox(&self, frame: f32) -> Rect<f32>;
-    fn to_path(&self, frame: f32, builder: &mut Builder);
+    fn path(&self, frame: f32) -> Path;
     fn move_origin(&mut self, x: f32, y: f32);
+    fn to_beziers(&self) -> Animated<Vec<Bezier>>;
 }
 
 impl PathExt for Ellipse {
@@ -245,11 +240,15 @@ impl PathExt for Ellipse {
         Rect::new(p.to_point(), s.to_size())
     }
 
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
+    fn path(&self, frame: f32) -> Path {
         todo!()
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
         todo!()
     }
 }
@@ -257,104 +256,96 @@ impl PathExt for Ellipse {
 impl PathExt for Vec<Bezier> {
     fn bbox(&self, frame: f32) -> Rect<f32> {
         self.iter()
-            .map(|b| b.bbox(frame))
+            .map(|b| {
+                let bbox = (0..(b.verticies.len() - 1))
+                    .map(|i| {
+                        let w1 = Coord2(b.verticies[i].x as f64, b.verticies[i].y as f64);
+                        let w2 = Coord2(
+                            b.out_tangent[i].x as f64 + b.verticies[i].x as f64,
+                            b.out_tangent[i].y as f64 + b.verticies[i].y as f64,
+                        );
+                        let w3 = Coord2(
+                            b.in_tangent[i].x as f64 + b.verticies[i + 1].x as f64,
+                            b.in_tangent[i].y as f64 + b.verticies[i + 1].y as f64,
+                        );
+                        let w4 = Coord2(b.verticies[i + 1].x as f64, b.verticies[i + 1].y as f64);
+                        flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
+                    })
+                    .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))
+                    .unwrap();
+                rect(
+                    bbox.min().0,
+                    bbox.min().1,
+                    bbox.max().0 - bbox.min().0,
+                    bbox.max().1 - bbox.min().1,
+                )
+                .cast()
+            })
             .reduce(|acc, item| acc.union(&item))
             .unwrap()
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
         for b in self.iter_mut() {
-            b.move_origin(x, y)
+            for p1 in &mut b.verticies {
+                p1.x += x;
+                p1.y += y;
+            }
         }
     }
 
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
+    fn path(&self, frame: f32) -> Path {
+        let mut builder = Builder::new();
         for b in self.iter() {
-            b.to_path(frame, builder);
-        }
-    }
-}
-
-impl PathExt for Bezier {
-    fn bbox(&self, _: f32) -> Rect<f32> {
-        let bbox = (0..(self.verticies.len() - 1))
-            .map(|i| {
-                let w1 = Coord2(self.verticies[i].x as f64, self.verticies[i].y as f64);
-                let w2 = Coord2(
-                    self.out_tangent[i].x as f64 + self.verticies[i].x as f64,
-                    self.out_tangent[i].y as f64 + self.verticies[i].y as f64,
-                );
-                let w3 = Coord2(
-                    self.in_tangent[i].x as f64 + self.verticies[i + 1].x as f64,
-                    self.in_tangent[i].y as f64 + self.verticies[i + 1].y as f64,
-                );
-                let w4 = Coord2(
-                    self.verticies[i + 1].x as f64,
-                    self.verticies[i + 1].y as f64,
-                );
-                flo_curves::bezier::bounding_box4(w1, w2, w3, w4)
-            })
-            .reduce(|acc: Bounds<Coord2>, bbox| acc.union_bounds(bbox))
-            .unwrap();
-        rect(
-            bbox.min().0,
-            bbox.min().1,
-            bbox.max().0 - bbox.min().0,
-            bbox.max().1 - bbox.min().1,
-        )
-        .cast()
-    }
-
-    fn move_origin(&mut self, x: f32, y: f32) {
-        for p1 in &mut self.verticies {
-            p1.x += x;
-            p1.y += y;
-        }
-    }
-
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
-        let mut prev_p: Option<Vector2D>;
-        match self.verticies.first() {
-            Some(p) => {
-                builder.begin(p.to_point());
+            let mut prev_p: Option<Vector2D>;
+            match b.verticies.first() {
+                Some(p) => {
+                    builder.begin(p.to_point());
+                    prev_p = Some(*p);
+                }
+                None => continue,
+            }
+            for ((p, c1), c2) in b
+                .verticies
+                .iter()
+                .skip(1)
+                .zip(b.out_tangent.iter())
+                .zip(b.in_tangent.iter().skip(1))
+            {
+                if let Some(p0) = prev_p {
+                    let p1 = p0 + *c1;
+                    let p2 = *p + *c2;
+                    if c1.approx_eq(&Vector2D::zero()) && c2.approx_eq(&Vector2D::zero()) {
+                        builder.line_to(p.to_point());
+                    } else if p1.approx_eq(&p2) {
+                        builder.quadratic_bezier_to(p1.to_point(), p.to_point());
+                    } else {
+                        builder.cubic_bezier_to(p1.to_point(), p2.to_point(), p.to_point());
+                    }
+                }
                 prev_p = Some(*p);
             }
-            None => return,
-        }
-        for ((p, c1), c2) in self
-            .verticies
-            .iter()
-            .skip(1)
-            .zip(self.out_tangent.iter())
-            .zip(self.in_tangent.iter().skip(1))
-        {
-            if let Some(p0) = prev_p {
-                let p1 = p0 + *c1;
-                let p2 = *p + *c2;
-                if c1.approx_eq(&Vector2D::zero()) && c2.approx_eq(&Vector2D::zero()) {
-                    builder.line_to(p.to_point());
-                } else if p1.approx_eq(&p2) {
-                    builder.quadratic_bezier_to(p1.to_point(), p.to_point());
-                } else {
-                    builder.cubic_bezier_to(p1.to_point(), p2.to_point(), p.to_point());
-                }
+            if b.closed {
+                let index = b.verticies.len() - 1;
+                builder.cubic_bezier_to(
+                    (b.verticies[index] + b.out_tangent[index]).to_point(),
+                    (b.verticies[0] + b.in_tangent[0]).to_point(),
+                    b.verticies[0].to_point(),
+                );
             }
-            prev_p = Some(*p);
+            builder.end(b.closed);
         }
-        if self.closed {
-            let index = self.verticies.len() - 1;
-            builder.cubic_bezier_to(
-                (self.verticies[index] + self.out_tangent[index]).to_point(),
-                (self.verticies[0] + self.in_tangent[0]).to_point(),
-                self.verticies[0].to_point(),
-            );
-        }
-        builder.end(self.closed);
+        builder.build()
+    }
+
+    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
+        todo!()
     }
 }
 
 impl PathExt for PolyStar {
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
+    fn path(&self, frame: f32) -> Path {
+        let mut builder = Builder::new();
         const PI: f32 = std::f32::consts::PI;
         const MAGIC_NUM: f32 = 0.47829 / 0.28;
         let cp = self.position.value(frame);
@@ -419,6 +410,7 @@ impl PathExt for PolyStar {
             long_flag = !long_flag;
         }
         builder.end(true);
+        builder.build()
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
@@ -428,6 +420,10 @@ impl PathExt for PolyStar {
     fn bbox(&self, frame: f32) -> Rect<f32> {
         todo!()
     }
+
+    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
+        todo!()
+    }
 }
 
 impl PathExt for Rectangle {
@@ -435,7 +431,8 @@ impl PathExt for Rectangle {
         todo!()
     }
 
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
+    fn path(&self, frame: f32) -> Path {
+        let mut builder = Builder::new();
         let center = self.position.value(frame).to_point();
         let size = self.size.value(frame) / 2.0;
         let mut pts = vec![
@@ -452,9 +449,14 @@ impl PathExt for Rectangle {
         builder.line_to(pts[2]);
         builder.line_to(pts[3]);
         builder.end(true);
+        builder.build()
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
         todo!()
     }
 }
@@ -469,11 +471,15 @@ impl PathExt for Shape {
         }
     }
 
-    fn to_path(&self, frame: f32, builder: &mut Builder) {
+    fn path(&self, frame: f32) -> Path {
         todo!()
     }
 
     fn move_origin(&mut self, x: f32, y: f32) {
+        todo!()
+    }
+
+    fn to_beziers(&self) -> Animated<Vec<Bezier>> {
         todo!()
     }
 }

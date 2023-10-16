@@ -269,8 +269,8 @@ impl<'a> BevyStagedLayer<'a> {
             }
             Shape::PolyStar(star) => {
                 initial_pos = star.position.initial_value();
-                star.to_path(0.0, &mut builder);
-                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
+                let path = star.path(0.0);
+                c.insert(ShapeBundle::new(path, draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
                 }
@@ -280,8 +280,8 @@ impl<'a> BevyStagedLayer<'a> {
             }
             Shape::Rectangle(rect) => {
                 initial_pos = rect.position.initial_value();
-                rect.to_path(0.0, &mut builder);
-                c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
+                let path = rect.path(0.0);
+                c.insert(ShapeBundle::new(path, draw_mode, transform));
                 if let Some(animator) = self.transform_animator(&shape.transform, zindex, None) {
                     c.insert(animator);
                 }
@@ -291,8 +291,7 @@ impl<'a> BevyStagedLayer<'a> {
             }
             Shape::Path { d, text_range } => {
                 let beziers = d.initial_value();
-
-                beziers.to_path(0.0, &mut builder);
+                let path = beziers.path(0.0);
                 c.insert(ShapeBundle::new(builder.build(), draw_mode, transform));
 
                 if let Some(animator) =

@@ -1,7 +1,7 @@
 pub use euclid::default::Rect;
 pub use euclid::rect;
 use flo_curves::bezier::{curve_intersects_line, Curve};
-use flo_curves::{BezierCurveFactory, Coord2};
+use flo_curves::{BezierCurve, BezierCurveFactory, Coord2};
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
@@ -333,6 +333,75 @@ impl<T: Clone> KeyFrame<T> {
             easing_out: self.easing_out.clone(),
             easing_in: self.easing_in.clone(),
         }
+    }
+}
+
+impl<T: Clone + Lerp<Target = T>> KeyFrame<T> {
+    pub fn split(&self, frame: f32) -> (Option<Self>, Option<Self>) {
+        if frame <= self.start_frame {
+            return (None, Some(self.clone()));
+        } else if frame >= self.end_frame {
+            return (Some(self.clone()), None);
+        }
+
+        let ease_out = self.easing_out.clone().unwrap_or_else(|| Easing {
+            x: vec![0.0],
+            y: vec![0.0],
+        });
+        let ease_in = self.easing_in.clone().unwrap_or_else(|| Easing {
+            x: vec![1.0],
+            y: vec![1.0],
+        });
+        let frames = self.end_frame - self.start_frame;
+        let x = (frame - self.start_frame) / frames;
+        let curve = Curve::from_points(
+            Coord2(0.0, 0.0),
+            (
+                Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
+                Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
+            ),
+            Coord2(1.0, 1.0),
+        );
+        let intersection =
+            curve_intersects_line(&curve, &(Coord2(x as f64, 0.0), Coord2(x as f64, 1.0)));
+        let ratio = if intersection.is_empty() {
+            x
+        } else {
+            intersection[0].2 .1 as f32
+        };
+        let value = self.end_value.lerp(&self.start_value, ratio);
+        let (mut curve_a, mut curve_b): (Curve<Coord2>, _) = curve.subdivide(x as f64);
+        scale_curve(&mut curve_a);
+        scale_curve(&mut curve_b);
+        let keyframe_a = KeyFrame {
+            start_value: self.start_value.clone(),
+            end_value: value.clone(),
+            easing_in: Some(Easing {
+                x: vec![curve_a.control_points.1 .0 as f32],
+                y: vec![curve_a.control_points.1 .1 as f32],
+            }),
+            easing_out: Some(Easing {
+                x: vec![curve_a.control_points.0 .0 as f32],
+                y: vec![curve_a.control_points.0 .1 as f32],
+            }),
+            start_frame: self.start_frame,
+            end_frame: frame,
+        };
+        let keyframe_b = KeyFrame {
+            start_value: value,
+            end_value: self.end_value.clone(),
+            easing_in: Some(Easing {
+                x: vec![curve_b.control_points.1 .0 as f32],
+                y: vec![curve_b.control_points.1 .1 as f32],
+            }),
+            easing_out: Some(Easing {
+                x: vec![curve_b.control_points.0 .0 as f32],
+                y: vec![curve_b.control_points.0 .1 as f32],
+            }),
+            start_frame: frame,
+            end_frame: self.end_frame,
+        };
+        (Some(keyframe_a), Some(keyframe_b))
     }
 }
 
@@ -1193,4 +1262,20 @@ fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) ->
         * Mat4::from_rotation_z(rotation * std::f32::consts::PI / 180.0)
         * Mat4::from_scale(scale)
         * Mat4::from_translation(-anchor)
+}
+
+fn scale_curve(curve: &mut Curve<Coord2>) {
+    curve.control_points.0 = curve.control_points.0 - curve.start_point;
+    curve.control_points.1 = curve.control_points.1 - curve.start_point;
+    curve.end_point = curve.end_point - curve.start_point;
+    curve.start_point = (0.0, 0.0).into();
+
+    let x_scale = 1.0 / curve.end_point.0;
+    let y_scale = 1.0 / curve.end_point.1;
+    curve.control_points.0 .0 *= x_scale;
+    curve.control_points.0 .1 *= y_scale;
+    curve.control_points.1 .0 *= x_scale;
+    curve.control_points.1 .1 *= y_scale;
+    curve.control_points.0 .0 *= x_scale;
+    curve.end_point = (1.0, 1.0).into()
 }

@@ -1,18 +1,18 @@
 use std::io::Read;
 
 use crate::model::Model;
-pub use animated::*;
 pub use error::Error;
 use font::FontDB;
 pub use fontkit::tiny_skia_path;
 use fontkit::FontKit;
+pub use lerp::*;
 pub use renderer::*;
 use timeline::Timeline;
 
-mod animated;
 mod error;
 mod font;
 mod layer;
+mod lerp;
 mod model;
 mod renderer;
 mod timeline;
