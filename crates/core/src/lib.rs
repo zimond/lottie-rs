@@ -1,11 +1,11 @@
 use std::io::Read;
 
+use crate::model::Model;
 pub use animated::*;
 pub use error::Error;
 use font::FontDB;
 pub use fontkit::tiny_skia_path;
 use fontkit::FontKit;
-pub use lottie_model::*;
 pub use renderer::*;
 use timeline::Timeline;
 
@@ -13,6 +13,7 @@ mod animated;
 mod error;
 mod font;
 mod layer;
+mod model;
 mod renderer;
 mod timeline;
 
@@ -23,6 +24,7 @@ pub mod prelude {
         AnyFill, AnyStroke, PathExt, StyledShape, StyledShapeIterator, TrimInfo,
     };
     pub use crate::layer::staged::{RenderableContent, StagedLayer};
+    pub use crate::model::*;
     pub use crate::timeline::{Id, TimelineAction};
 }
 

@@ -1,7 +1,6 @@
-use lottie_model::{Animated, MatteMode, Transform};
+use crate::model::{Animated, MatteMode, Transform};
 
 use crate::prelude::Id;
-use crate::AnimatedExt;
 
 #[derive(Default, Debug, Clone)]
 pub struct TransformHierarchy {
@@ -24,20 +23,18 @@ impl<'a> From<&'a TransformHierarchy> for OpacityHierarchy {
     }
 }
 
-impl AnimatedExt for OpacityHierarchy {
-    type Target = f32;
-
-    fn initial_value(&self) -> Self::Target {
+impl OpacityHierarchy {
+    pub fn initial_value(&self) -> f32 {
         self.value(0.0)
     }
 
-    fn value(&self, frame: f32) -> Self::Target {
+    pub fn value(&self, frame: f32) -> f32 {
         self.stack
             .iter()
             .fold(1.0, |current, item| current * item.value(frame) / 100.0)
     }
 
-    fn is_animated(&self) -> bool {
+    pub fn is_animated(&self) -> bool {
         self.stack.iter().any(|item| item.is_animated())
     }
 }

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::ops::Deref;
 
+use crate::model::{Font as LottieFont, FontPathOrigin, Model};
 use fontkit::{Font, FontKey, FontKit};
-use lottie_model::{Font as LottieFont, FontPathOrigin, Model};
 
 use crate::Error;
 

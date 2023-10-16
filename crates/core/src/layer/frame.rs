@@ -1,6 +1,4 @@
-use lottie_model::Animated;
-
-use crate::AnimatedExt;
+use crate::model::Animated;
 
 #[derive(Debug, Clone)]
 pub struct FrameTransform {

@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
-use lottie_model::{Animated, Asset, Layer, LayerContent, MatteMode, Model, Shape};
+use crate::model::{Animated, Asset, Layer, LayerContent, MatteMode, Model, Shape};
 use slotmap::SlotMap;
 
 use crate::font::FontDB;

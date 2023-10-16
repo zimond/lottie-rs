@@ -1,9 +1,8 @@
 use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
-use lottie_core::prelude::{OpacityHierarchy, PathExt, TrimInfo};
-use lottie_core::{
-    Animated, AnimatedExt, Bezier, TextBased, TextRangeInfo, TextRangeSelector,
-    Transform as LottieTransform,
+use lottie_core::prelude::{
+    Animated, Bezier, OpacityHierarchy, PathExt, TextBased, TextRangeInfo, TextRangeSelector,
+    Transform as LottieTransform, TrimInfo,
 };
 use lyon::algorithms::measure::PathMeasurements;
 use lyon::algorithms::measure::SampleType::Normalized;

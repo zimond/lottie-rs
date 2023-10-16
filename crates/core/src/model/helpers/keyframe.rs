@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{Easing, FromTo, KeyFrame, Value};
+use super::{Easing, FromTo, KeyFrame, Value};
 
 #[derive(Deserialize)]
 #[serde(transparent)]

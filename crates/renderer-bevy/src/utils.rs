@@ -1,8 +1,7 @@
 use bevy::prelude::Color;
-use lottie_core::prelude::{AnyFill, AnyStroke, StyledShape};
-use lottie_core::{
-    AnimatedExt, FillRule as LottieFillRule, LineCap as LottieLineCap, LineJoin as LottieLineJoin,
-    Rgb,
+use lottie_core::prelude::{
+    AnyFill, AnyStroke, FillRule as LottieFillRule, LineCap as LottieLineCap,
+    LineJoin as LottieLineJoin, Rgb, StyledShape,
 };
 use lyon::path::FillRule;
 use lyon::tessellation::{FillOptions, LineCap, LineJoin, StrokeOptions};

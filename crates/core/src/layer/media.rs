@@ -1,6 +1,6 @@
+use crate::model::Media as LottieMedia;
 use base64::engine::general_purpose;
 use base64::Engine as _;
-use lottie_model::Media as LottieMedia;
 use std::io::Read;
 use std::path::PathBuf;
 use url::Url;

@@ -1,5 +1,5 @@
+use crate::model::*;
 use fontkit::{Area, Line, PathSegment, Span};
-use lottie_model::*;
 
 use crate::font::FontDB;
 use crate::prelude::RenderableContent;

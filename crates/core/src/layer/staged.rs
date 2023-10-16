@@ -1,4 +1,4 @@
-use lottie_model::*;
+use crate::model::*;
 
 use crate::font::FontDB;
 use crate::prelude::{Id, MaskHierarchy};

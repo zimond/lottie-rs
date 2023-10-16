@@ -1,5 +1,8 @@
 pub use euclid::default::Rect;
 pub use euclid::rect;
+use flo_curves::bezier::{curve_intersects_line, Curve};
+use flo_curves::{BezierCurveFactory, Coord2};
+use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 pub use serde_json::Error;
 pub type Vector2D = euclid::default::Vector2D<f32>;
@@ -9,6 +12,8 @@ mod helpers;
 
 pub use color::*;
 use helpers::*;
+
+use crate::Lerp;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Model {
@@ -210,6 +215,64 @@ impl Transform {
             .max(scale_frames)
             .max(rotation_frames)
     }
+
+    pub fn initial_value(&self) -> Mat4 {
+        self.value(0.0)
+    }
+
+    pub fn value(&self, frame: f32) -> Mat4 {
+        let mut angle = 0.0;
+        if let Some(position) = self.position.as_ref() {
+            if self.auto_orient && position.is_animated() {
+                let len = position.keyframes.len() - 1;
+                let mut frame = position.keyframes[0].start_frame.max(frame);
+                frame = position.keyframes[len].start_frame.min(frame);
+                if let Some(keyframe) = position
+                    .keyframes
+                    .iter()
+                    .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
+                {
+                    angle = (keyframe.end_value - keyframe.start_value)
+                        .angle_from_x_axis()
+                        .to_degrees();
+                }
+            }
+        }
+        let anchor = self
+            .anchor
+            .as_ref()
+            .map(|a| a.value(frame))
+            .unwrap_or_default();
+        let position = self
+            .position
+            .as_ref()
+            .map(|a| a.value(frame))
+            .unwrap_or_default();
+        let mut scale = self.scale.value(frame) / 100.0;
+        let rotation = self.rotation.value(frame) + angle;
+        // Some lottie file has scale = 0, which is invalid
+        if scale.x == 0.0 {
+            scale.x = f32::EPSILON;
+        }
+        if scale.y == 0.0 {
+            scale.y = f32::EPSILON;
+        }
+        mat4(anchor, position, scale, rotation)
+    }
+
+    pub fn is_animated(&self) -> bool {
+        self.anchor
+            .as_ref()
+            .map(|a| a.is_animated())
+            .unwrap_or(false)
+            || self
+                .position
+                .as_ref()
+                .map(|a| a.is_animated())
+                .unwrap_or(false)
+            || self.scale.is_animated()
+            || self.rotation.is_animated()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -299,7 +362,7 @@ pub struct Animated<T> {
     pub keyframes: Vec<KeyFrame<T>>,
 }
 
-impl<T: Clone> Animated<T> {
+impl<T: Clone + Lerp<Target = T>> Animated<T> {
     pub fn from_value(value: T) -> Self {
         Animated {
             animated: false,
@@ -312,6 +375,58 @@ impl<T: Clone> Animated<T> {
                 easing_in: None,
             }],
         }
+    }
+
+    pub fn initial_value(&self) -> T {
+        self.keyframes[0].start_value.clone()
+    }
+
+    pub fn value(&self, frame: f32) -> T {
+        if !self.is_animated() {
+            return self.initial_value();
+        }
+        let len = self.keyframes.len() - 1;
+        if let Some(keyframe) = self
+            .keyframes
+            .iter()
+            .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
+        {
+            let ease_out = keyframe.easing_out.clone().unwrap_or_else(|| Easing {
+                x: vec![0.0],
+                y: vec![0.0],
+            });
+            let ease_in = keyframe.easing_in.clone().unwrap_or_else(|| Easing {
+                x: vec![1.0],
+                y: vec![1.0],
+            });
+            let frames = keyframe.end_frame - keyframe.start_frame;
+            let x = (frame - keyframe.start_frame) / frames;
+            debug_assert!(x <= 1.0 && x >= 0.0);
+            let curve = Curve::from_points(
+                Coord2(0.0, 0.0),
+                (
+                    Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
+                    Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
+                ),
+                Coord2(1.0, 1.0),
+            );
+            let intersection =
+                curve_intersects_line(&curve, &(Coord2(x as f64, 0.0), Coord2(x as f64, 1.0)));
+            let ratio = if intersection.is_empty() {
+                x
+            } else {
+                intersection[0].2 .1 as f32
+            };
+            keyframe.end_value.lerp(&keyframe.start_value, ratio)
+        } else if frame >= self.keyframes[len].end_frame {
+            self.keyframes[len].end_value.clone()
+        } else {
+            self.keyframes[0].start_value.clone()
+        }
+    }
+
+    pub fn is_animated(&self) -> bool {
+        self.keyframes.len() > 1 || self.keyframes[0].easing_in.is_some()
     }
 }
 
@@ -1068,4 +1183,14 @@ impl Default for TextDocument {
             ca: TextCaps::Regular,
         }
     }
+}
+
+fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) -> Mat4 {
+    let anchor = Vec3::new(anchor.x, anchor.y, 0.0);
+    let scale = Vec3::new(scale.x, scale.y, 1.0);
+    let position = Vec3::new(position.x, position.y, 0.0);
+    Mat4::from_translation(position)
+        * Mat4::from_rotation_z(rotation * std::f32::consts::PI / 180.0)
+        * Mat4::from_scale(scale)
+        * Mat4::from_translation(-anchor)
 }

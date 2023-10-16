@@ -1,10 +1,8 @@
+use crate::model::*;
 use flo_curves::{BoundingBox, Bounds, Coord2};
-use lottie_model::*;
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use lyon_path::geom::euclid::vec2;
 use lyon_path::path::Builder;
-
-use crate::AnimatedExt;
 
 pub struct StyledShapeIter {
     shapes: Vec<ShapeLayer>,
