@@ -79,7 +79,8 @@ fn main() -> Result<(), Error> {
         None
     };
 
-    let mut encoder = Encoder::new((lottie.model.width, lottie.model.height))?;
+    let mut size = (lottie.model.width, lottie.model.height);
+    let mut encoder = Encoder::new(size)?;
     smol::block_on::<Result<_, Error>>(async {
         // renderer.add_plugin(DebugLinesPlugin::default());
         // renderer.add_system(axis_system);
@@ -105,6 +106,10 @@ fn main() -> Result<(), Error> {
                     i += 1;
                 }
             } else {
+                if size.0 != frame.width || size.1 != frame.height {
+                    size = (frame.width, frame.height);
+                    encoder = Encoder::new(size)?;
+                }
                 encoder.add_frame(&frame.data, frame.timestamp)?;
             }
         }

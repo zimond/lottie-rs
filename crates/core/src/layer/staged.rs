@@ -98,6 +98,11 @@ impl StagedLayer {
                             hidden: false,
                             shape: Shape::Fill(color.into()),
                         },
+                        ShapeLayer {
+                            name: None,
+                            hidden: false,
+                            shape: Shape::Transform(layer.transform.clone().unwrap_or_default()),
+                        },
                     ],
                 }),
                 None,
