@@ -12,7 +12,8 @@ goes to original owners/creators of the files.
 | -------------- | ------------------------------------------------------------ | ---------------- | ------------------------------------------------------ |
 | Confetti       | <img src="fixtures/results/confetti.webp" width="200">       | Nyan Cat         | <img src="fixtures/results/nyan_cat.webp" width="200"> |
 | Techno Penguin | <img src="fixtures/results/techno_penguin.webp" width="200"> | Delete Animation | <img src="fixtures/results/delete.webp" width="200">   |
-| Bounce Strokes | <img src="fixtures/results/bounce_strokes.webp" width="200"> |                  |
+| A (5x scaled)  | <img src="fixtures/results/A.webp" width="200">              | B  (5x scaled)   | <img src="fixtures/results/B.webp" width="200">        |
+| Bounce Strokes | <img src="fixtures/results/bounce_strokes.webp" width="200"> |                  |                                                        |
 
 # Try it out
 

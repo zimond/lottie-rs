@@ -559,7 +559,7 @@ fn animate_system(
                 .set_elapsed(Duration::from_secs_f32(total));
         } else if let Some(frame) = tracker.value(current_frame) {
             a.state = AnimatorState::Playing;
-            let secs = frame / tracker.frame_rate();
+            let secs = (frame / tracker.frame_rate()).max(0.0);
             a.tweenable_mut().set_elapsed(Duration::from_secs_f32(secs));
         } else {
             a.state = AnimatorState::Paused
