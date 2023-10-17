@@ -33,6 +33,8 @@ struct Args {
     /// is enabled
     #[clap(long, action)]
     inspector: bool,
+    #[clap(long)]
+    scale: Option<f32>,
 }
 
 // fn axis_system(mut lines: ResMut<DebugLines>) {
@@ -55,7 +57,8 @@ fn main() -> Result<(), Error> {
     }
     let root_path = &*root_path.to_string_lossy();
     let f = fs::File::open(path).unwrap();
-    let lottie = Lottie::from_reader(f, root_path).unwrap();
+    let mut lottie = Lottie::from_reader(f, root_path).unwrap();
+    lottie.scale = args.scale.unwrap_or(1.0);
     let final_timestamp = (lottie.model.end_frame / lottie.model.frame_rate * 1000.0) as i32;
     let (mut renderer, frame_stream) = BevyRenderer::new();
     let config = if args.headless {
@@ -82,7 +85,9 @@ fn main() -> Result<(), Error> {
     };
     let all_frames = args.frames;
 
-    let mut size = (lottie.model.width, lottie.model.height);
+    let width = (lottie.model.width as f32 * lottie.scale).round() as u32;
+    let height = (lottie.model.height as f32 * lottie.scale).round() as u32;
+    let mut size = (width, height);
     let mut encoder = Encoder::new(size)?;
     smol::block_on::<Result<_, Error>>(async {
         // renderer.add_plugin(DebugLinesPlugin::default());

@@ -154,8 +154,8 @@ impl BevyRenderer {
 
 impl Renderer for BevyRenderer {
     fn load_lottie(&mut self, lottie: Lottie, config: Config) {
-        let width = lottie.model.width as f32;
-        let height = lottie.model.height as f32;
+        let width = lottie.model.width as f32 * lottie.scale;
+        let height = lottie.model.height as f32 * lottie.scale;
         let capturing = if let Config::Headless(_) = &config {
             true
         } else {
@@ -249,12 +249,12 @@ fn setup_system(
     window: Query<&Window, With<PrimaryWindow>>,
     render_device: Res<RenderDevice>,
 ) {
+    let lottie = lottie_globals.lottie.take().unwrap();
     let scale = if let Ok(primary) = window.get_single() {
         primary.scale_factor() as f32
     } else {
         1.0
-    };
-    let mut lottie = lottie_globals.lottie.take().unwrap();
+    } * lottie.scale;
     let mut camera = Camera2dBundle::default();
     camera.camera_2d.clear_color = ClearColorConfig::Custom(Color::NONE);
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
@@ -268,10 +268,12 @@ fn setup_system(
         .items()
         .filter(|layer| layer.is_mask)
         .count() as u32;
+    let width = (lottie.model.width as f32 * lottie.scale).round() as u32;
+    let height = (lottie.model.height as f32 * lottie.scale).round() as u32;
     // Create the mask texture
     let mask_size = Extent3d {
-        width: std::cmp::max(1, lottie.model.width * mask_count),
-        height: lottie.model.height,
+        width: std::cmp::max(1, width * mask_count),
+        height,
         depth_or_array_layers: 1,
     };
     let mut mask = Image {
@@ -320,8 +322,8 @@ fn setup_system(
             mask_size
         } else {
             Extent3d {
-                width: lottie.model.width,
-                height: lottie.model.height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             }
         };
@@ -378,7 +380,6 @@ fn setup_system(
 
     commands.spawn(camera);
 
-    lottie.scale = 1.0; //scale;
     let mut info = LottieAnimationInfo {
         start_frame: lottie.model.start_frame,
         end_frame: lottie.model.end_frame,
@@ -393,7 +394,15 @@ fn setup_system(
 
     let root_entity = commands
         .spawn(VisibilityBundle::default())
-        .insert(TransformBundle::default())
+        .insert(TransformBundle::from_transform(
+            Transform::from_scale(Vec3::new(lottie.scale, lottie.scale, 1.0)).with_translation(
+                Vec3::new(
+                    lottie.model.width as f32 * (lottie.scale / -2.0 + 0.5),
+                    lottie.model.height as f32 * (lottie.scale / -2.0 + 0.5),
+                    0.0,
+                ),
+            ),
+        ))
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
     let mut mask_index = 0_u32;
