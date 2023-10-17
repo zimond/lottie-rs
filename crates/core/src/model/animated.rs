@@ -53,7 +53,7 @@ impl<T: Clone + Lerp<Target = T>> Animated<T> {
         if let Some(keyframe) = self
             .keyframes
             .iter()
-            .find(|keyframe| frame >= keyframe.start_frame && frame < keyframe.end_frame)
+            .find(|keyframe| frame > keyframe.start_frame && frame <= keyframe.end_frame)
         {
             let frames = keyframe.end_frame - keyframe.start_frame;
             let x = (frame - keyframe.start_frame) / frames;

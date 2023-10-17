@@ -15,7 +15,7 @@ use bevy::utils::HashMap;
 use bevy::window::{ExitCondition, PrimaryWindow};
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy_tweening::{component_animator_system, Animator, AnimatorState, TweeningPlugin};
+use bevy_tweening::{Animator, AnimatorState, TweenCompleted};
 // use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,
@@ -27,6 +27,7 @@ use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use lottie_core::prelude::{Id as TimelineItemId, StyledShape};
 use lottie_core::*;
 use shape::{DrawMode, Path};
+use system::component_animator_system;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureUsages};
 
 mod frame_capture;
@@ -185,10 +186,11 @@ impl Renderer for BevyRenderer {
         self.app
             .insert_resource(Msaa::Sample4)
             .add_plugins(default_plugins)
-            .add_plugins(TweeningPlugin)
             // .add_plugin(FrameTimeDiagnosticsPlugin)
             // .add_plugin(LogDiagnosticsPlugin::default())
             .add_plugins(LottiePlugin)
+            .add_event::<TweenCompleted>()
+            .add_systems(Update, component_animator_system::<Transform>)
             .add_systems(Update, component_animator_system::<Path>)
             .add_systems(Update, component_animator_system::<DrawMode>)
             .add_systems(Update, animate_system)
@@ -608,10 +610,10 @@ fn save_img(
 ) {
     // Capture has 3 frames latency
     let delta = 1.0 / info.frame_rate;
-    let timestamp = info.current_time - 4.0 * delta;
+    let timestamp = info.current_time - 3.0 * delta;
     if timestamp <= 0.0 {
         return;
-    } else if info.finished_once && timestamp * info.frame_rate >= info.end_frame {
+    } else if info.finished_once && timestamp * info.frame_rate > info.end_frame {
         if !image_sender.is_closed() {
             image_sender.close();
             exit.send(AppExit);
