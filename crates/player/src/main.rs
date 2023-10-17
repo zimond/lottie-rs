@@ -23,6 +23,8 @@ struct Args {
     #[clap(long, action)]
     headless: bool,
     #[clap(long)]
+    frames: bool,
+    #[clap(long)]
     frame: Option<u32>,
     /// Show controls, this options is invalid if `headless` is enabled
     #[clap(long, action)]
@@ -73,11 +75,12 @@ fn main() -> Result<(), Error> {
     } else {
         None
     };
-    let target_frame = if let Config::Headless(HeadlessConfig { frame, .. }) = &config {
+    let mut target_frame = if let Config::Headless(HeadlessConfig { frame, .. }) = &config {
         frame.clone()
     } else {
         None
     };
+    let all_frames = args.frames;
 
     let mut size = (lottie.model.width, lottie.model.height);
     let mut encoder = Encoder::new(size)?;
@@ -88,6 +91,9 @@ fn main() -> Result<(), Error> {
         renderer.render();
         pin!(frame_stream);
         let mut i = 0;
+        if all_frames {
+            target_frame = Some(0);
+        }
         while let Some(frame) = frame_stream.next().await {
             if let (Some(target), Some(filename)) = (target_frame, filename.as_ref()) {
                 if target == i {
@@ -101,9 +107,13 @@ fn main() -> Result<(), Error> {
                         .unwrap()
                         .write_image_data(&frame.data)
                         .unwrap();
-                    break;
-                } else {
-                    i += 1;
+                    if !all_frames {
+                        break;
+                    }
+                }
+                i += 1;
+                if all_frames {
+                    target_frame = Some(i);
                 }
             } else {
                 if size.0 != frame.width || size.1 != frame.height {
