@@ -90,10 +90,10 @@ pub struct Layer {
     pub matte_mode: Option<MatteMode>,
     #[serde(rename = "bm", default)]
     pub blend_mode: Option<BlendMode>,
-    #[serde(default)]
+    #[serde(default, rename = "hasMask")]
     pub has_mask: bool,
-    #[serde(default)]
-    pub mask_properties: Vec<Mask>,
+    #[serde(default, rename = "masksProperties")]
+    pub masks_properties: Vec<Mask>,
 }
 
 impl Layer {
@@ -122,7 +122,7 @@ impl Layer {
             matte_mode: None,
             blend_mode: None,
             has_mask: false,
-            mask_properties: vec![],
+            masks_properties: vec![],
         }
     }
 }
@@ -1045,16 +1045,16 @@ impl Default for TextDocument {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Mask {
     #[serde(rename = "nm", default)]
-    name: String,
+    pub name: String,
     #[serde(rename = "mn", default)]
     match_name: String,
     #[serde(rename = "inv", default)]
     inverted: bool,
     #[serde(rename = "pt")]
-    points: Animated<Bezier>,
+    pub points: Animated<Bezier>,
     #[serde(rename = "o")]
-    opacity: Animated<f32>,
-    mode: MaskMode,
+    pub opacity: Animated<f32>,
+    pub mode: MaskMode,
     #[serde(rename = "e", default)]
     expand: Option<Animated<f32>>,
 }
