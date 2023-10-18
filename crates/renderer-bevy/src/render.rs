@@ -6,9 +6,6 @@ use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
 use bevy::render::view::RenderLayers;
 use bevy_tweening::{Animator, EaseMethod, Sequence, Tracks, Tween};
 use lottie_core::prelude::{Transform as LottieTransform, *};
-use lyon::math::Angle;
-use lyon::path::path::Builder;
-use lyon::path::Winding;
 
 use crate::lens::{OpacityLens, PathFactoryLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::*;

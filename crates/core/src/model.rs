@@ -90,6 +90,10 @@ pub struct Layer {
     pub matte_mode: Option<MatteMode>,
     #[serde(rename = "bm", default)]
     pub blend_mode: Option<BlendMode>,
+    #[serde(default)]
+    pub has_mask: bool,
+    #[serde(default)]
+    pub mask_properties: Vec<Mask>,
 }
 
 impl Layer {
@@ -117,6 +121,8 @@ impl Layer {
             content,
             matte_mode: None,
             blend_mode: None,
+            has_mask: false,
+            mask_properties: vec![],
         }
     }
 }
@@ -1034,6 +1040,41 @@ impl Default for TextDocument {
             ca: TextCaps::Regular,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Mask {
+    #[serde(rename = "nm", default)]
+    name: String,
+    #[serde(rename = "mn", default)]
+    match_name: String,
+    #[serde(rename = "inv", default)]
+    inverted: bool,
+    #[serde(rename = "pt")]
+    points: Animated<Bezier>,
+    #[serde(rename = "o")]
+    opacity: Animated<f32>,
+    mode: MaskMode,
+    #[serde(rename = "e", default)]
+    expand: Option<Animated<f32>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum MaskMode {
+    #[serde(rename = "n")]
+    None,
+    #[serde(rename = "a")]
+    Add,
+    #[serde(rename = "s")]
+    Subtract,
+    #[serde(rename = "i")]
+    Intersect,
+    #[serde(rename = "l")]
+    Lighten,
+    #[serde(rename = "d")]
+    Darken,
+    #[serde(rename = "f")]
+    Difference,
 }
 
 fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) -> Mat4 {

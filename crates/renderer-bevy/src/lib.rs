@@ -254,14 +254,10 @@ fn setup_system(
         primary.scale_factor() as f32
     } else {
         1.0
-    } * lottie.scale;
+    };
     let mut camera = Camera2dBundle::default();
     camera.camera_2d.clear_color = ClearColorConfig::Custom(Color::NONE);
-    let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
-        lottie.model.width as f32 / 2.0,
-        lottie.model.height as f32 / 2.0,
-        0.0,
-    ));
+    let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0));
     camera.transform = transform;
     let mask_count = lottie
         .timeline()
@@ -270,6 +266,11 @@ fn setup_system(
         .count() as u32;
     let width = (lottie.model.width as f32 * lottie.scale).round() as u32;
     let height = (lottie.model.height as f32 * lottie.scale).round() as u32;
+    let root_translation = Vec3::new(
+        lottie.model.width as f32 * (lottie.scale / -2.0),
+        lottie.model.height as f32 * (lottie.scale / -2.0),
+        0.0,
+    );
     // Create the mask texture
     let mask_size = Extent3d {
         width: std::cmp::max(1, width * mask_count),
@@ -304,8 +305,8 @@ fn setup_system(
             ..default()
         },
         transform: Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
-            mask_size.width as f32 / 2.0,
-            mask_size.height as f32 / 2.0,
+            lottie.model.width as f32 * (lottie.scale / -2.0) + mask_size.width as f32 / 2.0,
+            0.0,
             0.0,
         )),
         ..default()
@@ -395,13 +396,8 @@ fn setup_system(
     let root_entity = commands
         .spawn(VisibilityBundle::default())
         .insert(TransformBundle::from_transform(
-            Transform::from_scale(Vec3::new(lottie.scale, lottie.scale, 1.0)).with_translation(
-                Vec3::new(
-                    lottie.model.width as f32 * (lottie.scale / -2.0 + 0.5),
-                    lottie.model.height as f32 * (lottie.scale / -2.0 + 0.5),
-                    0.0,
-                ),
-            ),
+            Transform::from_scale(Vec3::new(lottie.scale, lottie.scale, 1.0))
+                .with_translation(root_translation),
         ))
         .id();
     let mut unresolved: HashMap<TimelineItemId, Vec<Entity>> = HashMap::new();
