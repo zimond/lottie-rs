@@ -8,7 +8,7 @@ use slotmap::SlotMap;
 use crate::font::FontDB;
 use crate::layer::frame::{FrameInfo, FrameTransformHierarchy};
 use crate::layer::hierarchy::TransformHierarchy;
-use crate::layer::staged::{StagedLayer, TargetRef};
+use crate::layer::staged::{ContentInfo, StagedLayer, TargetRef};
 use crate::prelude::{RenderableContent, StagedLayerMask};
 use crate::Error;
 
@@ -169,30 +169,69 @@ impl Timeline {
                 _ => {}
             }
 
-            let staged = StagedLayer::from_layer(layer, model, fontdb, root_path)?;
+            let content = ContentInfo::from_layer(layer.clone(), model, fontdb, root_path)?;
             let mut ids = vec![];
-            for mut staged in staged {
+            match content {
+                ContentInfo::Simple(c) => ids.push(timeline.add_item(c.into_stage_layer(&layer))),
+                ContentInfo::TextKeyframes(mut keyframes) => {
+                    if let Some(end) = keyframes.last_mut().map(|info| &mut info.end_frame) {
+                        *end = layer.end_frame;
+                    }
+                    for keyframe in keyframes {
+                        let mut layer = keyframe.content.into_stage_layer(&layer);
+                        layer.start_frame = keyframe.start_frame;
+                        layer.end_frame = keyframe.end_frame;
+                        ids.push(timeline.add_item(layer))
+                    }
+                }
+                ContentInfo::ContentWithMasks { content, masks } => {
+                    let (layers, matte_modes): (Vec<StagedLayer>, Vec<MatteMode>) = masks
+                        .into_iter()
+                        .map(|m| (m.0.into_stage_layer(&layer), m.1))
+                        .unzip();
+                    let mut target_layer = content.into_stage_layer(&layer);
+                    ids = layers
+                        .into_iter()
+                        .map(|mut layer| {
+                            layer.is_mask = true;
+                            timeline.add_item(layer)
+                        })
+                        .collect();
+                    for (id, matte_mode) in ids.iter().zip(matte_modes.into_iter()) {
+                        target_layer.mask_hierarchy.stack.push(StagedLayerMask {
+                            id: *id,
+                            mode: matte_mode,
+                        })
+                    }
+                    ids.push(timeline.add_item(target_layer));
+                }
+            }
+            for id in &ids {
+                let matte_mode = timeline.store.get(*id).unwrap().matte_mode;
+                if let (Some(id), Some(mode)) = (previous, matte_mode) {
+                    if mode != MatteMode::Normal {
+                        let prev = timeline.store.get_mut(id).unwrap();
+                        prev.is_mask = true;
+                    }
+                }
+                let staged = timeline.store.get_mut(*id).unwrap();
                 staged.target = target_ref.clone();
                 staged.parent = parent;
                 staged.zindex = zindex;
                 staged.frame_rate = default_frame_rate;
                 staged.frame_transform.time_remapping = time_remapping.clone();
                 staged.frame_transform.frame_rate = default_frame_rate;
-
-                if let (Some(id), Some(mode)) = (previous, staged.matte_mode) {
+                if let (Some(id), Some(mode)) = (previous, matte_mode) {
                     if mode != MatteMode::Normal {
-                        timeline.store.get_mut(id).unwrap().is_mask = true;
                         staged
                             .mask_hierarchy
                             .stack
                             .push(StagedLayerMask { id, mode });
                     }
                 }
-                let id = timeline.add_item(staged);
-                previous = Some(id);
-                ids.push(id);
+                previous = Some(*id);
             }
-            let id = ids.last().unwrap().clone();
+            let id = previous.unwrap().clone();
             for mut info in assets {
                 info.parent = Some(id);
                 layers.push_back(info);
@@ -200,15 +239,16 @@ impl Timeline {
             if let Some(ind) = index {
                 parent_map.borrow_mut().insert(ind, id);
             }
-
-            if let Some(index) = parent_index {
-                if let Some(parent_id) = parent_map.borrow().get(&index) {
-                    if let Some(child) = timeline.store.get_mut(id) {
-                        force_zindex_ids.insert(child.id);
-                        child.parent = Some(*parent_id);
+            for id in ids {
+                if let Some(index) = parent_index {
+                    if let Some(parent_id) = parent_map.borrow().get(&index) {
+                        if let Some(child) = timeline.store.get_mut(id) {
+                            force_zindex_ids.insert(child.id);
+                            child.parent = Some(*parent_id);
+                        }
+                    } else {
+                        standby_map.borrow_mut().entry(index).or_default().push(id);
                     }
-                } else {
-                    standby_map.borrow_mut().entry(index).or_default().push(id);
                 }
             }
 

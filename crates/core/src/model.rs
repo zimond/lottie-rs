@@ -1051,7 +1051,7 @@ pub struct Mask {
     #[serde(rename = "inv", default)]
     inverted: bool,
     #[serde(rename = "pt")]
-    pub points: Animated<Bezier>,
+    pub points: Animated<Vec<Bezier>>,
     #[serde(rename = "o")]
     pub opacity: Animated<f32>,
     pub mode: MaskMode,

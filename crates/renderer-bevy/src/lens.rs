@@ -2,7 +2,7 @@ use bevy::prelude::{Transform, Vec2};
 use bevy_tweening::Lens;
 use lottie_core::prelude::{
     Animated, Bezier, OpacityHierarchy, PathFactory, TextBased, TextRangeInfo, TextRangeSelector,
-    Transform as LottieTransform, TrimInfo,
+    Transform as LottieTransform, TransformHierarchy, TrimInfo,
 };
 use lyon::algorithms::measure::PathMeasurements;
 use lyon::algorithms::measure::SampleType::Normalized;
@@ -97,6 +97,7 @@ pub struct TransformLens {
     pub(crate) frames: f32,
     pub(crate) zindex: f32,
     pub(crate) mask_offset: Vec2,
+    pub(crate) transform_hierarchy: TransformHierarchy,
     pub(crate) text_range: Option<TextRangeInfo>,
 }
 
@@ -106,7 +107,7 @@ impl Lens<Transform> for TransformLens {
         let value = self.data.value(frame);
         *target = Transform::from_matrix(value);
         target.translation.z = self.zindex;
-        target.translation.x += self.mask_offset.x;
+        target.translation.x += self.mask_offset.x / self.transform_hierarchy.scale_x(frame);
 
         if let Some(info) = self.text_range.as_ref() {
             for range in &info.ranges {

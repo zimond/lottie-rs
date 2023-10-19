@@ -15,28 +15,51 @@ pub enum RenderableContent {
     Group,
 }
 
+impl RenderableContent {
+    pub(crate) fn into_stage_layer(self, layer: &Layer) -> StagedLayer {
+        let mut transform = layer.transform.clone().unwrap_or_default();
+        transform.auto_orient = layer.auto_orient;
+        StagedLayer {
+            id: Id::default(),
+            name: layer.name.clone(),
+            content: self,
+            zindex: 0.0,
+            target: TargetRef::Layer(0),
+            parent: None,
+            start_frame: layer.start_frame,
+            end_frame: layer.end_frame,
+            transform: transform.clone(),
+            frame_rate: 0.0,
+            transform_hierarchy: TransformHierarchy::default(),
+            frame_transform: FrameTransform::new(0.0, layer.start_time),
+            frame_transform_hierarchy: FrameTransformHierarchy::default(),
+            is_mask: false,
+            matte_mode: layer.matte_mode,
+            mask_hierarchy: MaskHierarchy::default(),
+            blend_mode: layer.blend_mode.unwrap_or(BlendMode::Normal),
+        }
+    }
+}
+
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum TargetRef {
     Layer(u32),
     Asset(String),
 }
 
-struct ContentInfo {
-    content: RenderableContent,
-    start_frame: Option<f32>,
-    end_frame: Option<f32>,
-    matte_mode: Option<MatteMode>,
+pub(crate) enum ContentInfo {
+    Simple(RenderableContent),
+    ContentWithMasks {
+        content: RenderableContent,
+        masks: Vec<(RenderableContent, MatteMode)>,
+    },
+    TextKeyframes(Vec<TextKeyframe>),
 }
 
-impl From<RenderableContent> for ContentInfo {
-    fn from(content: RenderableContent) -> Self {
-        ContentInfo {
-            content,
-            start_frame: None,
-            end_frame: None,
-            matte_mode: None,
-        }
-    }
+pub(crate) struct TextKeyframe {
+    pub content: RenderableContent,
+    pub start_frame: f32,
+    pub end_frame: f32,
 }
 
 /// A wrapper for [Layer], ready to be rendered
@@ -64,163 +87,118 @@ pub struct StagedLayer {
     pub blend_mode: BlendMode,
 }
 
-impl StagedLayer {
+impl ContentInfo {
     pub fn from_layer(
         layer: Layer,
         model: &Model,
         fontdb: &FontDB,
         root_path: &str,
-    ) -> Result<Vec<Self>, Error> {
-        let mut content = match layer.content {
+    ) -> Result<ContentInfo, Error> {
+        let content = match layer.content.clone() {
             LayerContent::Shape(shape_group) => {
                 let mut result = vec![];
-                let mut matte_mode = layer.matte_mode;
+                let content = RenderableContent::Shape(shape_group);
                 if layer.has_mask {
                     for mask in &layer.masks_properties {
-                        let d = Animated {
-                            animated: mask.points.animated,
-                            keyframes: mask
-                                .points
-                                .keyframes
-                                .iter()
-                                .map(|b| {
-                                    b.alter_value(
-                                        vec![b.start_value.clone()],
-                                        vec![b.end_value.clone()],
-                                    )
-                                })
-                                .collect(),
-                        };
                         let mut opacity = mask.opacity.clone();
                         for keyframe in &mut opacity.keyframes {
                             keyframe.start_value /= 100.0;
                             keyframe.end_value /= 100.0;
                         }
-                        result.push(ContentInfo {
-                            content: RenderableContent::Shape(ShapeGroup {
-                                shapes: vec![
-                                    ShapeLayer {
-                                        name: Some(mask.name.clone()),
-                                        hidden: false,
-                                        shape: Shape::Path {
-                                            d,
-                                            text_range: None,
+                        let content = RenderableContent::Shape(ShapeGroup {
+                            shapes: vec![
+                                ShapeLayer {
+                                    name: Some(mask.name.clone()),
+                                    hidden: false,
+                                    shape: Shape::Path {
+                                        d: mask.points.clone(),
+                                        text_range: None,
+                                    },
+                                },
+                                ShapeLayer {
+                                    name: None,
+                                    hidden: false,
+                                    shape: Shape::Fill(Fill {
+                                        opacity,
+                                        color: Animated {
+                                            animated: false,
+                                            keyframes: vec![KeyFrame::from_value(Rgb::new_u8(
+                                                0, 0, 0,
+                                            ))],
                                         },
-                                    },
-                                    ShapeLayer {
-                                        name: None,
-                                        hidden: false,
-                                        shape: Shape::Fill(Fill {
-                                            opacity,
-                                            color: Animated {
-                                                animated: false,
-                                                keyframes: vec![KeyFrame::from_value(Rgb::new_u8(
-                                                    0, 0, 0,
-                                                ))],
-                                            },
-                                            fill_rule: FillRule::EvenOdd,
-                                        }),
-                                    },
-                                    ShapeLayer {
-                                        name: None,
-                                        hidden: false,
-                                        shape: Shape::Transform(Transform::default()),
-                                    },
-                                ],
-                            }),
-                            start_frame: None,
-                            end_frame: None,
-                            matte_mode,
+                                        fill_rule: FillRule::EvenOdd,
+                                    }),
+                                },
+                                ShapeLayer {
+                                    name: None,
+                                    hidden: false,
+                                    shape: Shape::Transform(Transform::default()),
+                                },
+                            ],
                         });
-                        matte_mode = Some(match mask.mode {
+                        let matte_mode = match mask.mode {
                             MaskMode::Add => MatteMode::Alpha,
                             MaskMode::Subtract => MatteMode::InvertedAlpha,
                             MaskMode::None => MatteMode::Normal,
                             _ => unimplemented!(),
-                        })
+                        };
+                        result.push((content, matte_mode));
                     }
+                    ContentInfo::ContentWithMasks {
+                        content,
+                        masks: result,
+                    }
+                } else {
+                    ContentInfo::Simple(content)
                 }
-                let mut layer_info = ContentInfo::from(RenderableContent::Shape(shape_group));
-                layer_info.matte_mode = matte_mode;
-                result.push(layer_info);
-                result
             }
             LayerContent::PreCompositionRef(_)
             | LayerContent::Empty
-            | LayerContent::MediaRef(_) => vec![RenderableContent::Group.into()],
+            | LayerContent::MediaRef(_) => ContentInfo::Simple(RenderableContent::Group.into()),
             LayerContent::Text(text) => match RenderableContent::from_text(&text, model, fontdb) {
-                Ok(t) => t
-                    .keyframes
-                    .into_iter()
-                    .map(|keyframe| ContentInfo {
-                        content: keyframe.start_value,
-                        start_frame: Some(keyframe.start_frame),
-                        end_frame: Some(keyframe.end_frame),
-                        matte_mode: None,
-                    })
-                    .collect(),
+                Ok(t) => ContentInfo::TextKeyframes(
+                    t.keyframes
+                        .into_iter()
+                        .map(|keyframe| TextKeyframe {
+                            content: keyframe.start_value,
+                            start_frame: keyframe.start_frame,
+                            end_frame: keyframe.end_frame,
+                        })
+                        .collect(),
+                ),
                 Err(e) => {
                     log::warn!("{:?}", e);
-                    vec![RenderableContent::Group.into()]
+                    ContentInfo::Simple(RenderableContent::Group)
                 }
             },
             LayerContent::SolidColor {
                 color,
                 height,
                 width,
-            } => vec![
-                (RenderableContent::Shape(ShapeGroup {
-                    shapes: vec![
-                        ShapeLayer {
-                            name: None,
-                            hidden: false,
-                            shape: Shape::Rectangle(Rectangle {
-                                direction: ShapeDirection::Clockwise,
-                                position: Animated::from_value(Vector2D::new(width, height) / 2.0),
-                                size: Animated::from_value(Vector2D::new(width, height)),
-                                radius: Animated::from_value(0.0),
-                            }),
-                        },
-                        ShapeLayer {
-                            name: None,
-                            hidden: false,
-                            shape: Shape::Fill(color.into()),
-                        },
-                    ],
-                })
-                .into()),
-            ],
-            LayerContent::Media(media) => {
-                vec![RenderableContent::Media(Media::new(media, Some(root_path))?).into()]
-            }
+            } => ContentInfo::Simple(RenderableContent::Shape(ShapeGroup {
+                shapes: vec![
+                    ShapeLayer {
+                        name: None,
+                        hidden: false,
+                        shape: Shape::Rectangle(Rectangle {
+                            direction: ShapeDirection::Clockwise,
+                            position: Animated::from_value(Vector2D::new(width, height) / 2.0),
+                            size: Animated::from_value(Vector2D::new(width, height)),
+                            radius: Animated::from_value(0.0),
+                        }),
+                    },
+                    ShapeLayer {
+                        name: None,
+                        hidden: false,
+                        shape: Shape::Fill(color.into()),
+                    },
+                ],
+            })),
+            LayerContent::Media(media) => ContentInfo::Simple(RenderableContent::Media(
+                Media::new(media, Some(root_path))?,
+            )),
             _ => todo!(),
         };
-        let mut transform = layer.transform.unwrap_or_default();
-        transform.auto_orient = layer.auto_orient;
-        if let Some(end) = content.last_mut().and_then(|info| info.end_frame.as_mut()) {
-            *end = layer.end_frame;
-        }
-        Ok(content
-            .into_iter()
-            .map(|info| StagedLayer {
-                id: Id::default(),
-                name: layer.name.clone(),
-                content: info.content,
-                zindex: 0.0,
-                target: TargetRef::Layer(0),
-                parent: None,
-                start_frame: info.start_frame.unwrap_or(layer.start_frame),
-                end_frame: info.end_frame.unwrap_or(layer.end_frame),
-                transform: transform.clone(),
-                frame_rate: 0.0,
-                transform_hierarchy: TransformHierarchy::default(),
-                frame_transform: FrameTransform::new(0.0, layer.start_time),
-                frame_transform_hierarchy: FrameTransformHierarchy::default(),
-                is_mask: false,
-                matte_mode: info.matte_mode,
-                mask_hierarchy: MaskHierarchy::default(),
-                blend_mode: layer.blend_mode.unwrap_or(BlendMode::Normal),
-            })
-            .collect())
+        Ok(content)
     }
 }

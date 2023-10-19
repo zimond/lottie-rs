@@ -219,10 +219,12 @@ impl<'a> BevyStagedLayer<'a> {
             gradient: GradientDataUniform::default(),
         };
 
-        for (index, item) in self.layer.mask_hierarchy.masks().iter().enumerate() {
-            let mask_index = *self.mask_registry.get(&item.id).unwrap();
-            let mode = item.mode as u32;
-            material.mask_info.masks[index] = UVec4::new(mask_index, mode, 0, 0);
+        if !self.layer.is_mask {
+            for (index, item) in self.layer.mask_hierarchy.masks().iter().enumerate() {
+                let mask_index = *self.mask_registry.get(&item.id).unwrap();
+                let mode = item.mode as u32;
+                material.mask_info.masks[index] = UVec4::new(mask_index, mode, 0, 0);
+            }
         }
 
         let mut transform = Transform::from_matrix(shape.transform.value(0.0));
@@ -370,6 +372,7 @@ impl<'a> BevyStagedLayer<'a> {
                 zindex,
                 frames,
                 mask_offset,
+                transform_hierarchy: self.layer.transform_hierarchy.clone(),
                 text_range: text_range.clone(),
             };
             let tween = Tween::new(

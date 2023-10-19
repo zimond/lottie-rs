@@ -60,19 +60,6 @@ impl FromTo<Value> for Vec<Bezier> {
     }
 }
 
-impl FromTo<Value> for Bezier {
-    fn from(v: Value) -> Self {
-        match v {
-            Value::Bezier(b) => b,
-            _ => todo!(),
-        }
-    }
-
-    fn to(self) -> Value {
-        Value::Bezier(self)
-    }
-}
-
 impl FromTo<Value> for Vec<f32> {
     fn from(v: Value) -> Self {
         match v {
