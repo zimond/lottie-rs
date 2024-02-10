@@ -175,9 +175,9 @@ pub struct Transform {
     #[serde(rename = "o", default = "default_number_100")]
     pub opacity: Animated<f32>,
     #[serde(rename = "sk", default)]
-    pub skew: Option<Animated<Vector2D>>,
+    pub skew: Option<Animated<f32>>,
     #[serde(rename = "sa", default)]
-    pub skew_axis: Option<Animated<Vector2D>>,
+    pub skew_axis: Option<Animated<f32>>,
 }
 
 impl Default for Transform {
