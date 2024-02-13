@@ -45,7 +45,10 @@ impl Lerp for Rgb {
     type Target = Rgb;
 
     fn lerp(&self, other: &Self, t: f32) -> Self::Target {
-        todo!()
+        let r = other.r as f32 + (self.r as f32 - other.r as f32) * t;
+        let g = other.g as f32 + (self.g as f32 - other.g as f32) * t;
+        let b = other.b as f32 + (self.b as f32 - other.b as f32) * t;
+        Rgb::new_u8(r as u8, g as u8, b as u8)
     }
 }
 
