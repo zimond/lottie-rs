@@ -56,6 +56,19 @@ impl Lerp for Vec<GradientColor> {
     type Target = Vec<GradientColor>;
 
     fn lerp(&self, other: &Self, t: f32) -> Self::Target {
-        todo!()
+        self.iter()
+            .zip(other)
+            .map(|(x, y)| {
+                let r = y.color.r as f32 + (x.color.r as f32 - y.color.r as f32) * t;
+                let g = y.color.g as f32 + (x.color.g as f32 - y.color.g as f32) * t;
+                let b = y.color.b as f32 + (x.color.b as f32 - y.color.b as f32) * t;
+                let a = y.color.a as f32 + (x.color.a as f32 - y.color.a as f32) * t;
+                let o = y.offset + (x.offset - y.offset) * t;
+                GradientColor {
+                    offset: o,
+                    color: Rgba::new_f32(r, g, b, a),
+                }
+            })
+            .collect()
     }
 }
