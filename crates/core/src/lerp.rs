@@ -66,7 +66,7 @@ impl Lerp for Vec<GradientColor> {
                 let o = y.offset + (x.offset - y.offset) * t;
                 GradientColor {
                     offset: o,
-                    color: Rgba::new_f32(r, g, b, a),
+                    color: Rgba::new_u8(r as u8, g as u8, b as u8, a as u8),
                 }
             })
             .collect()
