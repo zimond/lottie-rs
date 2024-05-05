@@ -2,6 +2,13 @@
 edition = "2021"
 name = "lottie-renderer-bevy"
 version = "0.1.0"
+description = "Bodymovin lottie file renderer using Bevy engine"
+license = "MIT OR Apache-2.0"
+authors = ["Zimon Tai <daizhuoxian@gmail.com>"]
+categories = ["graphics", "rendering"]
+keywords = ["lottie", "animation", "parser", "graphics", "bevy"]
+readme = "README.md"
+repository = "https://github.com/zimond/lottie-rs/"
 
 [dependencies]
 # bevy_diagnostic = "0.7.0"
@@ -14,7 +21,7 @@ bevy = { version = "0.13.2", features = ["bevy_audio", "mp3", "flac", "wav"] }
 wgpu = "0.19.2"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 bevy_tweening_captured = "0.10.0"
-lottie = { path = "../lottie" }
+lottie = { path = "../lottie", version = "0.1.0" }
 lyon = "1.0.1"
 bevy-inspector-egui = { version = "0.24", optional = true }
 futures = "0.3.28"

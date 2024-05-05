@@ -16,8 +16,8 @@ png = "0.17.10"
 features = ["derive"]
 version = "4.4.4"
 
-[dependencies.lottie-core]
-path = "../core"
+[dependencies.lottie]
+path = "../lottie"
 
 [dependencies.lottie-renderer-bevy]
 path = "../renderer-bevy"
