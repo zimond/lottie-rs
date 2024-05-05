@@ -8,12 +8,12 @@ A [Lottie](https://github.com/airbnb/lottie-web) file toolkit written in Rust. L
 The following samples are gathered from lottiefiles.com community and lottiefiles.github.io. Credits
 goes to original owners/creators of the files.
 
-| **Name**       | **Preview**                                                  | **Name**         | **Preview**                                            |
-| -------------- | ------------------------------------------------------------ | ---------------- | ------------------------------------------------------ |
-| Confetti       | <img src="fixtures/results/confetti.webp" width="200">       | Nyan Cat         | <img src="fixtures/results/nyan_cat.webp" width="200"> |
-| Techno Penguin | <img src="fixtures/results/techno_penguin.webp" width="200"> | Delete Animation | <img src="fixtures/results/delete.webp" width="200">   |
-| A (5x scaled)  | <img src="fixtures/results/A.webp" width="200">              | B  (5x scaled)   | <img src="fixtures/results/B.webp" width="200">        |
-| Bounce Strokes | <img src="fixtures/results/bounce_strokes.webp" width="200"> |                  |                                                        |
+| **Name**       | **Preview**                                                                                                          | **Name**         | **Preview**                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| Confetti       | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/confetti.webp" width="200">       | Nyan Cat         | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/nyan_cat.webp" width="200"> |
+| Techno Penguin | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/techno_penguin.webp" width="200"> | Delete Animation | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/delete.webp" width="200">   |
+| A (5x scaled)  | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/A.webp" width="200">              | B  (5x scaled)   | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/B.webp" width="200">        |
+| Bounce Strokes | <img src="https://raw.githubusercontent.com/zimond/lottie-rs/main/fixtures/results/bounce_strokes.webp" width="200"> |                  |                                                                                                                |
 
 # Try it out
 
