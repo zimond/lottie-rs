@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshVertexAttribute};
+use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::*;
 use bevy::sprite::*;
 use lottie_core::tiny_skia_path as ts;
@@ -43,7 +44,7 @@ impl VertexConstructor {
                 c.set_a(c.a() * opacity);
                 VertexConstructor::Solid(c)
             }
-            SolidOrGradient::Gradient(g) => unimplemented!(),
+            SolidOrGradient::Gradient(_) => unimplemented!(),
         }
     }
 }
@@ -117,7 +118,10 @@ impl Plugin for LottiePlugin {
                 mesh_shapes_system
                     .in_set(BuildShapes)
                     .after(bevy::transform::TransformSystem::TransformPropagate),
-            );
+            )
+            .register_type::<DrawMode>()
+            .register_type::<Fill>()
+            .register_type::<Stroke>();
     }
 }
 
@@ -180,8 +184,11 @@ fn stroke(
 }
 
 fn build_mesh(buffers: &VertexBuffers) -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.set_indices(Some(Indices::U32(buffers.indices.clone())));
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    mesh.insert_indices(Indices::U32(buffers.indices.clone()));
     let verts = buffers
         .vertices
         .iter()

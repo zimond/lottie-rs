@@ -1,5 +1,5 @@
 use bevy::prelude::{Transform, Vec2};
-use bevy_tweening::Lens;
+use bevy_tweening::{Lens, Targetable};
 use lottie_core::prelude::{
     Animated, Bezier, OpacityHierarchy, PathFactory, TextBased, TextRangeInfo, TextRangeSelector,
     Transform as LottieTransform, TransformHierarchy, TrimInfo,
@@ -20,7 +20,7 @@ pub struct PathLens {
 }
 
 impl Lens<Path> for PathLens {
-    fn lerp(&mut self, target: &mut Path, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<Path>, ratio: f32) {
         let frame = (self.end_frame - self.start_frame) * ratio + self.start_frame;
         let beziers = self
             .start
@@ -57,14 +57,14 @@ impl Lens<Path> for PathLens {
             end = end.min(e);
         }
         if start.approx_eq(&0.0) && end.approx_eq(&1.0) {
-            *target = Path(path);
+            target.0 = path;
         } else {
             let measures = PathMeasurements::from_path(&path, 1e-3);
             let mut sampler = measures.create_sampler(&path, Normalized);
             let mut builder = LyonPath::builder();
             sampler.split_range(start..end, &mut builder);
             let path = builder.build();
-            *target = Path(path);
+            target.0 = path;
         }
     }
 }
@@ -83,7 +83,7 @@ pub struct StrokeWidthLens {
 }
 
 impl Lens<DrawMode> for StrokeWidthLens {
-    fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<DrawMode>, ratio: f32) {
         let w = self.start + (self.end - self.start) * ratio;
         if let Some(stroke) = target.stroke.as_mut() {
             stroke.options.line_width = w;
@@ -102,10 +102,10 @@ pub struct TransformLens {
 }
 
 impl Lens<Transform> for TransformLens {
-    fn lerp(&mut self, target: &mut Transform, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<Transform>, ratio: f32) {
         let frame = self.frames * ratio;
         let value = self.data.value(frame);
-        *target = Transform::from_matrix(value);
+        *target.target_mut() = Transform::from_matrix(value);
         target.translation.z = self.zindex;
         target.translation.x += self.mask_offset.x / self.transform_hierarchy.scale_x(frame);
 
@@ -145,7 +145,7 @@ pub struct OpacityLens {
 }
 
 impl Lens<DrawMode> for OpacityLens {
-    fn lerp(&mut self, target: &mut DrawMode, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<DrawMode>, ratio: f32) {
         let frame = self.frames as f32 * ratio;
         let value = self.opacity.value(frame);
         let fill_opacity = self.fill_opacity.value(frame) / 100.0;
@@ -198,8 +198,8 @@ pub struct PathFactoryLens {
 }
 
 impl Lens<Path> for PathFactoryLens {
-    fn lerp(&mut self, target: &mut Path, ratio: f32) {
+    fn lerp(&mut self, target: &mut dyn Targetable<Path>, ratio: f32) {
         let frame = (self.end_frame - self.start_frame) * ratio + self.start_frame;
-        *target = Path(self.factory.path(frame));
+        target.0 = self.factory.path(frame);
     }
 }

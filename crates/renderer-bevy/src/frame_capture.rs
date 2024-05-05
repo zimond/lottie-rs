@@ -4,11 +4,11 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssets;
-use bevy::render::render_graph::{NodeRunError, RenderGraph, RenderGraphContext};
+use bevy::render::render_graph::{NodeRunError, RenderGraph, RenderGraphContext, RenderLabel};
 use bevy::render::render_resource::Buffer;
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
 use bevy::render::{render_graph, Extract, RenderApp};
-use event_listener::Event;
+use event_listener::{Event, Listener};
 use wgpu::{
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer,
     ImageDataLayout,
@@ -79,7 +79,7 @@ impl render_graph::Node for ImageCopyDriver {
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
             let block_dimensions = src_image.texture_format.block_dimensions();
-            let block_size = src_image.texture_format.block_size(None).unwrap();
+            let block_size = src_image.texture_format.block_copy_size(None).unwrap();
 
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
                 (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
@@ -106,9 +106,9 @@ impl render_graph::Node for ImageCopyDriver {
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
             if !image_copier.unmapped.load(Ordering::SeqCst) {
-                let mut listener = image_copier.unmap_event.listen();
+                let listener = image_copier.unmap_event.listen();
                 if !image_copier.unmapped.load(Ordering::SeqCst) {
-                    listener.as_mut().wait();
+                    listener.wait();
                 }
             }
             render_queue.submit(std::iter::once(encoder.finish()));
@@ -149,7 +149,8 @@ pub fn receive_images(
     }
 }
 
-pub const IMAGE_COPY: &str = "image_copy";
+#[derive(RenderLabel, Hash, Eq, PartialEq, PartialOrd, Ord, Debug, Clone)]
+pub struct ImageCopyFeature;
 
 pub struct ImageCopyPlugin;
 
@@ -163,11 +164,17 @@ impl Plugin for ImageCopyPlugin {
 
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
-        graph.add_node(IMAGE_COPY, ImageCopyDriver::default());
+        graph.add_node(ImageCopyFeature, ImageCopyDriver::default());
 
-        graph.add_node_edge(bevy::render::main_graph::node::CAMERA_DRIVER, IMAGE_COPY)
+        graph.add_node_edge(bevy::render::graph::CameraDriverLabel, ImageCopyFeature)
     }
 }
 
 #[derive(Component, Deref, DerefMut)]
 pub struct ImageToSave(pub Handle<Image>);
+
+impl From<&ImageToSave> for AssetId<Image> {
+    fn from(image: &ImageToSave) -> Self {
+        image.0.id()
+    }
+}

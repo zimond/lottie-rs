@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bevy::app::{AppExit, Plugin, ScheduleRunnerPlugin};
-use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::system::Resource;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
@@ -230,7 +229,7 @@ impl Renderer for BevyRenderer {
                 )))
                 .add_systems(Last, save_img);
         } else {
-            self.app.add_plugins(WinitPlugin);
+            self.app.add_plugins(WinitPlugin::default());
         }
     }
 
@@ -256,7 +255,7 @@ fn setup_system(
         1.0
     };
     let mut camera = Camera2dBundle::default();
-    camera.camera_2d.clear_color = ClearColorConfig::Custom(Color::NONE);
+    camera.camera.clear_color = ClearColorConfig::Custom(Color::WHITE);
     let transform = Transform::from_scale(Vec3::new(1.0, -1.0, 1.0));
     camera.transform = transform;
     let mask_count = lottie
@@ -296,12 +295,10 @@ fn setup_system(
     mask.resize(mask_size);
     let mask_texture_handle = image_assets.add(mask);
     let mask_camera = Camera2dBundle {
-        camera_2d: Camera2d {
-            clear_color: ClearColorConfig::Custom(Color::NONE),
-        },
         camera: Camera {
             target: RenderTarget::Image(mask_texture_handle.clone()),
             order: -1,
+            clear_color: ClearColorConfig::Custom(Color::NONE),
             ..default()
         },
         transform: Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)).with_translation(Vec3::new(
@@ -508,8 +505,9 @@ fn animate_system(
     mut visibility_query: Query<(
         Entity,
         &mut Visibility,
-        &ComputedVisibility,
-        Option<(&AudioSink, With<LottieAudio>)>,
+        &InheritedVisibility,
+        Option<&AudioSink>,
+        Has<LottieAudio>,
         &FrameTracker,
     )>,
     mut transform_animation: Query<(&mut Animator<Transform>, &FrameTracker)>,
@@ -586,14 +584,15 @@ fn animate_system(
         }
     }
 
-    for (_, mut visibility, computed_visibility, audio_sink, tracker) in visibility_query.iter_mut()
+    for (_, mut visibility, inherited_visibility, audio_sink, _, tracker) in
+        visibility_query.iter_mut()
     {
         let visible = tracker.value(current_frame).is_some();
         if let Some(sink) = audio_sink {
-            if !computed_visibility.is_visible() && visible {
-                sink.0.play();
+            if !inherited_visibility.get() && visible {
+                sink.play();
             } else {
-                sink.0.pause();
+                sink.pause();
             }
         }
         *visibility = if visible {

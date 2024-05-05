@@ -2,6 +2,3 @@
 members = ["crates/*"]
 resolver = "2"
 exclude = ["crates/renderer-notan"]
-
-[patch.crates-io]
-fontkit = { git = "https://github.com/alibaba/font-toolkit", rev = "c3e2bc4" }

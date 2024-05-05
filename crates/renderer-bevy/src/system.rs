@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -35,6 +35,7 @@ pub(crate) fn controls_system(mut egui_ctx: EguiContexts, mut info: ResMut<Lotti
 pub fn component_animator_system<T: Component>(
     mut query: Query<(Entity, &mut T, &mut Animator<T>)>,
     events: ResMut<Events<TweenCompleted>>,
+    mut commands: Commands,
 ) {
     let mut events: Mut<Events<TweenCompleted>> = events.into();
     for (entity, target, mut animator) in query.iter_mut() {
@@ -42,9 +43,13 @@ pub fn component_animator_system<T: Component>(
             // TODO: maybe support animation speed, maybe not
             // let speed = animator.speed();
             let mut target = ComponentTarget::new(target);
-            animator
-                .tweenable_mut()
-                .tick(Duration::ZERO, &mut target, entity, &mut events);
+            animator.tweenable_mut().tick(
+                Duration::ZERO,
+                &mut target,
+                entity,
+                &mut events,
+                &mut commands,
+            );
         }
     }
 }
@@ -62,5 +67,9 @@ impl<'a, T: Component> ComponentTarget<'a, T> {
 impl<'a, T: Component> Targetable<T> for ComponentTarget<'a, T> {
     fn target_mut(&mut self) -> &mut T {
         self.target.deref_mut()
+    }
+
+    fn target(&self) -> &T {
+        self.target.deref()
     }
 }
