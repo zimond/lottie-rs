@@ -14,7 +14,7 @@ use bevy::utils::HashMap;
 use bevy::window::{ExitCondition, PrimaryWindow};
 use bevy::winit::WinitPlugin;
 // use bevy_diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy_tweening::{Animator, AnimatorState, TweenCompleted};
+use bevy_tweening_captured::{Animator, AnimatorState, TweenCompleted};
 // use gradient::GradientManager;
 // use frame_capture::{
 //     CaptureCamera, Frame, FrameCapture, FrameCaptureEvent,

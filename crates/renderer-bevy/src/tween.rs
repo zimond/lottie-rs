@@ -1,12 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy_tweening::{Delay, EaseMethod, Lens, Sequence, Tween};
+use bevy_tweening_captured::{Delay, EaseMethod, Lens, Sequence, Tween};
 use flo_curves::bezier::{curve_intersects_line, Curve};
 use flo_curves::{BezierCurveFactory, Coord2};
 use lottie_core::prelude::KeyFrame;
 
-/// Produce [`Tweenable`](bevy_tweening::Tweenable) by using a `producer` to
+/// Produce [`Tweenable`](bevy_tweening_captured::Tweenable) by using a `producer` to
 /// create lens of type `L` from two instances of data of type
 /// `TweenProducer::Key`
 pub(crate) trait TweenProducer<T, L>

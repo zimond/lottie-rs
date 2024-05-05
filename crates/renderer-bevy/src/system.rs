@@ -4,7 +4,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 #[cfg(feature = "bevy_egui")]
 use bevy_egui::{egui, EguiContexts};
-use bevy_tweening::{Animator, AnimatorState, Targetable, TweenCompleted};
+use bevy_tweening_captured::{Animator, AnimatorState, Targetable, TweenCompleted};
 
 use crate::LottieAnimationInfo;
 
