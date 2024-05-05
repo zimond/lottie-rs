@@ -1,4 +1,4 @@
-use lottie_core::{Renderer, Lottie, Config};
+use lottie::{Renderer, Lottie, Config};
 
 pub struct NotanRenderer {}
 

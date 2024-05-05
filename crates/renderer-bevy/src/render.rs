@@ -6,7 +6,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::texture::{CompressedImageFormats, ImageType, TextureError};
 use bevy::render::view::RenderLayers;
 use bevy_tweening_captured::{Animator, EaseMethod, Sequence, Tracks, Tween};
-use lottie_core::prelude::{Transform as LottieTransform, *};
+use lottie::prelude::{Transform as LottieTransform, *};
 
 use crate::lens::{OpacityLens, PathFactoryLens, PathLens, StrokeWidthLens, TransformLens};
 use crate::material::*;

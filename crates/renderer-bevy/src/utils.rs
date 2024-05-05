@@ -1,5 +1,5 @@
 use bevy::prelude::Color;
-use lottie_core::prelude::{
+use lottie::prelude::{
     AnyFill, AnyStroke, FillRule as LottieFillRule, LineCap as LottieLineCap,
     LineJoin as LottieLineJoin, Rgb, StyledShape,
 };

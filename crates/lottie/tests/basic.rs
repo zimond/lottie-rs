@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Error;
 
-use lottie_core::prelude::Model;
+use lottie::prelude::Model;
 
 #[test]
 fn test_bouncy_ball_example() -> Result<(), Error> {

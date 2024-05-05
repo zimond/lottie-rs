@@ -8,7 +8,7 @@ use bevy::render::render_resource::{
     VertexBufferLayout,
 };
 use bevy::sprite::{Material2d, Material2dKey};
-use lottie_core::prelude::GradientColor;
+use lottie::prelude::GradientColor;
 use wgpu::*;
 
 #[derive(AsBindGroup, Clone, TypePath, Asset)]

@@ -1,6 +1,6 @@
 use bevy::prelude::{Transform, Vec2};
 use bevy_tweening_captured::{Lens, Targetable};
-use lottie_core::prelude::{
+use lottie::prelude::{
     Animated, Bezier, OpacityHierarchy, PathFactory, TextBased, TextRangeInfo, TextRangeSelector,
     Transform as LottieTransform, TransformHierarchy, TrimInfo,
 };

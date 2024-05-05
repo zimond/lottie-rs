@@ -1,7 +1,14 @@
 [package]
 edition = "2021"
-name = "lottie-core"
+name = "lottie"
 version = "0.1.0"
+description = "Bodymovin lottie file format parser and logic layer"
+license = "MIT OR Apache-2.0"
+authors = ["Zimon Tai <daizhuoxian@gmail.com>"]
+categories = ["graphics", "rendering"]
+keywords = ["lottie", "animation", "parser", "graphics", "bevy"]
+readme = "README.md"
+repository = "https://github.com/zimond/lottie-rs/"
 
 [dependencies]
 flo_curves = "0.7.2"

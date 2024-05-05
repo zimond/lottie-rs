@@ -18,13 +18,19 @@ goes to original owners/creators of the files.
 # Try it out
 
 The default player implementation uses [Bevy](https://github.com/bevyengine/bevy) to render the animation.
-Currently supports bevy `0.11.0`.
+Currently supports bevy `0.13.0`.
 
 ```bash
 cargo r --release -- --input ../../fixtures/ui/drink.json
 ```
 
 There are some lottie files for demonstration purpose under `fixtures/ui`
+
+## Bevy support table
+
+| bevy | lottie-rs    |
+| ---- | ------------ |
+| 0.13 | main / 0.0.1 |
 
 # Headless runner
 

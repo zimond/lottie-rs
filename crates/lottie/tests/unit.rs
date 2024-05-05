@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Error;
 
-use lottie_core::prelude::{Animated, GradientFill, Stroke, TextRange, Transform, Vector2D};
+use lottie::prelude::{Animated, GradientFill, Stroke, TextRange, Transform, Vector2D};
 
 #[test]
 fn test_transform_complex() -> Result<(), Error> {

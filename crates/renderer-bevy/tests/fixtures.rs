@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use lottie_core::{Config, Error, HeadlessConfig, Lottie, Renderer};
+use lottie::{Config, Error, HeadlessConfig, Lottie, Renderer};
 use lottie_renderer_bevy::BevyRenderer;
 use rstest::rstest;
 use smol::stream::StreamExt;
@@ -16,7 +16,7 @@ fn check_fixture(
     renderer.load_lottie(
         lottie,
         Config::Headless(HeadlessConfig {
-            target: lottie_core::Target::Default,
+            target: lottie::Target::Default,
             filename: String::from("test.webp"),
             frame: None,
         }),

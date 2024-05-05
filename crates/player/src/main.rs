@@ -6,7 +6,7 @@ use std::path::Path;
 // use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 use anyhow::Error;
 use clap::Parser;
-use lottie_core::{Config, HeadlessConfig, Lottie, Renderer, Target, WindowConfig};
+use lottie::{Config, HeadlessConfig, Lottie, Renderer, Target, WindowConfig};
 use lottie_renderer_bevy::BevyRenderer;
 use smol::pin;
 use smol::stream::StreamExt;

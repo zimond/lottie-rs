@@ -14,7 +14,7 @@ bevy = { version = "0.13.2", features = ["bevy_audio", "mp3", "flac", "wav"] }
 wgpu = "0.19.2"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 bevy_tweening_captured = "0.10.0"
-lottie-core = { path = "../core" }
+lottie = { path = "../lottie" }
 lyon = "1.0.1"
 bevy-inspector-egui = { version = "0.24", optional = true }
 futures = "0.3.28"
