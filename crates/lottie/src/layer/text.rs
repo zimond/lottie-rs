@@ -1,5 +1,5 @@
 use crate::model::*;
-use fontkit::{Area, Line, PathSegment, Span};
+use fontkit::{Area, Line, Metrics, PathSegment, Span, TextMetrics};
 
 use crate::font::FontDB;
 use crate::prelude::RenderableContent;
@@ -46,7 +46,7 @@ struct Styles {
 struct TextDocumentParser<'a> {
     model: &'a Model,
     fontdb: &'a FontDB,
-    area: Area<Styles>,
+    area: Area<Styles, TextMetrics>,
     lottie_font: &'a Font,
     keyframe: &'a KeyFrame<TextDocument>,
     text_ranges: &'a Vec<TextRange>,
@@ -129,13 +129,13 @@ impl<'a> TextDocumentParser<'a> {
             .map(|l| {
                 l.spans
                     .iter()
-                    .flat_map(|span| span.metrics.positions().iter().map(|p| p.metrics.c))
+                    .flat_map(|span| span.metrics.chars())
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
         for (line_index, line) in self.area.lines.iter().enumerate() {
             let mut char_index = 0;
-            let mut adv = line.width() * align_factor;
+            let mut adv_base = line.width() * align_factor;
             for span in &line.spans {
                 let factor = span.size / units;
                 let mut all_beziers = vec![];
@@ -162,14 +162,18 @@ impl<'a> TextDocumentParser<'a> {
                         fill_rule: FillRule::NonZero,
                     }),
                 };
-                for c in span.metrics.positions() {
-                    let (glyph, _) = font.outline(c.metrics.c).ok_or_else(|| {
-                        Error::FontGlyphNotFound(self.lottie_font.name.clone(), c.metrics.c)
+                for (index, c) in span.metrics.chars().into_iter().enumerate() {
+                    let (glyph, _) = font.outline(c).ok_or_else(|| {
+                        Error::FontGlyphNotFound(self.lottie_font.name.clone(), c)
                     })?;
                     let mut bezier = Bezier::default();
                     let mut beziers = vec![];
                     let mut last_pt = Vector2D::new(0.0, 0.0);
-                    let length = c.metrics.advanced_x as f32 * factor + c.kerning as f32 * factor;
+                    let adv = adv_base
+                        + span
+                            .metrics
+                            .slice(0, index as u32)
+                            .width(span.size, span.letter_spacing);
                     let segments = glyph.path.finish();
                     let segments = segments
                         .as_ref()
@@ -224,12 +228,10 @@ impl<'a> TextDocumentParser<'a> {
                         beziers.push(bezier);
                     }
                     all_beziers.push(GlyphData {
-                        c: c.metrics.c,
+                        c,
                         beziers,
                         offset_x: adv,
                     });
-
-                    adv += length;
                 }
 
                 let mut glyphs = all_beziers
