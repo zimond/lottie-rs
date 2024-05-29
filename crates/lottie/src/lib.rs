@@ -54,7 +54,7 @@ impl Lottie {
 
     #[cfg(not(all(target_os = "unknown", target_arch = "wasm32")))]
     pub fn from_reader<R: Read>(r: R, root_path: &str) -> Result<Self, Error> {
-        let mut fontkit = FontKit::new();
+        let fontkit = FontKit::new();
         let path = dirs::font_dir().unwrap();
         fontkit.search_fonts_from_path(path)?;
         #[cfg(target_os = "macos")]

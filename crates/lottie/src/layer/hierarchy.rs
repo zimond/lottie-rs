@@ -24,13 +24,7 @@ pub struct OpacityHierarchy {
 impl<'a> From<&'a TransformHierarchy> for OpacityHierarchy {
     fn from(t: &'a TransformHierarchy) -> Self {
         OpacityHierarchy {
-            stack: t
-                .stack
-                .iter()
-                .next()
-                .map(|t| t.opacity.clone())
-                .into_iter()
-                .collect(),
+            stack: t.stack.iter().map(|t| t.opacity.clone()).collect(),
         }
     }
 }

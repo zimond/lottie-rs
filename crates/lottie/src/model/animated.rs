@@ -178,7 +178,7 @@ impl<T: Clone + Lerp<Target = T>> KeyFrame<T> {
         let intersection =
             curve_intersects_line(&curve, &(Coord2(t as f64, 0.0), Coord2(t as f64, 1.0)));
         let ratio = if intersection.is_empty() {
-            t
+            0.0
         } else {
             intersection[0].2 .1 as f32
         };
