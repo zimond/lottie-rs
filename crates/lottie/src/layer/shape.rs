@@ -1,9 +1,13 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use crate::model::*;
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use lyon_path::geom::euclid::vec2;
 use lyon_path::math::Angle;
 use lyon_path::path::{Builder, Path};
 use lyon_path::Winding;
+use euclid::Trig;
 
 pub struct StyledShapeIter {
     shapes: Vec<ShapeLayer>,
@@ -304,7 +308,7 @@ impl PathFactory for Vec<Bezier> {
 impl PathFactory for PolyStar {
     fn path(&self, frame: f32) -> Path {
         let mut builder = Builder::new();
-        const PI: f32 = std::f32::consts::PI;
+        const PI: f32 = core::f32::consts::PI;
         const MAGIC_NUM: f32 = 0.47829 / 0.28;
         let cp = self.position.value(frame);
         let num_points = self.points.value(frame) as u32 * 2;
@@ -350,9 +354,9 @@ impl PathFactory for PolyStar {
             let prev = p;
             p = vec2(current_ang.cos(), current_ang.sin()) * cp2_info.x;
             if has_roundness {
-                let cp1_theta = prev.y.atan2(prev.x) - PI / 2.0 * angle_dir;
+                let cp1_theta = f32::fast_atan2(prev.y, prev.x) - PI / 2.0 * angle_dir;
                 let cp1_d = vec2(cp1_theta.cos(), cp1_theta.sin());
-                let cp2_theta = p.y.atan2(p.x) - PI / 2.0 * angle_dir;
+                let cp2_theta = f32::fast_atan2(p.y, p.x) - PI / 2.0 * angle_dir;
                 let cp2_d = vec2(cp2_theta.cos(), cp2_theta.sin());
                 let cp1 = cp1_d * (cp1_info.x * cp1_info.y * MAGIC_NUM / num_points as f32 * 2.0);
                 let cp2 = cp2_d * (cp2_info.x * cp2_info.y * MAGIC_NUM / num_points as f32 * 2.0);

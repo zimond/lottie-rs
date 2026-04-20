@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use serde::Deserialize;
 
 use super::{Easing, FromTo, KeyFrame, Value};

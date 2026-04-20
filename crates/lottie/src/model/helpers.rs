@@ -1,7 +1,10 @@
 mod convert;
 mod keyframe;
 
-use std::fmt;
+use alloc::vec;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::fmt;
 
 pub(crate) use self::convert::FromTo;
 use self::keyframe::AnimatedHelper;
@@ -65,7 +68,7 @@ where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    Ok(s.parse().unwrap())
+    parse_rgba(&s).map_err(serde::de::Error::custom)
 }
 
 pub fn str_from_rgba<S>(b: &Rgba, serializer: S) -> Result<S::Ok, S::Error>
@@ -200,19 +203,85 @@ where
 pub fn array_from_keyframes<S, T>(b: &Vec<KeyFrame<T>>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
+    T: Clone + FromTo<Value>,
 {
-    todo!()
-    // let animated = AnimatedHelper::from(b);
-    // match animated {
-    //     AnimatedHelper::Plain(data) => data.serialize(serializer),
-    //     AnimatedHelper::AnimatedHelper(data) => {
-    //         let mut seq = serializer.serialize_seq(Some(data.len()))?;
-    //         for keyframe in data {
-    //             seq.serialize_element(&keyframe)?;
-    //         }
-    //         seq.end()
-    //     }
-    // }
+    if b.is_empty() {
+        return serializer.serialize_unit();
+    }
+
+    if b.len() == 1 && b[0].easing_in.is_none() && b[0].easing_out.is_none() {
+        return <T as FromTo<Value>>::to(b[0].start_value.clone()).serialize(serializer);
+    }
+
+    #[derive(Serialize)]
+    struct LegacyKeyFrame<T> {
+        #[serde(rename = "s")]
+        start_value: T,
+        #[serde(rename = "e", skip_serializing_if = "Option::is_none")]
+        end_value: Option<T>,
+        #[serde(rename = "t")]
+        start_frame: f32,
+        #[serde(rename = "o", skip_serializing_if = "Option::is_none")]
+        easing_out: Option<Easing>,
+        #[serde(rename = "i", skip_serializing_if = "Option::is_none")]
+        easing_in: Option<Easing>,
+    }
+
+    let mut seq = serializer.serialize_seq(Some(b.len()))?;
+    for keyframe in b {
+        seq.serialize_element(&LegacyKeyFrame {
+            start_value: <T as FromTo<Value>>::to(keyframe.start_value.clone()),
+            end_value: Some(<T as FromTo<Value>>::to(keyframe.end_value.clone())),
+            start_frame: keyframe.start_frame,
+            easing_out: keyframe.easing_out.clone(),
+            easing_in: keyframe.easing_in.clone(),
+        })?;
+    }
+    seq.end()
+}
+
+fn parse_rgba(input: &str) -> Result<Rgba, &'static str> {
+    let hex = input.strip_prefix('#').unwrap_or(input);
+    let bytes = match hex.len() {
+        6 => parse_hex_triplet(hex).map(|(r, g, b)| (r, g, b, 255))?,
+        8 => parse_hex_quad(hex)?,
+        _ => return Err("expected #RRGGBB or #RRGGBBAA"),
+    };
+    Ok(Rgba::new_u8(bytes.0, bytes.1, bytes.2, bytes.3))
+}
+
+fn parse_hex_triplet(hex: &str) -> Result<(u8, u8, u8), &'static str> {
+    let bytes = hex.as_bytes();
+    Ok((
+        hex_pair(bytes, 0)?,
+        hex_pair(bytes, 2)?,
+        hex_pair(bytes, 4)?,
+    ))
+}
+
+fn parse_hex_quad(hex: &str) -> Result<(u8, u8, u8, u8), &'static str> {
+    let bytes = hex.as_bytes();
+    Ok((
+        hex_pair(bytes, 0)?,
+        hex_pair(bytes, 2)?,
+        hex_pair(bytes, 4)?,
+        hex_pair(bytes, 6)?,
+    ))
+}
+
+fn hex_pair(bytes: &[u8], start: usize) -> Result<u8, &'static str> {
+    let hi = hex_val(bytes.get(start).copied().ok_or("missing digit")?)?;
+    let lo = hex_val(bytes.get(start + 1).copied().ok_or("missing digit")?)?;
+    Ok((hi << 4) | lo)
+}
+
+fn hex_val(byte: u8) -> Result<u8, &'static str> {
+    match byte {
+        b'0'..=b'9' => Ok(byte - b'0'),
+        b'a'..=b'f' => Ok(byte - b'a' + 10),
+        b'A'..=b'F' => Ok(byte - b'A' + 10),
+        _ => Err("invalid hex digit"),
+    }
 }
 
 pub fn default_vec2_100() -> Animated<Vector2D> {
@@ -239,11 +308,19 @@ impl<'de> Visitor<'de> for NumberVistor {
     }
 
     fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
-        Ok(Some(v.round() as u32))
+        Ok(Some(if v >= 0.0 {
+            (v + 0.5) as u32
+        } else {
+            (v - 0.5) as u32
+        }))
     }
 
     fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
-        Ok(Some(v.round() as u32))
+        Ok(Some(if v >= 0.0 {
+            (v + 0.5) as u32
+        } else {
+            (v - 0.5) as u32
+        }))
     }
 
     fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::model::{Bezier, GradientColor, Rgb, Rgba, Vector2D};
 
 pub trait Lerp {

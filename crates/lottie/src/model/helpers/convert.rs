@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use super::{Bezier, Rgb, TextDocument, Value, Vector2D};
 
 pub trait FromTo<T> {
@@ -12,7 +14,7 @@ impl FromTo<Value> for Vector2D {
     }
 
     fn to(self) -> Value {
-        todo!()
+        Value::List(vec![self.x, self.y])
     }
 }
 
