@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lottie = { version = "0.1.0", path = "../lottie" }
+lottie = { version = "0.1.0", path = "../lottie", features = ["std"] }
 notan = { git = "https://github.com/Nazariglez/notan", branch = "develop", version = "0.6.0" }

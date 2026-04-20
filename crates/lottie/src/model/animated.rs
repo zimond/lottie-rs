@@ -1,12 +1,152 @@
-use std::collections::VecDeque;
-
-use flo_curves::bezier::{curve_intersects_line, Curve};
-use flo_curves::{BezierCurve, BezierCurveFactory, Coord2};
+use alloc::vec;
+use alloc::vec::Vec;
+use alloc::collections::VecDeque;
+use core::cmp::Ordering;
 use serde::{Deserialize, Serialize};
 
 use crate::Lerp;
 
 use super::helpers::{self, *};
+
+#[derive(Clone, Copy, Debug)]
+struct Point2 {
+    x: f32,
+    y: f32,
+}
+
+fn bezier_point(p0: Point2, p1: Point2, p2: Point2, p3: Point2, t: f32) -> Point2 {
+    let mt = 1.0 - t;
+    let mt2 = mt * mt;
+    let t2 = t * t;
+    Point2 {
+        x: mt2 * mt * p0.x
+            + 3.0 * mt2 * t * p1.x
+            + 3.0 * mt * t2 * p2.x
+            + t2 * t * p3.x,
+        y: mt2 * mt * p0.y
+            + 3.0 * mt2 * t * p1.y
+            + 3.0 * mt * t2 * p2.y
+            + t2 * t * p3.y,
+    }
+}
+
+fn bezier_derivative(p0: f32, p1: f32, p2: f32, p3: f32, t: f32) -> f32 {
+    let mt = 1.0 - t;
+    3.0 * mt * mt * (p1 - p0) + 6.0 * mt * t * (p2 - p1) + 3.0 * t * t * (p3 - p2)
+}
+
+fn solve_bezier_x(x1: f32, x2: f32, target: f32) -> f32 {
+    let mut t = target.clamp(0.0, 1.0);
+    let mut lower = 0.0;
+    let mut upper = 1.0;
+
+    for _ in 0..8 {
+        let x = bezier_point(
+            Point2 { x: 0.0, y: 0.0 },
+            Point2 { x: x1, y: 0.0 },
+            Point2 { x: x2, y: 0.0 },
+            Point2 { x: 1.0, y: 0.0 },
+            t,
+        )
+        .x;
+        let diff = x - target;
+        if diff.abs() < 1e-5 {
+            return t;
+        }
+        match diff.partial_cmp(&0.0).unwrap_or(Ordering::Equal) {
+            Ordering::Less => lower = t,
+            Ordering::Greater => upper = t,
+            Ordering::Equal => return t,
+        }
+        let derivative = bezier_derivative(0.0, x1, x2, 1.0, t);
+        if derivative.abs() < 1e-6 {
+            break;
+        }
+        let next = t - diff / derivative;
+        if (lower..=upper).contains(&next) {
+            t = next;
+        } else {
+            break;
+        }
+    }
+
+    for _ in 0..16 {
+        t = 0.5 * (lower + upper);
+        let x = bezier_point(
+            Point2 { x: 0.0, y: 0.0 },
+            Point2 { x: x1, y: 0.0 },
+            Point2 { x: x2, y: 0.0 },
+            Point2 { x: 1.0, y: 0.0 },
+            t,
+        )
+        .x;
+        if (x - target).abs() < 1e-5 {
+            break;
+        }
+        if x < target {
+            lower = t;
+        } else {
+            upper = t;
+        }
+    }
+    t
+}
+
+fn split_bezier(
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    split_t: f32,
+) -> ((f32, f32, f32, f32), (f32, f32, f32, f32), f32) {
+    let p0 = Point2 { x: 0.0, y: 0.0 };
+    let p1 = Point2 { x: x1, y: y1 };
+    let p2 = Point2 { x: x2, y: y2 };
+    let p3 = Point2 { x: 1.0, y: 1.0 };
+
+    let p01 = lerp_point(p0, p1, split_t);
+    let p12 = lerp_point(p1, p2, split_t);
+    let p23 = lerp_point(p2, p3, split_t);
+    let p012 = lerp_point(p01, p12, split_t);
+    let p123 = lerp_point(p12, p23, split_t);
+    let p0123 = lerp_point(p012, p123, split_t);
+
+    let left = normalize_segment(p01, p012, p0123);
+    let right = normalize_segment(
+        Point2 {
+            x: p123.x - p0123.x,
+            y: p123.y - p0123.y,
+        },
+        Point2 {
+            x: p23.x - p0123.x,
+            y: p23.y - p0123.y,
+        },
+        Point2 {
+            x: 1.0 - p0123.x,
+            y: 1.0 - p0123.y,
+        },
+    );
+
+    (left, right, p0123.y)
+}
+
+fn lerp_point(a: Point2, b: Point2, t: f32) -> Point2 {
+    Point2 {
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+    }
+}
+
+fn normalize_segment(p1: Point2, p2: Point2, end: Point2) -> (f32, f32, f32, f32) {
+    let x_scale = if end.x.abs() < f32::EPSILON { 1.0 } else { end.x };
+    let y_scale = if end.y.abs() < f32::EPSILON { 1.0 } else { end.y };
+    (
+        p1.x / x_scale,
+        p1.y / y_scale,
+        p2.x / x_scale,
+        p2.y / y_scale,
+    )
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Animated<T> {
@@ -20,7 +160,7 @@ pub struct Animated<T> {
     #[serde(
         deserialize_with = "keyframes_from_array",
         serialize_with = "array_from_keyframes",
-        bound = "T: FromTo<helpers::Value>",
+        bound = "T: Clone + FromTo<helpers::Value>",
         rename = "k"
     )]
     pub keyframes: Vec<KeyFrame<T>>,
@@ -167,21 +307,21 @@ impl<T: Clone + Lerp<Target = T>> KeyFrame<T> {
             y: vec![1.0],
         });
         debug_assert!(t <= 1.0 && t >= 0.0);
-        let curve = Curve::from_points(
-            Coord2(0.0, 0.0),
-            (
-                Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
-                Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
-            ),
-            Coord2(1.0, 1.0),
+        let x = solve_bezier_x(ease_out.x[0], ease_in.x[0], t);
+        let curve = bezier_point(
+            Point2 { x: 0.0, y: 0.0 },
+            Point2 {
+                x: ease_out.x[0],
+                y: ease_out.y[0],
+            },
+            Point2 {
+                x: ease_in.x[0],
+                y: ease_in.y[0],
+            },
+            Point2 { x: 1.0, y: 1.0 },
+            x,
         );
-        let intersection =
-            curve_intersects_line(&curve, &(Coord2(t as f64, 0.0), Coord2(t as f64, 1.0)));
-        let ratio = if intersection.is_empty() {
-            0.0
-        } else {
-            intersection[0].2 .1 as f32
-        };
+        let ratio = curve.y;
         self.end_value.lerp(&self.start_value, ratio)
     }
 
@@ -202,35 +342,39 @@ impl<T: Clone + Lerp<Target = T>> KeyFrame<T> {
         });
         let frames = self.end_frame - self.start_frame;
         let x = (frame - self.start_frame) / frames;
-        let curve = Curve::from_points(
-            Coord2(0.0, 0.0),
-            (
-                Coord2(ease_out.x[0] as f64, ease_out.y[0] as f64),
-                Coord2(ease_in.x[0] as f64, ease_in.y[0] as f64),
-            ),
-            Coord2(1.0, 1.0),
-        );
-        let intersection =
-            curve_intersects_line(&curve, &(Coord2(x as f64, 0.0), Coord2(x as f64, 1.0)));
-        let ratio = if intersection.is_empty() {
-            x
-        } else {
-            intersection[0].2 .1 as f32
-        };
+        let split_t = solve_bezier_x(ease_out.x[0], ease_in.x[0], x);
+        let ratio = bezier_point(
+            Point2 { x: 0.0, y: 0.0 },
+            Point2 {
+                x: ease_out.x[0],
+                y: ease_out.y[0],
+            },
+            Point2 {
+                x: ease_in.x[0],
+                y: ease_in.y[0],
+            },
+            Point2 { x: 1.0, y: 1.0 },
+            split_t,
+        )
+        .y;
         let value = self.end_value.lerp(&self.start_value, ratio);
-        let (mut curve_a, mut curve_b): (Curve<Coord2>, _) = curve.subdivide(x as f64);
-        scale_curve(&mut curve_a);
-        scale_curve(&mut curve_b);
+        let (curve_a, curve_b, _) = split_bezier(
+            ease_out.x[0],
+            ease_out.y[0],
+            ease_in.x[0],
+            ease_in.y[0],
+            split_t,
+        );
         let keyframe_a = KeyFrame {
             start_value: self.start_value.clone(),
             end_value: value.clone(),
             easing_in: Some(Easing {
-                x: vec![curve_a.control_points.1 .0 as f32],
-                y: vec![curve_a.control_points.1 .1 as f32],
+                x: vec![curve_a.2],
+                y: vec![curve_a.3],
             }),
             easing_out: Some(Easing {
-                x: vec![curve_a.control_points.0 .0 as f32],
-                y: vec![curve_a.control_points.0 .1 as f32],
+                x: vec![curve_a.0],
+                y: vec![curve_a.1],
             }),
             start_frame: self.start_frame,
             end_frame: frame,
@@ -239,12 +383,12 @@ impl<T: Clone + Lerp<Target = T>> KeyFrame<T> {
             start_value: value,
             end_value: self.end_value.clone(),
             easing_in: Some(Easing {
-                x: vec![curve_b.control_points.1 .0 as f32],
-                y: vec![curve_b.control_points.1 .1 as f32],
+                x: vec![curve_b.2],
+                y: vec![curve_b.3],
             }),
             easing_out: Some(Easing {
-                x: vec![curve_b.control_points.0 .0 as f32],
-                y: vec![curve_b.control_points.0 .1 as f32],
+                x: vec![curve_b.0],
+                y: vec![curve_b.1],
             }),
             start_frame: frame,
             end_frame: self.end_frame,
@@ -259,20 +403,4 @@ pub struct Easing {
     pub x: Vec<f32>,
     #[serde(deserialize_with = "array_from_array_or_number")]
     pub y: Vec<f32>,
-}
-
-fn scale_curve(curve: &mut Curve<Coord2>) {
-    curve.control_points.0 = curve.control_points.0 - curve.start_point;
-    curve.control_points.1 = curve.control_points.1 - curve.start_point;
-    curve.end_point = curve.end_point - curve.start_point;
-    curve.start_point = (0.0, 0.0).into();
-
-    let x_scale = 1.0 / curve.end_point.0;
-    let y_scale = 1.0 / curve.end_point.1;
-    curve.control_points.0 .0 *= x_scale;
-    curve.control_points.0 .1 *= y_scale;
-    curve.control_points.1 .0 *= x_scale;
-    curve.control_points.1 .1 *= y_scale;
-    curve.control_points.0 .0 *= x_scale;
-    curve.end_point = (1.0, 1.0).into()
 }

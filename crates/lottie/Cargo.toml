@@ -11,29 +11,35 @@ readme = "README.md"
 repository = "https://github.com/zimond/lottie-rs/"
 
 [dependencies]
-flo_curves = "0.7.2"
-glam = "0.25.0"
-lyon_path = "1.0.4"
-slotmap = "1.0.6"
-thiserror = "1.0.30"
-fontkit = "0.6.0-beta.2"
-ureq = "2.7.1"
-base64 = "0.22.1"
-url = "2.4.1"
+base64 = { version = "0.22.1", default-features = false, features = ["alloc"] }
+euclid = { version = "0.22.14", default-features = false, features = ["libm"] }
+glam = { version = "0.25.0", default-features = false, features = ["libm"] }
+hashbrown = "0.14.5"
+lyon_path = { version = "1.0.19", default-features = false }
 log = "0.4.17"
-euclid = "0.22.7"
-serde_json = "1.0.79"
-serde_repr = "0.1.7"
-read_color = "1.0.0"
-ordered-float = "4.2.0"
+ordered-float = { version = "4.6.0", default-features = false }
+tiny-skia-path = { version = "0.11.4", default-features = false, features = ["no-std-float"] }
+serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
+serde_repr = "0.1.20"
+slotmap = { version = "1.1.1", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
 
 [dependencies.serde]
-features = ["derive"]
-version = "1.0.136"
+default-features = false
+features = ["derive", "alloc"]
+version = "1.0.228"
+
+[features]
+default = ["std"]
+std = ["dep:dirs", "dep:ureq", "dep:url", "serde_json/std"]
+fontkit = ["dep:fontkit"]
 
 
 [dev-dependencies]
 serde_path_to_error = "0.1.7"
 
 [target.'cfg(not(all(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
-dirs = "5.0.0"
+dirs = { version = "5.0.0", optional = true }
+fontkit = { version = "0.6.1", optional = true }
+ureq = { version = "2.12.1", optional = true }
+url = { version = "2.5.8", optional = true, default-features = false }

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::model::{Animated, MatteMode, Transform};
 
 use crate::prelude::Id;

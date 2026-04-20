@@ -1,8 +1,14 @@
+use alloc::vec;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+
 use crate::model::*;
 
 use crate::font::FontDB;
 use crate::prelude::{Id, MaskHierarchy};
 use crate::Error;
+use crate::MediaAssets;
 
 use super::frame::{FrameTransform, FrameTransformHierarchy};
 use super::hierarchy::TransformHierarchy;
@@ -92,7 +98,7 @@ impl ContentInfo {
         layer: Layer,
         model: &Model,
         fontdb: &FontDB,
-        root_path: &str,
+        media_assets: Option<&MediaAssets>,
     ) -> Result<ContentInfo, Error> {
         let content = match layer.content.clone() {
             LayerContent::Shape(shape_group) => {
@@ -152,9 +158,11 @@ impl ContentInfo {
                     ContentInfo::Simple(content)
                 }
             }
-            LayerContent::PreCompositionRef(_)
-            | LayerContent::Empty
-            | LayerContent::MediaRef(_) => ContentInfo::Simple(RenderableContent::Group.into()),
+            LayerContent::PreCompositionRef(_) | LayerContent::Empty => {
+                ContentInfo::Simple(RenderableContent::Group)
+            }
+            LayerContent::MediaRef(_) => ContentInfo::Simple(RenderableContent::Group),
+            #[cfg(feature = "fontkit")]
             LayerContent::Text(text) => match RenderableContent::from_text(&text, model, fontdb) {
                 Ok(t) => ContentInfo::TextKeyframes(
                     t.keyframes
@@ -171,6 +179,8 @@ impl ContentInfo {
                     ContentInfo::Simple(RenderableContent::Group)
                 }
             },
+            #[cfg(not(feature = "fontkit"))]
+            LayerContent::Text(_) => ContentInfo::Simple(RenderableContent::Group),
             LayerContent::SolidColor {
                 color,
                 height,
@@ -194,9 +204,17 @@ impl ContentInfo {
                     },
                 ],
             })),
-            LayerContent::Media(media) => ContentInfo::Simple(RenderableContent::Media(
-                Media::new(media, Some(root_path))?,
-            )),
+            LayerContent::Media(media) => {
+                let bytes = media_assets
+                    .and_then(|assets| assets.get(media.id()))
+                    .cloned()
+                    .ok_or_else(|| Error::MediaNotLoaded(media.id().to_string()))?;
+                ContentInfo::Simple(RenderableContent::Media(Media::from_bytes(
+                    bytes,
+                    media.width.unwrap_or_default(),
+                    media.height.unwrap_or_default(),
+                )))
+            }
             _ => todo!(),
         };
         Ok(content)

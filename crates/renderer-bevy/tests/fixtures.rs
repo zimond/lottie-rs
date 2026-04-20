@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::io::Cursor;
 use std::path::PathBuf;
 
 use lottie::{Config, Error, HeadlessConfig, Lottie, Renderer};
@@ -10,8 +10,9 @@ use smol::stream::StreamExt;
 fn check_fixture(
     #[files("../../fixtures/ui/checked/**/*.json")] path: PathBuf,
 ) -> Result<(), Error> {
-    let f = File::open(&path)?;
-    let lottie = Lottie::from_reader(f, "../../")?;
+    let bytes = std::fs::read(&path)?;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let lottie = Lottie::from_reader(Cursor::new(bytes), root.to_str().unwrap())?;
     let (mut renderer, frame_stream) = BevyRenderer::new();
     renderer.load_lottie(
         lottie,

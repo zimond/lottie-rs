@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::string::String;
+use alloc::vec::Vec;
 pub use euclid::default::Rect;
 pub use euclid::rect;
 use glam::{Mat4, Vec3};
@@ -37,8 +40,13 @@ pub struct Model {
 }
 
 impl Model {
+    #[cfg(feature = "std")]
     pub fn from_reader<R: std::io::Read>(r: R) -> Result<Self, serde_json::Error> {
         serde_json::from_reader(r)
+    }
+
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, serde_json::Error> {
+        serde_json::from_slice(bytes)
     }
 
     pub fn duration(&self) -> f32 {
@@ -202,18 +210,18 @@ impl Transform {
     }
 
     pub fn frames(&self) -> f32 {
-        let anchor_frames = self
+        let anchor_frames: f32 = self
             .anchor
             .as_ref()
             .and_then(|a| Some(a.keyframes.last()?.end_frame))
             .unwrap_or(0.0);
-        let pos_frames = self
+        let pos_frames: f32 = self
             .position
             .as_ref()
             .and_then(|a| Some(a.keyframes.last()?.end_frame))
             .unwrap_or(0.0);
-        let scale_frames = self.scale.keyframes.last().unwrap().end_frame;
-        let rotation_frames = self.rotation.keyframes.last().unwrap().end_frame;
+        let scale_frames: f32 = self.scale.keyframes.last().unwrap().end_frame;
+        let rotation_frames: f32 = self.rotation.keyframes.last().unwrap().end_frame;
         anchor_frames
             .max(pos_frames)
             .max(scale_frames)
@@ -842,6 +850,12 @@ pub struct Media {
     pub height: Option<u32>,
 }
 
+impl Media {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Precomposition {
     pub id: String,
@@ -1082,7 +1096,7 @@ fn mat4(anchor: Vector2D, position: Vector2D, scale: Vector2D, rotation: f32) ->
     let scale = Vec3::new(scale.x, scale.y, 1.0);
     let position = Vec3::new(position.x, position.y, 0.0);
     Mat4::from_translation(position)
-        * Mat4::from_rotation_z(rotation * std::f32::consts::PI / 180.0)
+        * Mat4::from_rotation_z(rotation * core::f32::consts::PI / 180.0)
         * Mat4::from_scale(scale)
         * Mat4::from_translation(-anchor)
 }
